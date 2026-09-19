@@ -1117,6 +1117,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "niet_mock_fx"
+version = "0.1.0"
+dependencies = [
+ "soroban-sdk",
+]
+
+[[package]]
 name = "niet_router"
 version = "0.1.0"
 dependencies = [
