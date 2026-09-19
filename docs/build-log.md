@@ -89,3 +89,26 @@ keeper names, allowlisted per tick; not done.
 - Sembol PR (grant / revoke screens), real Face ID wallet, frontend and activity feed from `Fired` events.
 - Demo script: rebalance needs a fresh rate gap (borrow/repay from account 23); FX exit needs `set_price` on the
   mock oracle; health guard needs a passkey borrow (`scripts/demo-health.ts`).
+
+## Frontend, oracle admin, Sembol PR (2026-09-20)
+
+**`web/`** (Next.js 16, `@sembol/passkey-react` 0.4.0 with the testnet preset and its public SDF relayer, so wallet
+creation and every passkey-signed call are fee-sponsored): `/` = create/connect passkey wallet, XLM + USDC balances,
+**Agent access** (grant the keeper key under `niet_agent_policy` with a 1/7/30-day expiry, list, revoke),
+**Strategy** (router `set_rules` with a passkey), **Activity** (router `Fired` events for this wallet, decoded into
+sentences). `/oracle` = mock FX admin: current USD/TRY, age, `Set price`, presets (48.79 calm, 50.25 shock,
+publish stale). The price write goes through `POST /api/oracle`, the only server-side secret (`ORACLE_ADMIN_SECRET`
+in `web/.env.local`). Run: `cd web && pnpm dev -p 3210` (port 3000 is taken by another project on this machine).
+Verified in Chrome: pages render without console errors; the oracle panel set the price on-chain from the browser.
+
+**Keeper feed:** the keeper republishes the mock TRY price whenever it is older than 10 min, so the router's 900 s
+staleness guard never trips outside a deliberate "publish stale" demo.
+
+**Sembol PR:** https://github.com/keyboord01/sembol/pull/3, from fork `atahanyild/sembol`, branch
+`feat/agent-permissions`. Adds `useAgentPermission()`, `<GrantAgentAccess />`, `<AgentPermissions />`,
+`agentKeyBytes`, `findAgentRules`; 7 tests (suite 120/120), Storybook stories, README, CHANGELOG. Contract-free.
+The Niet web app inlines the same logic against the published 0.4.0 until the PR is released.
+
+**Not yet exercised: a real Face ID passkey in a browser.** Everything else in the chain (this wallet wasm, the
+WebAuthn verifier, `rules.add` with a custom policy, agent signing, revoke) ran on-chain with a software passkey.
+The remaining check is a human pressing "Create wallet" at `http://localhost:3210`.
