@@ -68,7 +68,7 @@ let lastSimError = "";
   const orig = kit.rpc.simulateTransaction.bind(kit.rpc);
   (kit.rpc as { simulateTransaction: typeof orig }).simulateTransaction = async (...a: Parameters<typeof orig>) => {
     const r = await orig(...a);
-    if (rpc.Api.isSimulationError(r)) lastSimError = ("error" in r ? r.error : undefined);
+    if (rpc.Api.isSimulationError(r)) lastSimError = r.error ?? "";
     return r;
   };
 }
