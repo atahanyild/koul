@@ -29,9 +29,49 @@ pub trait Controller {
     fn get_borrow_amount(env: Env, account_id: u64, hub_asset: HubAssetKey) -> i128;
 }
 
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct MarketParamsRaw {
+    pub asset_decimals: u32,
+    pub asset_id: Address,
+    pub base_borrow_rate: i128,
+    pub flashloan_fee: u32,
+    pub is_flashloanable: bool,
+    pub max_borrow_rate: i128,
+    pub max_utilization: i128,
+    pub mid_utilization: i128,
+    pub optimal_utilization: i128,
+    pub reserve_factor: u32,
+    pub slope1: i128,
+    pub slope2: i128,
+    pub slope3: i128,
+}
+
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct PoolStateRaw {
+    pub borrow_index: i128,
+    pub borrowed: i128,
+    pub cash: i128,
+    pub last_timestamp: u64,
+    pub revenue: i128,
+    pub supplied: i128,
+    pub supply_index: i128,
+}
+
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct PoolSyncData {
+    pub params: MarketParamsRaw,
+    pub state: PoolStateRaw,
+}
+
 #[contractclient(name = "PoolClient")]
 pub trait Pool {
     fn get_deposit_rate(env: Env, hub_asset: HubAssetKey) -> i128;
+    fn get_sync_data(env: Env, hub_asset: HubAssetKey) -> PoolSyncData;
+    fn get_supplied_amount(env: Env, hub_asset: HubAssetKey) -> i128;
+    fn get_borrowed_amount(env: Env, hub_asset: HubAssetKey) -> i128;
 }
 
 #[contracttype]
@@ -170,6 +210,24 @@ pub fn ceil_grain(x: i128) -> i128 {
     if x <= 0 { 0 } else if x % GRAIN == 0 { x } else { x - x % GRAIN + GRAIN }
 }
 
+/// What can actually leave a hub now: the position snapped down, capped by the hub's liquid cash and by the
+/// pool's utilisation ceiling (`borrowed / (supplied - w) <= max_utilization`), minus one grain of margin.
+pub fn withdrawable(collateral: i128, cash: i128, supplied: i128, borrowed: i128, max_utilization: i128) -> i128 {
+    let util_cap = if borrowed <= 0 || max_utilization >= RAY || max_utilization <= 0 {
+        cash
+    } else {
+        supplied - (borrowed * RAY / max_utilization + 1)
+    };
+    let cap = floor_grain(if util_cap < cash { util_cap } else { cash }) - GRAIN;
+    let c = floor_grain(collateral);
+    if c < cap { c } else if cap > 0 { cap } else { 0 }
+}
+
+fn hub_withdrawable(pool: &PoolClient, k: &HubAssetKey, collateral: i128) -> i128 {
+    let sd = pool.get_sync_data(k);
+    withdrawable(collateral, sd.state.cash, pool.get_supplied_amount(k), pool.get_borrowed_amount(k), sd.params.max_utilization)
+}
+
 pub fn fx_triggered(price: i128, level: i128, above: bool) -> bool {
     if above { price >= level } else { price <= level }
 }
@@ -275,9 +333,10 @@ impl NietRouter {
         // 2. Rebalance between the two USDC hubs on the deposit-rate gap.
         if rules.rebalance_threshold_bps > 0 {
             let (ra, rb) = (pool.get_deposit_rate(&ka), pool.get_deposit_rate(&kb));
-            let (ca, cb) = (controller.get_collateral_amount(&id, &ka), controller.get_collateral_amount(&id, &kb));
-            if let Some(a_to_b) = rebalance_direction(ra, rb, rules.rebalance_threshold_bps, ca, cb) {
-                let (from, to, amount) = if a_to_b { (rules.hub_a, rules.hub_b, floor_grain(ca)) } else { (rules.hub_b, rules.hub_a, floor_grain(cb)) };
+            let wa = hub_withdrawable(&pool, &ka, controller.get_collateral_amount(&id, &ka));
+            let wb = hub_withdrawable(&pool, &kb, controller.get_collateral_amount(&id, &kb));
+            if let Some(a_to_b) = rebalance_direction(ra, rb, rules.rebalance_threshold_bps, wa, wb) {
+                let (from, to, amount) = if a_to_b { (rules.hub_a, rules.hub_b, wa) } else { (rules.hub_b, rules.hub_a, wb) };
                 let received = Self::move_collateral(&e, &cfg, &controller, &user, id, from, to, amount);
                 Fired { user, account_id: id, branch: Symbol::new(&e, "rebalance"), amount: received, from_hub: from, to_hub: to, observed: ra, observed_2: rb }.publish(&e);
                 return Action::Rebalance(from, to, received);
@@ -293,21 +352,29 @@ impl NietRouter {
             }
             if fx_triggered(p.price, rules.fx_level, rules.fx_above) {
                 let mut total: i128 = 0;
+                let mut left: i128 = 0;
                 for hub in [rules.hub_a, rules.hub_b] {
                     let k = key(&cfg, hub);
-                    let c = floor_grain(controller.get_collateral_amount(&id, &k));
-                    if c >= MIN_MOVE {
+                    let c = controller.get_collateral_amount(&id, &k);
+                    let w_amt = hub_withdrawable(&pool, &k, c);
+                    if w_amt >= MIN_MOVE {
                         let mut w = Vec::new(&e);
-                        w.push_back((k, c));
+                        w.push_back((k, w_amt));
                         let got = controller.withdraw(&user, &id, &w, &Some(user.clone()));
                         total += got.get(0).map(|(_, a)| a).unwrap_or(0);
+                        left += c - w_amt;
+                    } else {
+                        left += c;
                     }
                 }
                 if total <= 0 {
-                    panic_with_error!(&e, RouterError::NothingMoved);
+                    // Triggered, but the hubs have no liquid cash right now: stay armed and try again next tick.
+                    return Action::None;
                 }
-                rules.fx_enabled = false;
-                e.storage().persistent().set(&rk, &rules);
+                if floor_grain(left) < MIN_MOVE {
+                    rules.fx_enabled = false;
+                    e.storage().persistent().set(&rk, &rules);
+                }
                 Fired { user, account_id: id, branch: Symbol::new(&e, "fx_exit"), amount: total, from_hub: rules.hub_a, to_hub: rules.hub_b, observed: p.price, observed_2: rules.fx_level }.publish(&e);
                 return Action::FxExit(total);
             }
@@ -355,6 +422,11 @@ mod test {
         assert_eq!(ceil_grain(319_903_025), 320_000_000);
         assert_eq!(ceil_grain(320_000_000), 320_000_000);
         assert_eq!(floor_grain(-5), 0);
+        // hub 2 as observed: 49.99 supplied, 12.00 borrowed, 37.99 cash, max util 95% -> cap 37.36, minus margin
+        let w = withdrawable(499_900_441, 379_900_000, 499_900_441, 120_000_441, 950_000_000_000_000_000_000_000_000);
+        assert!(w <= 373_500_000 && w >= 373_000_000, "{w}");
+        assert_eq!(withdrawable(120_000_000, 379_900_000, 499_900_441, 120_000_441, 950_000_000_000_000_000_000_000_000), 120_000_000);
+        assert_eq!(withdrawable(500_000_000, 379_900_000, 499_900_441, 0, 950_000_000_000_000_000_000_000_000), 379_800_000);
     }
 
     #[test]
