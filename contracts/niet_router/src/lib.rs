@@ -9,7 +9,7 @@
 
 use soroban_sdk::{
     contract, contractclient, contracterror, contractevent, contractimpl, contracttype, panic_with_error, token, Address,
-    Env, Symbol, Vec,
+    BytesN, Env, Symbol, Vec,
 };
 
 #[contracttype]
@@ -97,6 +97,7 @@ pub enum Action {
 #[contracttype]
 pub enum DataKey {
     Config,
+    Admin,
     Rules(Address),
 }
 
@@ -139,6 +140,10 @@ pub struct RulesSet {
 }
 
 const RAY: i128 = 1_000_000_000_000_000_000_000_000_000;
+/// Amounts passed to the controller must be identical at simulation and execution, while positions accrue interest
+/// every ledger. Every amount is therefore snapped to 0.01 USDC, and moves below 1 USDC are ignored.
+const GRAIN: i128 = 100_000;
+const MIN_MOVE: i128 = 10_000_000;
 const TTL_THRESHOLD: u32 = 17280 * 7;
 const TTL_EXTEND: u32 = 17280 * 30;
 
@@ -148,13 +153,21 @@ pub fn rebalance_direction(rate_a: i128, rate_b: i128, threshold_bps: u32, coll_
         return None;
     }
     let min_delta = (threshold_bps as i128) * (RAY / 10_000);
-    if rate_b - rate_a > min_delta && coll_a > 0 {
+    if rate_b - rate_a > min_delta && floor_grain(coll_a) >= MIN_MOVE {
         Some(true)
-    } else if rate_a - rate_b > min_delta && coll_b > 0 {
+    } else if rate_a - rate_b > min_delta && floor_grain(coll_b) >= MIN_MOVE {
         Some(false)
     } else {
         None
     }
+}
+
+pub fn floor_grain(x: i128) -> i128 {
+    if x <= 0 { 0 } else { x - x % GRAIN }
+}
+
+pub fn ceil_grain(x: i128) -> i128 {
+    if x <= 0 { 0 } else if x % GRAIN == 0 { x } else { x - x % GRAIN + GRAIN }
 }
 
 pub fn fx_triggered(price: i128, level: i128, above: bool) -> bool {
@@ -178,8 +191,24 @@ pub struct NietRouter;
 
 #[contractimpl]
 impl NietRouter {
-    pub fn __constructor(e: Env, controller: Address, pool: Address, usdc: Address, oracle: Address, spoke_id: u32) {
+    pub fn __constructor(e: Env, admin: Address, controller: Address, pool: Address, usdc: Address, oracle: Address, spoke_id: u32) {
+        e.storage().instance().set(&DataKey::Admin, &admin);
         e.storage().instance().set(&DataKey::Config, &Config { controller, pool, usdc, oracle, spoke_id });
+    }
+
+    /// Admin-only wasm upgrade so the router address (and every user's policy allowlist) stays stable.
+    pub fn upgrade(e: Env, new_wasm_hash: BytesN<32>) {
+        let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
+        admin.require_auth();
+        e.deployer().update_current_contract_wasm(new_wasm_hash);
+    }
+
+    pub fn set_oracle(e: Env, oracle: Address) {
+        let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
+        admin.require_auth();
+        let mut cfg = config(&e);
+        cfg.oracle = oracle;
+        e.storage().instance().set(&DataKey::Config, &cfg);
     }
 
     pub fn get_config(e: Env) -> Config {
@@ -226,7 +255,8 @@ impl NietRouter {
                 let idle = token::TokenClient::new(&e, &cfg.usdc).balance(&user);
                 let (debt_a, debt_b) = (controller.get_borrow_amount(&id, &ka), controller.get_borrow_amount(&id, &kb));
                 let (hub, debt) = if debt_a >= debt_b { (rules.hub_a, debt_a) } else { (rules.hub_b, debt_b) };
-                let pay = if idle < debt { idle } else { debt };
+                let want = ceil_grain(debt);
+                let pay = if idle >= want { want } else { floor_grain(idle) };
                 if pay <= 0 {
                     panic_with_error!(&e, RouterError::NoIdleFunds);
                 }
@@ -234,7 +264,7 @@ impl NietRouter {
                 payments.push_back((key(&cfg, hub), pay));
                 controller.repay(&user, &id, &payments);
                 let hf_after = controller.get_health_factor(&id);
-                if hf_after < rules.min_health_factor_wad && pay < debt {
+                if hf_after < rules.min_health_factor_wad && pay < want {
                     panic_with_error!(&e, RouterError::PostConditionFailed);
                 }
                 Fired { user, account_id: id, branch: Symbol::new(&e, "health"), amount: pay, from_hub: hub, to_hub: hub, observed: hf, observed_2: hf_after }.publish(&e);
@@ -247,7 +277,7 @@ impl NietRouter {
             let (ra, rb) = (pool.get_deposit_rate(&ka), pool.get_deposit_rate(&kb));
             let (ca, cb) = (controller.get_collateral_amount(&id, &ka), controller.get_collateral_amount(&id, &kb));
             if let Some(a_to_b) = rebalance_direction(ra, rb, rules.rebalance_threshold_bps, ca, cb) {
-                let (from, to, amount) = if a_to_b { (rules.hub_a, rules.hub_b, ca) } else { (rules.hub_b, rules.hub_a, cb) };
+                let (from, to, amount) = if a_to_b { (rules.hub_a, rules.hub_b, floor_grain(ca)) } else { (rules.hub_b, rules.hub_a, floor_grain(cb)) };
                 let received = Self::move_collateral(&e, &cfg, &controller, &user, id, from, to, amount);
                 Fired { user, account_id: id, branch: Symbol::new(&e, "rebalance"), amount: received, from_hub: from, to_hub: to, observed: ra, observed_2: rb }.publish(&e);
                 return Action::Rebalance(from, to, received);
@@ -265,8 +295,8 @@ impl NietRouter {
                 let mut total: i128 = 0;
                 for hub in [rules.hub_a, rules.hub_b] {
                     let k = key(&cfg, hub);
-                    let c = controller.get_collateral_amount(&id, &k);
-                    if c > 0 {
+                    let c = floor_grain(controller.get_collateral_amount(&id, &k));
+                    if c >= MIN_MOVE {
                         let mut w = Vec::new(&e);
                         w.push_back((k, c));
                         let got = controller.withdraw(&user, &id, &w, &Some(user.clone()));
@@ -292,8 +322,8 @@ impl NietRouter {
         let mut w = Vec::new(e);
         w.push_back((key(cfg, from), amount));
         let got = controller.withdraw(user, &id, &w, &Some(user.clone()));
-        let received = got.get(0).map(|(_, a)| a).unwrap_or(0);
-        if received <= 0 {
+        let received = floor_grain(got.get(0).map(|(_, a)| a).unwrap_or(0));
+        if received < MIN_MOVE {
             panic_with_error!(e, RouterError::NothingMoved);
         }
         let mut s = Vec::new(e);
@@ -311,11 +341,20 @@ mod test {
 
     #[test]
     fn rebalance_needs_gap_and_collateral() {
-        assert_eq!(rebalance_direction(135 * BPS, 556 * BPS, 100, 10, 0), Some(true));
-        assert_eq!(rebalance_direction(135 * BPS, 556 * BPS, 100, 0, 10), None);
-        assert_eq!(rebalance_direction(556 * BPS, 135 * BPS, 100, 0, 10), Some(false));
-        assert_eq!(rebalance_direction(200 * BPS, 250 * BPS, 100, 10, 10), None);
-        assert_eq!(rebalance_direction(0, 10 * RAY, 0, 10, 10), None);
+        let ten = 10 * MIN_MOVE;
+        assert_eq!(rebalance_direction(135 * BPS, 556 * BPS, 100, ten, 0), Some(true));
+        assert_eq!(rebalance_direction(135 * BPS, 556 * BPS, 100, MIN_MOVE - 1, ten), None);
+        assert_eq!(rebalance_direction(556 * BPS, 135 * BPS, 100, 0, ten), Some(false));
+        assert_eq!(rebalance_direction(200 * BPS, 250 * BPS, 100, ten, ten), None);
+        assert_eq!(rebalance_direction(0, 10 * RAY, 0, ten, ten), None);
+    }
+
+    #[test]
+    fn grain_snapping() {
+        assert_eq!(floor_grain(319_903_025), 319_900_000);
+        assert_eq!(ceil_grain(319_903_025), 320_000_000);
+        assert_eq!(ceil_grain(320_000_000), 320_000_000);
+        assert_eq!(floor_grain(-5), 0);
     }
 
     #[test]
