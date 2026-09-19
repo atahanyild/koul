@@ -135,7 +135,26 @@ args: [...]}], [Contract, {contract: usdc, fn_name: transfer, args: [wallet, poo
 `niet_agent_policy` allowlists and, for `transfer`, checks `args[1] == pool`.
 
 **Go/no-go: T3 and T5 green -> Plan B (session-key design) confirmed.**
-## T6 - Nested via router: TODO
+## T6 - Nested via router: PASS (2026-09-20, `keeper/scripts/phase0/t6.ts`)
+
+`contracts/niet_router` probe: `tick_force(user, account_id, from_hub, to_hub, spoke_id, amount)` does
+`user.require_auth()`, then `controller.withdraw(user, id, [(from, amount)], Some(user))` and
+`controller.supply(user, id, spoke, [(to, received)])`, emits `Fired`.
+
+| Item | Value |
+|---|---|
+| Router | `CA53BZYXAIUHPFLG5R6PUFOEQBXLEJJ465XHP6NOLRBB4XXXF6VMFLJ3` (wasm `22e58de9...`, constructor: controller, usdc) |
+| Agent-signed `tick_force(wallet, 12, 2 -> 1, 3, 5 USDC)` | `565ce4fdcf8df9ef0081190f1c0e5c083a74471fc55931031b6778413dcee78a` |
+| Auth entry | **1** entry, `[wallet] router.tick_force > controller.withdraw > controller.supply > usdc.transfer`, **4 contexts**, `context_rule_ids = [1,1,1,1]` |
+| Positions | before `{hub1: 30.99, hub2: 20.00}`, after `{hub1: 35.99, hub2: 15.00}`; returned 50000000 |
+
+The nested `caller.require_auth()` calls inside the controller are satisfied through the router's auth tree with a
+single agent signature. **Redistribution is atomic in one transaction; the router owns the decision.** The policy
+will see all four contexts, so the allowlist must include `(router, tick)`, `(controller, withdraw)`,
+`(controller, supply)`, `(usdc, transfer -> pool)`.
+
+Note: the anchor became unreliable during the night of 19/20 Sep (user report). T4's deposit already completed, so
+T5-T7 do not touch it. Withdraw/FX-exit legs through the anchor stay as a later or recorded step.
 ## T7 - Policy negatives: TODO
 ## T8 - Oracle + rate reads: DONE, with two findings (2026-09-19)
 
