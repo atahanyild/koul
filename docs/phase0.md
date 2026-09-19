@@ -34,11 +34,21 @@ The `Policy` trait at `1e513890` (`packages/accounts/src/policies/mod.rs:47`) ma
 `install(e, install_params, context_rule, smart_account)`, `uninstall(e, context_rule, smart_account)`.
 `ContextRuleType` is `Default | CallContract(Address) | CreateContract(BytesN<32>)`.
 
-## T1 - Sembol wallet: TODO
+## T1 - Smart account: PASS (headless, 2026-09-19)
 
-Needs a passkey (Face ID) interaction, run by a human. Record the C-address and `kit.rules.list()` output here.
+Run with `keeper/scripts/phase0/t1-t3.ts` (software P-256 passkey ported from Kumbara, keeper G-account as
+`deployerSecret`, `forceMethod: "rpc"`, no relay). The user's real Face ID wallet through Sembol is a separate,
+later step; the headless wallet is enough to validate the auth stack.
 
-## T2 - Custom policy install: probe deployed, rule install TODO
+| Item | Value |
+|---|---|
+| Smart account | `CBHMG4IGCLP36WJUMYR55N2TGDSZ4C5V6YQSBT4HWT6A77DCL3Y7UUFL` |
+| Deploy tx | `06a6a89fc8ae999b35433160b13a6065d58bcf53c24021a42855a987f15216e2` |
+| Fund tx (`kit.fundWallet`, friendbot -> temp G -> SAC transfer) | `52e47a145517ca493834c4dbb9f969b9771b7f92ab549b334a2c469637dd18c0` |
+| Default rule | id 0, name `multisig`, `Default` context, one `External(webauthn_verifier, credential)` signer, no policies |
+| Agent Ed25519 | `GBVD753EJMRQYI6WQCWC4OMDCNMGQMHXRT7IOAHTT3FD7ON6OQXTSAK3` (raw pubkey `6a3ff764...742f39`) |
+
+## T2 - Custom policy install: PASS (2026-09-19)
 
 `contracts/noop_policy` built against `1e513890`. `AccountParams = ()`, so install with `xdr.ScVal.scvVoid()`.
 `enforce` = `smart_account.require_auth()` + small `NoopEnforced` event
@@ -51,11 +61,34 @@ Needs a passkey (Face ID) interaction, run by a human. Record the C-address and 
 | Deploy tx | `bb8fcedb7adb09e885ed07f56695b1f75658530420e360f6261d2923c9fd4270` |
 | CLI alias | `noop_policy` (`.stellar/contract-ids/`) |
 
-Remaining: from a Node script with smart-account-kit 0.6.2, `kit.rules.add(createDefaultContext(), "niet-agent",
-[createExternalSigner(ED25519_VERIFIER, agentPubKey32)], new Map([[NOOP_POLICY, xdr.ScVal.scvVoid()]]), ledger + 17280)`,
-sign with the passkey, confirm via `kit.rules.list()`.
+`kit.rules.add(createDefaultContext(), "niet-agent", [createEd25519Signer(ED25519_VERIFIER, agentPub32)],
+new Map([[NOOP_POLICY, xdr.ScVal.scvVoid()]]), ledger + 17280)` + `kit.signAndSubmit(tx, { forceMethod: "rpc" })`.
 
-## T3 - Agent-signed simple call: TODO
+| Item | Value |
+|---|---|
+| rules.add tx | `a5eb4db3eb67c442e7da274855f47886f0484dbb31f98de9a0b82fb9dba2e27c` |
+| Rule | id **1**, name `niet-agent`, `Default`, signer `External(CAAVTMCB..., agent pubkey)`, policies `[CA4TJH2W...]` |
+
+Custom policy with `AccountParams = ()` installs with `scvVoid` as expected. The kit's `policies: Map<string, unknown>`
+passes an `xdr.ScVal` straight through for unknown policy addresses.
+
+## T3 - Agent-signed simple call: PASS, positive and negative (2026-09-19)
+
+Agent key only (the passkey authenticator is replaced by one that throws if consulted), 1 XLM from the smart account to
+the keeper G-address through the XLM SAC, `kit.multiSigners.transfer(..., { resolveContextRuleIds: () => [1] })`.
+Keeper G-account is the tx source and pays the fee.
+
+| Case | Result | Tx |
+|---|---|---|
+| Pinned to rule 1 (`niet-agent`, noop policy) | **SUCCESS**, 1 auth context, `NoopEnforced` event emitted | `f2df3a82ea16959142549302cc24df1b77be9cd42c0dd99effa989d28ccf9902` |
+| Pinned to rule 2 (`niet-agent-deny`, deny policy `CB2N5CHX...`, rule add tx `a34ebdbe...`) | **FAILS at simulation** (`SimulationError` 5001, no fee spent) | none |
+| Control, pinned to rule 1 again | SUCCESS | `58e3fe455c2e196143cd4e2fed550c9f471746aae474fd5fd0f71a422d520b6e` |
+
+Event decoded: topics `noop_enforced`, smart account; data `context_rule_id: 1, contract: XLM SAC, fn_name: transfer,
+signers: 1`. So the external-signer + custom-policy path works end to end and the policy is what decides.
+Script: `keeper/scripts/phase0/t3-deny.ts`. Deny policy: `contracts/deny_policy`.
+
+**Go/no-go so far: T3 green.** T5 decides Plan B.
 ## T4 - Testnet USDC + XOXNO supply: TODO
 ## T5 - Agent-signed multi-context XOXNO call: TODO
 ## T6 - Nested via router: TODO

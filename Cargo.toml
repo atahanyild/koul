@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["contracts/noop_policy"]
+members = ["contracts/noop_policy", "contracts/deny_policy"]
 
 [workspace.package]
 edition = "2021"
