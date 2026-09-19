@@ -5,7 +5,7 @@
  * router evaluates the rules on-chain, and niet_agent_policy confines what the agent key can authorise.
  *   pnpm tsx src/keeper.ts [--once] [--interval 30]
  */
-import { contract, rpc, xdr } from "@stellar/stellar-sdk";
+import { BASE_FEE, Contract, TransactionBuilder, contract, nativeToScVal, rpc, scValToNative, xdr } from "@stellar/stellar-sdk";
 import { ForbiddenAuthenticator, RP_ID, ORIGIN, TESTNET, countContexts, describeEntries, json, keeperKeypair, loadEnv, loadState, makeKit } from "./lib/common";
 
 const env = loadEnv();
@@ -14,6 +14,33 @@ const once = process.argv.includes("--once");
 const intervalArg = process.argv.indexOf("--interval");
 const interval = intervalArg > 0 ? Number(process.argv[intervalArg + 1]) : 30;
 const ROUTER = env.ROUTER_V1!;
+const ORACLE = env.MOCK_FX;
+const FEED_MAX_AGE = 600;
+
+/**
+ * Testnet only: the mock oracle has no feed of its own, so the keeper republishes the last price when it is older than
+ * FEED_MAX_AGE seconds. Rules reject prices older than 900 s. With Reflector on mainnet this function does not exist.
+ */
+async function refreshMockOracle(): Promise<void> {
+  if (!ORACLE) return;
+  const server = new rpc.Server(TESTNET.rpcUrl);
+  const keeper = keeperKeypair(env);
+  const oracle = new Contract(ORACLE);
+  const tryAsset = xdr.ScVal.scvVec([xdr.ScVal.scvSymbol("Other"), xdr.ScVal.scvSymbol("TRY")]);
+  const acc = await server.getAccount(keeper.publicKey());
+  const read = new TransactionBuilder(acc, { fee: BASE_FEE, networkPassphrase: TESTNET.networkPassphrase }).addOperation(oracle.call("lastprice", tryAsset)).setTimeout(30).build();
+  const sim = await server.simulateTransaction(read);
+  if (!rpc.Api.isSimulationSuccess(sim)) return;
+  const v = scValToNative(sim.result!.retval) as { price: bigint; timestamp: bigint } | null;
+  if (!v) return;
+  const age = Math.floor(Date.now() / 1000) - Number(v.timestamp);
+  if (age < FEED_MAX_AGE) return;
+  const built = new TransactionBuilder(await server.getAccount(keeper.publicKey()), { fee: BASE_FEE, networkPassphrase: TESTNET.networkPassphrase }).addOperation(oracle.call("set_price", tryAsset, nativeToScVal(v.price, { type: "i128" }))).setTimeout(60).build();
+  const prepared = await server.prepareTransaction(built);
+  prepared.sign(keeper);
+  const sent = await server.sendTransaction(prepared);
+  console.log(`${new Date().toISOString()} oracle   republished TRY price ${v.price} (was ${age}s old): ${sent.status} ${sent.hash}`);
+}
 
 interface User { wallet: string; credentialId: string; agentRuleId: number }
 const users: User[] = state.contractId && state.passkey && state.agentRuleId !== undefined
@@ -83,6 +110,7 @@ async function tickOnce(u: User): Promise<void> {
 }
 
 do {
+  try { await refreshMockOracle(); } catch (err) { console.log(`oracle refresh failed: ${err instanceof Error ? err.message : String(err)}`); }
   for (const u of users) {
     try { await tickOnce(u); } catch (err) { log(u, `error: ${err instanceof Error ? err.message : String(err)}`); }
   }
