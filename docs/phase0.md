@@ -310,3 +310,19 @@ Passkey-signed `kit.rules.remove(id)` for the three probe rules, then an agent t
 
 Agent `tick_force` pinned to rule 1 afterwards: **REJECTED**, `Error(Contract, #3000)` ContextRuleNotFound on all
 four contexts, at simulation. One button, immediate loss of access, no on-chain footprint for the failed attempt.
+
+## T8 addendum (2026-09-20): utilisation can be created, the 0% problem is gone
+
+Borrower `niet-borrower` = `GBRXD5JOT5YV6U3VFZ4ESR6MPCLJ3MSP55SUQNKSK23465U34M6H5EZJ` (friendbot), XOXNO account **23**:
+`supply(2000 XLM @ hub 1, spoke 3)` then USDC trustline (`e1a17c72...`) then `borrow(12 USDC @ hub 2, to = self)`.
+The borrower needs a classic USDC trustline because the pool pays out with a SAC transfer to a G-account.
+
+| Hub | deposit rate (RAY) | borrow rate | utilisation |
+|---|---|---|---|
+| 1 (USDC) | 1.35e25 = **1.35 %** (someone else borrowed from hub 1 during the night; 37.5 % utilisation) | 4.00 % | 37.5 % |
+| 2 (USDC_HUB2) | 5.56e25 = **5.56 %** | 9.27 % | 66.7 % |
+
+Gap hub2 - hub1 = 4.2 percentage points, so the redistribution branch (hub 1 -> hub 2 above the threshold) fires
+on live data. The gap is steerable for the demo: repay from account 23 to shrink hub 2's rate, borrow more to widen it.
+Also confirmed: Reflector's CEX oracle (`CCYOZJCO...RN63`, crypto pairs incl. USDC, XLM, EURC) and Stellar DEX oracle
+(`CAVLP5DH...6HLP`, Soroban asset addresses) list no TRY either. No on-chain TRY price exists on testnet.
