@@ -136,3 +136,18 @@ Still to wire for Niet: a `RelaySubmitter` (`sendXdr`) that fee-bumps with the k
 OpenZeppelin Channels relay, and the `KEEPER_SECRET` doubling as the landing sponsor. For the FX-exit branch the keeper
 takes the SEP-38 firm quote at trigger time, then builds the reverse landing account and the pre-auth payment with the
 anchor's memo, exactly Kumbara's withdrawal pipeline (`lib/withdraw.server.ts`, not ported yet).
+
+## Kit 0.6.2 facts that shape T1-T3 (verified from `node_modules/smart-account-kit/dist/*.d.ts`)
+
+- `SmartAccountConfig.deployerSecret` exists: a local G-secret deploys wallets and pays fees over RPC, no relay needed
+  (`forceMethod: "rpc"`). Kumbara's spikes also show a software P-256 authenticator (`keeper/src/phase0/passkey.ts`)
+  drives the real WebAuthn verifier from Node. So T1-T3 can run headless with a throwaway wallet; the user's real
+  Face ID wallet comes later through Sembol.
+- `kit.rules.add(contextType, name, signers, policies: Map<addr, params>, validUntil?) -> AssembledTransaction`, then
+  `kit.signAndSubmit(tx)` (passkey-only path). Custom policy params go in as an `xdr.ScVal`.
+- `createDefaultContext()`, `createCallContractContext(addr)`, `createExternalSigner(verifier, keyData)`,
+  `createEd25519Signer(verifier, pubkey32)` are exported from the kit.
+- Ed25519 signing path: `kit.externalSigners.addEd25519FromSecret(secret)` then `kit.multiSigners.operation(tx,
+  selected, { resolveContextRuleIds: (entry, i) => [ruleId] })`. `kit.transfer` / `kit.signAndSubmit` are passkey-only.
+  `resolveContextRuleIds` is how we pin the `niet-agent` rule id per auth context (T3, T5).
+- `kit.signAuthEntry(entry, { contextRuleIds })` is public for hand-built transactions (T5/T6 with a keeper G-source).
