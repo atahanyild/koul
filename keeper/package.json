@@ -12,7 +12,12 @@
     "phase0:t5": "tsx scripts/phase0/t5.ts",
     "phase0:t6": "tsx scripts/phase0/t6.ts",
     "phase0:t7": "tsx scripts/phase0/t7.ts",
-    "phase0:revoke": "tsx scripts/phase0/revoke.ts"
+    "phase0:revoke": "tsx scripts/phase0/revoke.ts",
+    "keeper": "tsx src/keeper.ts",
+    "keeper:once": "tsx src/keeper.ts --once",
+    "setup-rules": "tsx scripts/setup-rules.ts",
+    "demo:health": "tsx scripts/demo-health.ts",
+    "anchor:withdraw": "tsx scripts/anchor-withdraw.ts"
   },
   "dependencies": {
     "@stellar/stellar-sdk": "16.0.1",

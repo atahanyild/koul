@@ -313,7 +313,9 @@ impl NietRouter {
                 let idle = token::TokenClient::new(&e, &cfg.usdc).balance(&user);
                 let (debt_a, debt_b) = (controller.get_borrow_amount(&id, &ka), controller.get_borrow_amount(&id, &kb));
                 let (hub, debt) = if debt_a >= debt_b { (rules.hub_a, debt_a) } else { (rules.hub_b, debt_b) };
-                let want = ceil_grain(debt);
+                // Debt accrues every ledger: round up and add a grain so the signed amount stays valid for hours
+                // (the controller refunds any excess).
+                let want = ceil_grain(debt + GRAIN);
                 let pay = if idle >= want { want } else { floor_grain(idle) };
                 if pay <= 0 {
                     panic_with_error!(&e, RouterError::NoIdleFunds);
