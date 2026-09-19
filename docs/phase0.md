@@ -89,7 +89,30 @@ signers: 1`. So the external-signer + custom-policy path works end to end and th
 Script: `keeper/scripts/phase0/t3-deny.ts`. Deny policy: `contracts/deny_policy`.
 
 **Go/no-go so far: T3 green.** T5 decides Plan B.
-## T4 - Testnet USDC + XOXNO supply: TODO
+## T4 - Testnet USDC + XOXNO supply: PASS (2026-09-19, `keeper/scripts/phase0/t4.ts`)
+
+USDC came through the TR Mock Anchor's SEP-6 sandbox path to the keeper G-account (no landing account needed for a
+G-account we own), then a SAC transfer into the smart account, then a passkey-signed `controller.supply`.
+The anchor's USDC SAC equals XOXNO's USDC SAC, verified in code (no two-USDC seam).
+
+| Step | Value |
+|---|---|
+| Keeper USDC trustline | `fa2a41dde9727777b7e49af341c267a93f36a34914272abd8a6622d34d4ab2d4` |
+| SEP-10 / SEP-12 (ACCEPTED, no fields) / SEP-38 firm quote | `qt_adl1s2ud15hg1dcwwh8h`: 2500.00 TRY -> 50.9902271 USDC @ 48.785078 |
+| SEP-6 deposit-exchange | `sep_xmxc53sm9bcbfa6lwzjd`, IBAN `TR05 0009 9000 0000 0000 0000 01`, reference `TRMA-YCQF-BR9S` |
+| Sandbox `simulate-bank-transfer` -> completed | ~9 s, anchor paid exactly the quoted amount |
+| Anchor classic payment | `1cd46066c27d663ca36abcd24106310aac43c93862dfe4a74523e8399d2ad5a8` |
+| SAC forward keeper -> smart account (50.9902271 USDC) | `b60de952cd18ba62569d34b2e5d9a2c071c89cc4d515ce44fe3f0383b86d91c6` |
+| `controller.supply(wallet, 0, 3, [(hub1 USDC, 50.9902271)])`, passkey, keeper source | `26ddc4976e763e0478a7257522e643932da75f9e949057eba09c78d7e7d29784` |
+| XOXNO `account_id` | **12** |
+
+Auth shape for supply: **1** auth entry, address = smart account, root `supply`, 1 sub-invocation (the USDC
+`transfer` wallet -> pool). So a single smart-account signature covers the controller call and the token pull.
+
+Position reads after supply: `get_account_attributes` = `{mode: 0, spoke_id: 3}`; hub1 USDC position
+`scaled_amount` 5.099e28 (RAY-scaled), `loan_to_value` 7500 bps, `liquidation_threshold` 8000 bps;
+`get_total_collateral_usd` = 50990497646420738048 (**WAD, 1e18**, = 50.99 USD); `get_health_factor` = `i128::MAX`
+when there is no debt (treat as infinity in the router).
 ## T5 - Agent-signed multi-context XOXNO call: TODO
 ## T6 - Nested via router: TODO
 ## T7 - Policy negatives: TODO
