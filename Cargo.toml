@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["contracts/noop_policy", "contracts/deny_policy", "contracts/niet_router"]
+members = ["contracts/noop_policy", "contracts/deny_policy", "contracts/niet_router", "contracts/niet_agent_policy"]
 
 [workspace.package]
 edition = "2021"

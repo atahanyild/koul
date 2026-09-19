@@ -155,7 +155,35 @@ will see all four contexts, so the allowlist must include `(router, tick)`, `(co
 
 Note: the anchor became unreliable during the night of 19/20 Sep (user report). T4's deposit already completed, so
 T5-T7 do not touch it. Withdraw/FX-exit legs through the anchor stay as a later or recorded step.
-## T7 - Policy negatives: TODO
+## T7 - Real `niet_agent_policy`, positive + negatives: PASS (2026-09-20, `keeper/scripts/phase0/t7.ts`)
+
+`contracts/niet_agent_policy` (wasm `bff1d465f05f694aaa416d06b616f1b31522566a85b30c7c7bf702919829d237`, 11.8 KB) deployed at
+**`CCEYSMIWTRJL7GE6G4MVKEC4NONUCTYVMZKMQH7D3PTQ7DPBLU5V3X4O`**. Install params (`NietAgentParams`, passed as a
+hand-built `ScVal` map): `allowed_calls = [(router, tick_force), (controller, withdraw), (controller, supply),
+(usdc, transfer)]`, `allowed_transfer_recipients = [pool]`, `max_calls_per_window = 5`, `window_ledgers = 2000`.
+`enforce` runs once per auth context (a 4-context tick counts 4), rejects non-`Contract` contexts, then allowlist,
+then recipient for `transfer` (`args.len() == 3`, `args[1]`), then the rolling window counter; emits `NietEnforced`
+(account topic, rule id, contract, fn_name, calls_in_window). Errors 7100-7107.
+
+| Rule | id | Tx |
+|---|---|---|
+| `niet-agent-v1` (agent signer + niet policy, 1 day) | 3 | `d11fda88b9f686bf90f69d56764f86efd7d4308f33147d0cb0d71ac15e8613f7` |
+| `niet-agent-expiring` (same, `valid_until` = ledger + 4) | 4 | `a74f3b20e914abff1b4353499d0f782a82f06f58abca22c241f640bbc8126530` |
+
+| Case | Pinned rule | Result | Evidence |
+|---|---|---|---|
+| Positive: `tick_force(hub1 -> hub2, 3 USDC)`, 4 contexts | 3 | **SUCCESS** | `073f9d76fcb17de26a755cae3cfd0fdef0f9b84825f289b1100db5faadbdf62d`; policy window after: `{calls: 4, window_start: 4766288}` |
+| (a) `usdc.transfer(wallet -> keeper G, 1 USDC)` | 3 | **REJECTED** at simulation | `Error(Contract, #7104)` TransferRecipientNotAllowed |
+| (b) `xlm.transfer(wallet -> pool, 1 XLM)` (contract not allowlisted) | 3 | **REJECTED** | `Error(Contract, #7103)` CallNotAllowed |
+| (c) `tick_force` after `valid_until` | 4 | **REJECTED** by the smart account itself | `Error(Contract, #3002)` UnvalidatedContext, before any policy call |
+| (d) second tick in the window (4 + 4 > 5) | 3 | **REJECTED** | `Error(Contract, #7106)` RateLimited |
+| (e) `CreateContract` context | - | not exercised | rejected by code (`NotContractContext` 7102); building such an auth from the kit is out of scope |
+
+All rejections happen at simulation, so a misbehaving keeper never pays a fee and nothing lands on-chain. The
+diagnostics were captured by wrapping `kit.rpc.simulateTransaction`; the kit's own `SimulationError` hides them.
+Note for the real router: the rate limit counts contexts, so size `max_calls_per_window` as `ticks * 4`.
+Case (a) needed idle USDC in the wallet: 1 USDC was withdrawn under the noop rule first
+(`006d1a3eb681d47099ad976e4ef66aadebd9cae932bd297ae8704c1d4b4a361b`).
 ## T8 - Oracle + rate reads: DONE, with two findings (2026-09-19)
 
 ### Reflector FX testnet `CCSSOHTBL3LEWUCBBEB5NJFC2OKFRC74OWEIJIZLRJBGAAU4VMU5NV4W`
