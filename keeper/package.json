@@ -5,7 +5,14 @@
   "type": "module",
   "scripts": {
     "test": "NODE_OPTIONS=--expose-gc vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "phase0:t1-t3": "tsx scripts/phase0/t1-t3.ts",
+    "phase0:t3-deny": "tsx scripts/phase0/t3-deny.ts",
+    "phase0:t4": "tsx scripts/phase0/t4.ts",
+    "phase0:t5": "tsx scripts/phase0/t5.ts",
+    "phase0:t6": "tsx scripts/phase0/t6.ts",
+    "phase0:t7": "tsx scripts/phase0/t7.ts",
+    "phase0:revoke": "tsx scripts/phase0/revoke.ts"
   },
   "dependencies": {
     "@stellar/stellar-sdk": "16.0.1",

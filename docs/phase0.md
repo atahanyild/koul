@@ -2,6 +2,28 @@
 
 Go/no-go gates from the project brief, section 7. Every tx hash and address goes here.
 
+## Verdict (2026-09-20 early morning): all gates green, build Plan B
+
+| Gate | Result |
+|---|---|
+| T0 toolchain + provenance | PASS, wasm `1b5f4534...` reproduced byte for byte |
+| T1 smart account | PASS (headless), `CBHMG4IGCLP36WJUMYR55N2TGDSZ4C5V6YQSBT4HWT6A77DCL3Y7UUFL` |
+| T2 custom policy install | PASS |
+| T3 agent-only call, positive + deny | PASS |
+| T4 anchor USDC -> wallet -> XOXNO supply | PASS, XOXNO account 12 |
+| T5 agent-signed cross-hub withdraw + supply | PASS |
+| T6 nested through the router, atomic | PASS |
+| T7 real policy: allowlist, recipient, expiry, rate limit | PASS |
+| Revoke: `kit.rules.remove` cuts the agent off | PASS |
+| T8 oracle + rates | DONE, two findings (no TRY on Reflector testnet FX; both hubs at 0% deposit rate) |
+| T9 anchor with contract wallet | SOLVED by porting Kumbara's landing account |
+
+Live testnet contracts: router probe `CA53BZYXAIUHPFLG5R6PUFOEQBXLEJJ465XHP6NOLRBB4XXXF6VMFLJ3`, policy
+`CCEYSMIWTRJL7GE6G4MVKEC4NONUCTYVMZKMQH7D3PTQ7DPBLU5V3X4O`, noop probe `CA4TJH2W...`, deny probe `CB2N5CHX...`.
+Wallet state after phase 0: rules `0:multisig`, `3:niet-agent-v1` (agent + real policy, expires ledger 4783557);
+XOXNO account 12 on spoke 3 with ~32 USDC in hub 1 and 18 USDC in hub 2, ~1 USDC idle in the wallet.
+Scripts: `keeper/scripts/phase0/{t1-t3,t3-deny,t4,t5,t6,t7,revoke}.ts` (state in `keeper/.phase0-state.json`).
+
 ## Environment (pinned)
 
 | Item | Value | Where |
@@ -275,3 +297,16 @@ anchor's memo, exactly Kumbara's withdrawal pipeline (`lib/withdraw.server.ts`, 
   selected, { resolveContextRuleIds: (entry, i) => [ruleId] })`. `kit.transfer` / `kit.signAndSubmit` are passkey-only.
   `resolveContextRuleIds` is how we pin the `niet-agent` rule id per auth context (T3, T5).
 - `kit.signAuthEntry(entry, { contextRuleIds })` is public for hand-built transactions (T5/T6 with a keeper G-source).
+
+## Revoke: PASS (2026-09-20, `keeper/scripts/phase0/revoke.ts`)
+
+Passkey-signed `kit.rules.remove(id)` for the three probe rules, then an agent tick pinned to the removed rule 1.
+
+| Removed | Tx |
+|---|---|
+| 4 `niet-agent-expiring` | `ac8eca9c8107419a625e6b08f0ed1b94a8230a8b787cb18492467c6dac1870f2` |
+| 2 `niet-agent-deny` | `e410ffe673046f677c8839e10970b0cca2a0cebf6fd79e5e3b122f47c412c406` |
+| 1 `niet-agent` (noop) | `aa3b9c7e1cd4739cde4d89e62bc49d98095d51c5548cc4f2350168bf164fa88e` |
+
+Agent `tick_force` pinned to rule 1 afterwards: **REJECTED**, `Error(Contract, #3000)` ContextRuleNotFound on all
+four contexts, at simulation. One button, immediate loss of access, no on-chain footprint for the failed attempt.
