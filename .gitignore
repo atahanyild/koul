@@ -1,0 +1,10 @@
+target/
+node_modules/
+.env
+.env.*
+!.env.example
+*.wasm
+!contracts/artifacts/*.wasm
+.DS_Store
+.next/
+dist/
