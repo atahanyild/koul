@@ -68,7 +68,7 @@ let lastSimError = "";
   const orig = kit.rpc.simulateTransaction.bind(kit.rpc);
   (kit.rpc as { simulateTransaction: typeof orig }).simulateTransaction = async (...a: Parameters<typeof orig>) => {
     const r = await orig(...a);
-    if (rpc.Api.isSimulationError(r)) lastSimError = r.error;
+    if (rpc.Api.isSimulationError(r)) lastSimError = ("error" in r ? r.error : undefined);
     return r;
   };
 }
@@ -114,8 +114,8 @@ async function agentSubmit(tx: contract.AssembledTransaction<unknown>, label: st
     onLog: (m, t) => console.log(`  [${t ?? "info"}] ${m}`),
     resolveContextRuleIds: (entry, i) => { const n = countContexts(entry.rootInvocation()); contexts.push(n); return Array<number>(n).fill(pin); },
   });
-  const err = res.error as { context?: { contractErrorName?: string; contractCode?: number; diagnostic?: string } } | undefined;
-  const short = err?.context ? `${err.context.contractErrorName ?? ""}#${err.context.contractCode ?? ""} ${(err.context.diagnostic ?? "").match(/Error\(Contract, #(\d+)\)/g)?.join(",") ?? ""}` : res.error ? json(res.error).slice(0, 200) : "";
+  const err = ("error" in res ? res.error : undefined) as { context?: { contractErrorName?: string; contractCode?: number; diagnostic?: string } } | undefined;
+  const short = err?.context ? `${err.context.contractErrorName ?? ""}#${err.context.contractCode ?? ""} ${(err.context.diagnostic ?? "").match(/Error\(Contract, #(\d+)\)/g)?.join(",") ?? ""}` : ("error" in res ? res.error : undefined) ? json(("error" in res ? res.error : undefined)).slice(0, 200) : "";
   console.log(`${label}: contexts=${json(contexts)} rule ${pin} -> ${res.success ? `SUCCESS ${res.hash}` : `FAILED ${short}`}`);
   if (!res.success && lastSimError) { console.log(`  diagnostic: ${decodeSim(lastSimError)}`); t7[`diag_${label}`] = decodeSim(lastSimError); }
   return res;
@@ -157,7 +157,7 @@ for (const name of ["niet-agent-expiring", "niet-agent-deny", "niet-agent"]) {
   const tx = await pkKit.rules.remove(Number(r.id));
   const res = await pkKit.signAndSubmit(tx, { forceMethod: "rpc" });
   state.passkey = pk.toState(); save();
-  console.log(`remove ${name} (id ${r.id}): ${res.success ? `SUCCESS ${res.hash}` : `FAILED ${json(res.error).slice(0, 300)}`}`);
+  console.log(`remove ${name} (id ${r.id}): ${res.success ? `SUCCESS ${res.hash}` : `FAILED ${json(("error" in res ? res.error : undefined)).slice(0, 300)}`}`);
   t7[`remove_${name}`] = res.success ? res.hash : "failed"; save();
 }
 step("rules after");

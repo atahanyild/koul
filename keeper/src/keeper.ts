@@ -79,7 +79,7 @@ async function tickOnce(u: User): Promise<void> {
   log(u, `submitted ${res.hash}`);
   const r = await kit.rpc.getTransaction(res.hash!);
   const ret = (r as { returnValue?: xdr.ScVal }).returnValue;
-  if (ret) log(u, `on-chain result: ${json(tx.parseResultXdr?.(ret) ?? ret.switch().name)}`);
+  if (ret) log(u, `on-chain result: ${json((tx as unknown as { parseResultXdr?: (v: xdr.ScVal) => unknown }).parseResultXdr?.(ret) ?? ret.switch().name)}`);
 }
 
 do {

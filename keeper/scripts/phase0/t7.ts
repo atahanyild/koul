@@ -68,7 +68,7 @@ let lastSimError = "";
   const orig = kit.rpc.simulateTransaction.bind(kit.rpc);
   (kit.rpc as { simulateTransaction: typeof orig }).simulateTransaction = async (...a: Parameters<typeof orig>) => {
     const r = await orig(...a);
-    if (rpc.Api.isSimulationError(r)) lastSimError = r.error;
+    if (rpc.Api.isSimulationError(r)) lastSimError = ("error" in r ? r.error : undefined);
     return r;
   };
 }
@@ -114,8 +114,8 @@ async function agentSubmit(tx: contract.AssembledTransaction<unknown>, label: st
     onLog: (m, t) => console.log(`  [${t ?? "info"}] ${m}`),
     resolveContextRuleIds: (entry, i) => { const n = countContexts(entry.rootInvocation()); contexts.push(n); return Array<number>(n).fill(pin); },
   });
-  const err = res.error as { context?: { contractErrorName?: string; contractCode?: number; diagnostic?: string } } | undefined;
-  const short = err?.context ? `${err.context.contractErrorName ?? ""}#${err.context.contractCode ?? ""} ${(err.context.diagnostic ?? "").match(/Error\(Contract, #(\d+)\)/g)?.join(",") ?? ""}` : res.error ? json(res.error).slice(0, 200) : "";
+  const err = ("error" in res ? res.error : undefined) as { context?: { contractErrorName?: string; contractCode?: number; diagnostic?: string } } | undefined;
+  const short = err?.context ? `${err.context.contractErrorName ?? ""}#${err.context.contractCode ?? ""} ${(err.context.diagnostic ?? "").match(/Error\(Contract, #(\d+)\)/g)?.join(",") ?? ""}` : ("error" in res ? res.error : undefined) ? json(("error" in res ? res.error : undefined)).slice(0, 200) : "";
   console.log(`${label}: contexts=${json(contexts)} rule ${pin} -> ${res.success ? `SUCCESS ${res.hash}` : `FAILED ${short}`}`);
   if (!res.success && lastSimError) { console.log(`  diagnostic: ${decodeSim(lastSimError)}`); t7[`diag_${label}`] = decodeSim(lastSimError); }
   return res;
@@ -171,7 +171,7 @@ async function ensureRule(name: string, params: xdr.ScVal, validUntil: number): 
   const tx = await pkKit.rules.add(createDefaultContext(), name, [agentSigner], new Map([[NIET_POLICY, params]]), validUntil);
   const res = await pkKit.signAndSubmit(tx, { forceMethod: "rpc" });
   state.passkey = pk.toState(); save();
-  if (!res.success) throw new Error(`rules.add ${name} failed: ${json(res.error).slice(0, 600)}`);
+  if (!res.success) throw new Error(`rules.add ${name} failed: ${json(("error" in res ? res.error : undefined)).slice(0, 600)}`);
   const after = await pkKit.rules.list();
   const r = after.find((x) => x.name === name)!;
   console.log(`rule ${name} added: id ${r.id}, tx ${res.hash}`);
@@ -202,7 +202,7 @@ step("positions before"); console.log(json(await positions()));
 step("POSITIVE: tick_force hub1 -> hub2, 3 USDC, pinned to niet-agent-v1 (4 contexts, 4 enforce calls)");
 let tx: contract.AssembledTransaction<unknown>;
 if (typeof t7.positive === "string" && /^[0-9a-f]{64}$/.test(t7.positive)) console.log(`already passed: ${t7.positive}`);
-else { tx = await tick(1, 2, 3_0000000n); console.log(describeEntries(tx).join("\n")); const pos = await agentSubmit(tx, "tick", mainRule); t7.positive = pos.success ? pos.hash : `FAILED ${json(pos.error).slice(0, 300)}`; save(); }
+else { tx = await tick(1, 2, 3_0000000n); console.log(describeEntries(tx).join("\n")); const pos = await agentSubmit(tx, "tick", mainRule); t7.positive = pos.success ? pos.hash : `FAILED ${json(("error" in pos ? pos.error : undefined)).slice(0, 300)}`; save(); }
 
 step("(a) prep: make sure the wallet holds idle USDC (withdraw 1 USDC hub1 -> wallet under the noop rule)");
 {

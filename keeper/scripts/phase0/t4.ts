@@ -175,7 +175,7 @@ if (!t4.supplyHash) {
   }
   const res = await kit.signAndSubmit(assembled, { forceMethod: "rpc" });
   state.passkey = authenticator.toState(); save();
-  console.log(`supply result: ${json({ success: res.success, hash: res.hash, error: res.error })}`);
+  console.log(`supply result: ${json({ success: res.success, hash: res.hash, error: ("error" in res ? res.error : undefined) })}`);
   if (!res.success) throw new Error("supply failed");
   t4.supplyHash = res.hash; save();
   const r = await server.getTransaction(res.hash!);

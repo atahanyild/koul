@@ -88,9 +88,9 @@ async function agentTransfer(pinRule: number) {
 step(`(1) agent transfer pinned to deny rule ${state.denyRuleId} - expect failure`);
 try {
   const r = await agentTransfer(state.denyRuleId);
-  console.log(`result: ${json({ success: r.success, hash: r.hash, error: r.error })}`);
+  console.log(`result: ${json({ success: r.success, hash: r.hash, error: ("error" in r ? r.error : undefined) })}`);
   if (r.success) throw new Error("DENY RULE DID NOT BLOCK THE TRANSFER");
-  state.t3DenyError = String(r.error ?? "failed");
+  state.t3DenyError = String(("error" in r ? r.error : undefined) ?? "failed");
 } catch (err) {
   const msg = err instanceof Error ? err.message : String(err);
   if (msg.includes("DENY RULE DID NOT")) throw err;
@@ -101,7 +101,7 @@ save();
 
 step(`(2) control: same transfer pinned to noop rule ${state.ruleId} - expect success`);
 const ok = await agentTransfer(state.ruleId);
-console.log(`result: ${json({ success: ok.success, hash: ok.hash, error: ok.error })}`);
+console.log(`result: ${json({ success: ok.success, hash: ok.hash, error: ("error" in ok ? ok.error : undefined) })}`);
 if (!ok.success) throw new Error("control transfer failed");
 state.t3ControlHash = ok.hash; save();
 console.log("\nT3 negative + control: PASS");

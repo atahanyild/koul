@@ -109,7 +109,7 @@ async function t1(): Promise<{ kit: SmartAccountKit; authenticator: SoftwareAuth
   state.fundHash = funded.hash;
   state.passkey = authenticator.toState();
   save();
-  console.log(`funded: ${json({ success: funded.success, amount: funded.amount, hash: funded.hash, error: funded.error })}`);
+  console.log(`funded: ${json({ success: funded.success, amount: funded.amount, hash: funded.hash, error: ("error" in funded ? funded.error : undefined) })}`);
   return { kit, authenticator };
 }
 
@@ -169,7 +169,7 @@ async function t3(ruleId: number) {
     },
   });
   console.log(`auth contexts signed: ${contexts.length}, rule id pinned: ${ruleId}`);
-  console.log(`result: ${json({ success: result.success, hash: result.hash, error: result.error })}`);
+  console.log(`result: ${json({ success: result.success, hash: result.hash, error: ("error" in result ? result.error : undefined) })}`);
   if (!result.success) throw new Error("T3 transfer failed");
   state.t3Hash = result.hash;
   save();

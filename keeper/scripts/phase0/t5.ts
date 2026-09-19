@@ -98,7 +98,7 @@ async function agentSubmit(tx: contract.AssembledTransaction<unknown>, label: st
     onLog: (m, t) => console.log(`  [${t ?? "info"}] ${m}`),
     resolveContextRuleIds: (entry, i) => { const n = countContexts(entry.rootInvocation()); contexts.push(n); return Array<number>(n).fill(ruleId); },
   });
-  console.log(`${label}: entries=${contexts.length}, contexts per entry=${json(contexts)} (rule ${ruleId} each) -> ${json({ success: res.success, hash: res.hash, error: res.error })}`);
+  console.log(`${label}: entries=${contexts.length}, contexts per entry=${json(contexts)} (rule ${ruleId} each) -> ${json({ success: res.success, hash: res.hash, error: ("error" in res ? res.error : undefined) })}`);
   if (!res.success) throw new Error(`${label} failed`);
   return res.hash!;
 }
