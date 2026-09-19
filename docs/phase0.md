@@ -113,7 +113,28 @@ Position reads after supply: `get_account_attributes` = `{mode: 0, spoke_id: 3}`
 `scaled_amount` 5.099e28 (RAY-scaled), `loan_to_value` 7500 bps, `liquidation_threshold` 8000 bps;
 `get_total_collateral_usd` = 50990497646420738048 (**WAD, 1e18**, = 50.99 USD); `get_health_factor` = `i128::MAX`
 when there is no debt (treat as infinity in the router).
-## T5 - Agent-signed multi-context XOXNO call: TODO
+## T5 - Agent-signed XOXNO withdraw + supply across hubs: PASS (2026-09-19, `keeper/scripts/phase0/t5.ts`)
+
+Agent key only (passkey authenticator throws if consulted), keeper G-account as source and fee payer,
+`kit.multiSigners.operation(assembledTx, [ed25519], { resolveContextRuleIds })`. Two transactions, because Soroban
+allows one `InvokeHostFunction` per transaction; T6 makes the pair atomic through the router.
+
+| Call | Auth entry shape | Contexts | Tx |
+|---|---|---|---|
+| `controller.withdraw(wallet, 12, [(hub1 USDC, 20)], Some(wallet))` | `[wallet] controller.withdraw` | 1 | `5f079ebea24088ee4d00a1f31abcc55d071318d85e5542d90cc11463b05807bc` |
+| `controller.supply(wallet, 12, 3, [(hub2 USDC, 20)])` | `[wallet] controller.supply > usdc.transfer(wallet -> pool)` | **2** | `5fe8256428cb20165861c1c8c6944725c20016f1695da4d1b005ce260d9496f7` |
+
+Positions: before `{hub1: 50.9902271}`, after `{hub1: 30.9902271, hub2: 20.0000000}`. **Core redistribution is feasible.**
+
+**Lesson (first supply attempt failed with `ContextRuleIdsLengthMismatch` #3014):** the smart account's `__check_auth`
+receives one context per invocation in the auth entry's tree, root plus every sub-invocation, and `context_rule_ids`
+must have exactly that length. The kit's `resolveContextRuleIds(entry, index)` must therefore return
+`Array(1 + subInvocations).fill(ruleId)`, not `[ruleId]`. The keeper's helper is `countContexts()` in `t5.ts`.
+The diagnostic event shows exactly what the policy will see: `[[Contract, {contract: controller, fn_name: supply,
+args: [...]}], [Contract, {contract: usdc, fn_name: transfer, args: [wallet, pool, amount]}]]`, which is what
+`niet_agent_policy` allowlists and, for `transfer`, checks `args[1] == pool`.
+
+**Go/no-go: T3 and T5 green -> Plan B (session-key design) confirmed.**
 ## T6 - Nested via router: TODO
 ## T7 - Policy negatives: TODO
 ## T8 - Oracle + rate reads: DONE, with two findings (2026-09-19)
