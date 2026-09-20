@@ -303,7 +303,7 @@ A rule whose conditions hold but whose action has nothing to move (empty hub, no
 
 ## Findings and constraints
 
-These shaped the code and will shape the rule engine.
+These shaped the code.
 
 - **One `context_rule_id` per authorization context.** The smart account's `__check_auth` receives the root call plus every sub-invocation. A router tick is three or four contexts, so the keeper passes the rule id that many times. Getting it wrong fails with `ContextRuleIdsLengthMismatch`.
 - **Auth trees bake exact arguments, positions accrue interest every ledger.** A withdraw amount read at simulation is stale by execution. Every router amount is snapped to 0.01 USDC, moves under 1 USDC are skipped, and repayments round the debt up by one grain.
@@ -316,6 +316,7 @@ These shaped the code and will shape the rule engine.
 - **The agent cannot pay a landing account.** The policy allows USDC transfers to the pool only and landing accounts are created per transfer, so cashing out to TRY still takes one passkey confirmation for the transfer step.
 - **SAC contracts have no wasm**, so calls to the USDC token are built with `contract.AssembledTransaction.build` rather than `contract.Client.from`.
 - **The kit hides simulation diagnostics.** The keeper wraps `kit.rpc.simulateTransaction` to surface `Error(Contract, #N)`.
+- **XOXNO's health factor read touches a Reflector round key** that changes every 5 minutes. A tick simulated just before the round boundary can fail at execution with "outside of the footprint"; the next pass succeeds. The keeper treats it as any other failed submission.
 
 ## Phase 0 gates
 

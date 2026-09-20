@@ -5,7 +5,14 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./server": "./src/server.ts"
+    "./server": "./src/server.ts",
+    "./anchor/discovery": "./src/anchor/discovery.ts",
+    "./anchor/landing": "./src/anchor/landing.ts",
+    "./anchor/local-relay": "./src/anchor/local-relay.ts",
+    "./anchor/secret-guard": "./src/anchor/secret-guard.ts",
+    "./anchor/sep": "./src/anchor/sep.ts",
+    "./funds": "./src/funds.ts",
+    "./funds-file-store": "./src/funds-file-store.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
