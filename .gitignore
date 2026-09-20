@@ -11,3 +11,7 @@ dist/
 .phase0-state.json
 .env.local
 test_snapshots/
+
+# One lockfile at the workspace root.
+*/pnpm-lock.yaml
+packages/*/pnpm-lock.yaml
