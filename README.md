@@ -279,6 +279,10 @@ pnpm dev                 # http://localhost:3000
 
 `ANTHROPIC_API_KEY` and `KEEPER_SECRET` stay server-side for the reference parser and Funds routes. The `NEXT_PUBLIC_KOUL_*` overrides are optional and default to the live deployment. The app reads the mock oracle contract directly, without a web server route.
 
+Every page reads testnet through `@koul/core`: pools and USD/TRY on the home page; the wallet's balances, position NFT and XOXNO position on Portfolio; the router's autopilots (`list_ids` + `get_autopilot`) on Autopilots; the router's `Fired` events on Activity. There is no sample data and no demo switch: an empty wallet shows its empty states. Arming an autopilot maps the UI rules onto the router's `Autopilot` type (`lib/model/autopilot.ts`; one UI rule can become two router rules, one per hub or direction), grants the agent key under the policy pinned to the wallet's XOXNO account, and calls `set_autopilot`. The Funds flows run through the funds routes: `POST /api/funds/deposit` returns the anchor's FAST instructions, the sandbox button calls `POST /api/funds/:id/simulate`, `POST /api/funds/withdraw` returns the unsigned USDC transfer the passkey signs, and `GET /api/funds/:id` advances the transfer on every poll.
+
+`@koul/core` is linked into `web/` and `keeper/` with pnpm's `link:` protocol (a symlink), so edits in `packages/core` are picked up without reinstalling. Relative imports inside the package carry no `.js` suffix because Turbopack resolves them as written.
+
 For mock FX controls, run the separate app:
 
 ```sh
