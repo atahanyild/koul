@@ -4,7 +4,7 @@ Read this first in every session. Update the checklist and the "Where we are" li
 
 ## Where we are
 
-2026-09-20 (current): sections A, B, C are done and proven live (see `docs/build-log.md`, "Router v2", "Policy v2", "Keeper v2"). D1-D8 are implemented in `packages/core`: strict JSON schema, contract ScVal codec, validation, reads, unsigned writes, permissions, templates and frontend integration guide. D4/D5 are typechecked but have not had a live SDK smoke test. Next: E (sentence to rules), then F/G/H. The package is not yet wired into a workspace or the teammate's frontend. The `web/` prototype still speaks the old router and policy interfaces.
+2026-09-20 (current): sections A, B, C are done and proven live (see `docs/build-log.md`, "Router v2", "Policy v2", "Keeper v2"). D1-D8 are implemented in `packages/core`: strict JSON schema, contract ScVal codec, validation, reads, unsigned writes, permissions, templates and frontend integration guide. E1-E4 are implemented: server-only strict tool parser and a reference Next route, tested with mocked model outputs. D4/D5 have not had a live SDK smoke test, and E has not had a live Anthropic call. Next: F (Funds backend), then G/H. The web prototype's existing Strategy and Activity panels still speak the old router and policy interfaces.
 
 Earlier: the router is a rule engine on its fixed address; the policy is redeployed at `CBDQPSGJ...5AR2` with a pinned account id and a withdraw-recipient check; the keeper is stateless and the three scenarios fired through the new stack. Deviations from the sketch below, all deliberate: `tick` returns `Option<Executed {rule_index, kind, amount, from_hub, to_hub}>`; `check` returns `Vec<RuleState {ready, holds, conditions: Vec<ConditionState {holds, observed}>, last_fired}>`; `RepayWithCollateral(withdraw_hub, repay_hub, amount)` names both hubs; `KoulAgentParams` has `account_id`.
 
@@ -82,23 +82,23 @@ Constraints carried over: amounts snapped to 0.01 USDC, min move 1 USDC, repay r
 - [x] D8 README section "Frontend integration" documenting D1 to D7 with examples
 
 ### E. Sentence to rules (`packages/core` + a server route the frontend app hosts)
-- [ ] E1 prompt + tool definition: Claude receives the vocabulary and returns an `Autopilot` matching the zod schema via structured output; unknown or unsupported asks come back in a `notes[]` field, never invented
-- [ ] E2 `parseAutopilot(text, context)` function taking live readings so defaults are sensible; validate with D3 before returning; mark defaulted fields
-- [ ] E3 reference Next route handler `POST /api/autopilot/parse` in `web/app/api` that the teammate can copy, `ANTHROPIC_API_KEY` server-side only
-- [ ] E4 tests with 6 sentences including one impossible ask
+- [x] E1 prompt + tool definition: Claude receives the vocabulary and returns an `Autopilot` matching the zod schema via structured output; unknown or unsupported asks come back in a `notes[]` field, never invented
+- [x] E2 `parseAutopilot(text, context)` function taking live readings so defaults are sensible; validate with D3 before returning; mark defaulted fields
+- [x] E3 reference Next route handler `POST /api/autopilot/parse` in `web/app/api` that the teammate can copy, `ANTHROPIC_API_KEY` server-side only
+- [x] E4 tests with 6 sentences including one impossible ask (mocked model output; live call pending)
 
 ### F. Funds backend (anchor)
 - [ ] F1 deposit and withdrawal as server functions in `packages/core/server` (moved from keeper scripts): create landing account, SEP-10/12/38/6, return a `transferId` and a status the UI polls, step by step
 - [ ] F2 withdrawal step that needs the passkey returns an unsigned transfer tx for the frontend, then continues
 - [ ] F3 reference route handlers `POST /api/funds/deposit`, `POST /api/funds/withdraw`, `GET /api/funds/:id`
-- [ ] F4 "ready to cash out" detection: wallet idle USDC above a threshold after a `WithdrawToWallet` fired
+- [x] F4 "ready to cash out" detection: wallet idle USDC above a threshold after a `WithdrawToWallet` fired
 
 ### G. Oracle admin app (`oracle-admin/`)
 - [ ] G1 move `web/app/oracle` and `web/app/api/oracle` into a separate Next app on port 3100, remove from `web/`
 
 ### H. Housekeeping
 - [ ] H1 position NFT: check whether the testnet controller exposes a position NFT; note the answer in README
-- [ ] H2 ship `web/.env.example` (gitignore pattern) or document only
+- [x] H2 ship `web/.env.example` (gitignore pattern) or document only
 - [ ] H3 keep README and this file current; update `docs/build-log.md` with every on-chain change
 
 ## Session protocol

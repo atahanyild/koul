@@ -22,13 +22,14 @@ This document covers everything built so far and how to run it. Design work for 
 
 Everything below runs on testnet and has transaction hashes recorded in `docs/phase0.md` and `docs/build-log.md`.
 
-- **Smart wallet with an agent session key.** OpenZeppelin smart account (the same wasm that Sembol and smart-account-kit deploy, reproduced byte for byte). Rule 0 is the user's passkey. A second rule holds the keeper's Ed25519 key and binds it to `koul_agent_policy`, a custom policy contract that allowlists exactly five calls, restricts USDC transfers to the XOXNO pool, rate limits, and expires. Grant, use, deny and revoke are all proven on-chain.
-- **Router contract (`koul_router`).** Stores one rule set per user. `tick(user)` reads XOXNO health factor, positions, hub rates and an FX oracle, then executes at most one branch in priority order: health guard (repay from idle wallet USDC), rebalance between two USDC hubs when the supply rate gap passes a threshold, FX exit (withdraw to the wallet when USD/TRY crosses a level), or nothing. All three branches have executed live.
-- **Keeper (`keeper/`).** A TypeScript loop that simulates `tick` for each user, skips when the router says none, and otherwise signs the smart account auth entry with the agent key and submits. It never holds user funds and never pays for a transaction that would fail. It also keeps the mock oracle fresh.
+- **Smart wallet with an agent session key.** OpenZeppelin smart account (the same wasm that Sembol and smart-account-kit deploy, reproduced byte for byte). Rule 0 is the user's passkey. A second rule holds the keeper's Ed25519 key and binds it to `koul_agent_policy`, which pins the user's XOXNO account, restricts withdrawals to the wallet and USDC transfers to the pool, rate limits, and expires. Grant, use, deny and revoke are all proven on-chain.
+- **Router contract (`koul_router`).** Stores ordered autopilots per user. `tick(user, id)` evaluates their conditions and executes at most one eligible action: move supply, repay debt or withdraw to the wallet. `check(user, id)` reports live condition and cooldown state. Rebalance, health guard and FX exit have executed live through the rule engine.
+- **Keeper (`keeper/`).** A TypeScript loop that lists users and autopilots from the router, simulates each tick, skips when no action applies, and otherwise signs the smart account auth entry with the agent key and submits. It never holds user funds. It also keeps the mock oracle fresh.
 - **Mock FX oracle (`koul_mock_fx`).** Reflector's read interface with an admin `set_price`, because no Reflector testnet feed lists TRY. Swappable for the real Reflector contract on mainnet through `set_oracle` on the router.
 - **Anchor integration, both directions.** The TR Mock Anchor rejects contract addresses, so Kumbara's ownerless landing account pattern is ported verbatim into `keeper/src/anchor/`. TRY deposit into the smart wallet and USDC withdrawal to TRY from the smart wallet both completed on testnet.
 - **Utilisation on the pool.** A second identity supplies XLM collateral and borrows USDC on hub 2, so hub rates differ and the rebalance branch fires on live data.
-- **Experimental web app (`web/`).** Next.js 16 with Sembol passkeys: create or connect a wallet, grant and revoke the agent, save the rule set, see executed branches, plus a mock oracle admin panel. Verified in Chrome. This is the pre-design prototype and will be replaced by the designed app.
+- **Typed SDK and parser (`packages/core/`).** Autopilot types, validation, contract codec, reads, unsigned writes, permission lists and templates. The server-only parser turns a sentence into a strict draft autopilot. The reference route is linked into `web/`; live SDK and model calls have not yet been exercised.
+- **Experimental web app (`web/`).** Next.js 16 with Sembol passkeys. Its old Strategy and Activity panels still use the v1 router interface; the new parser route is a reference integration. The mock oracle admin panel still lives here until plan item G moves it.
 - **Sembol contribution.** Pull request https://github.com/keyboord01/sembol/pull/3 adds `useAgentPermission`, `GrantAgentAccess` and `AgentPermissions` to `@sembol/passkey-react`, with tests, stories and docs.
 
 ## Architecture
@@ -43,13 +44,13 @@ Everything below runs on testnet and has transaction hashes recorded in `docs/ph
    |          allowed: router.tick, controller.withdraw/supply/repay,   |
    |                   usdc.transfer -> XOXNO pool only                 |
    +---------+-------------------------------------------+-------------+
-             |  set_rules (passkey)                        |  tick (agent key, keeper submits)
+             |  set_autopilot (passkey)                     |  tick (agent key, keeper submits)
              v                                             v
    +---------------------------+                +------------------------------+
    |  koul_router              |  reads         |  XOXNO controller + pool     |
-   |  Rules per user           +--------------->|  health factor, positions,   |
-   |  tick: health > rebalance |  calls         |  supply rates, cash          |
-   |        > fx exit > none   +--------------->|  withdraw / supply / repay   |
+   |  Ordered autopilots       +--------------->|  health factor, positions,   |
+   |  first eligible rule     |  calls         |  supply rates, cash          |
+   |  runs, at most one/tick  +--------------->|  withdraw / supply / repay   |
    +-------------+-------------+                +------------------------------+
                  |  reads
                  v
@@ -244,7 +245,11 @@ const tx = await writer.buildSetAutopilot(wallet, 1, ap);
 await kit.signAndSubmit(tx);
 ```
 
-Other builders: `buildClearAutopilot`, `buildGrantAgent(kit, ap, agentRawPublicKey, days, name)`, `buildRevokeAgent(kit, ruleId)`, `buildSupply`, `buildWithdraw`, `buildBorrow`, and `buildTransfer`. `permissionsFor` returns the minimum router, controller and USDC call list plus transfer recipients and short descriptions for the arm sheet. Templates are `liraShield(accountId)`, `yieldOnly(accountId)`, and `healthGuard(accountId)`. The SDK package is local; workspace wiring into the teammate's frontend is still pending.
+Other builders: `buildClearAutopilot`, `buildGrantAgent(kit, ap, agentRawPublicKey, days, name)`, `buildRevokeAgent(kit, ruleId)`, `buildSupply`, `buildWithdraw`, `buildBorrow`, and `buildTransfer`. `permissionsFor` returns the minimum router, controller and USDC call list plus transfer recipients and short descriptions for the arm sheet. Templates are `liraShield(accountId)`, `yieldOnly(accountId)`, and `healthGuard(accountId)`. The reference web route links the SDK as a local file dependency; the existing Strategy and Activity panels have not yet migrated to it.
+
+The reference `POST /api/autopilot/parse` route accepts `{ text, context }` and calls the server-only `@koul/core/server` parser. `context` contains `accountId`, `hubIds`, `idleUsdc`, `healthFactorWad`, `depositRatesRay`, `fxAsset`, `fxPrice`, and `fxPriceAgeSeconds`; the frontend should populate it from live reads. The response is `{ autopilot, notes, defaulted_fields }`, with `autopilot: null` for wholly unsupported requests. The route reads `ANTHROPIC_API_KEY` from the server environment and optionally `ANTHROPIC_MODEL` (default `claude-sonnet-5`). The generated rules are validated again against contract limits and the supplied account and hub IDs. The route is a reference parser endpoint, not an authenticated write endpoint; users review and sign the resulting autopilot separately.
+
+`readReadyToCashOut(reader, wallet, startLedger, threshold, accountId?)` checks whether a `WithdrawToWallet` rule fired and the wallet now holds at least the chosen USDC threshold. It only reports readiness; the Funds withdrawal still needs a user passkey confirmation.
 
 ### 3. Web app
 
@@ -259,7 +264,7 @@ pnpm dev                 # http://localhost:3000
 
 The app uses Sembol's testnet preset and the public SDF relayer, so wallet creation and every passkey-signed call are fee-sponsored and no local secret is needed for user actions. Passkeys are bound to the origin, so a wallet created on `localhost:3000` is only reachable from `localhost:3000`.
 
-The prototype's Strategy and Activity panels still speak the v1 router (`set_rules`, `branch`) and the v1 policy params; they are rewired to `@koul/core` in PLAN.md section D. Until then use the keeper scripts above for the rule engine.
+The prototype's Strategy and Activity panels still speak the v1 router (`set_rules`, `branch`) and the v1 policy params. They need a separate frontend migration to `@koul/core`; until then use the keeper scripts above for the rule engine.
 
 Flow in the current prototype:
 

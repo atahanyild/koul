@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./server": "./src/server.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
@@ -13,7 +14,8 @@
   "dependencies": {
     "@stellar/stellar-sdk": "16.0.1",
     "smart-account-kit": "0.6.2",
-    "zod": "^3.25.76"
+    "zod": "^3.25.76",
+    "zod-to-json-schema": "3.25.2"
   },
   "devDependencies": {
     "@types/node": "^20.17.0",
