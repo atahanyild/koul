@@ -4,7 +4,7 @@ Read this first in every session. Update the checklist and the "Where we are" li
 
 ## Where we are
 
-2026-09-20 (current): sections A, B, C are done and proven live (see `docs/build-log.md`, "Router v2", "Policy v2", "Keeper v2"). D1-D8 are implemented in `packages/core`: strict JSON schema, contract ScVal codec, validation, reads, unsigned writes, permissions, templates and frontend integration guide. E1-E4 are implemented: server-only strict tool parser and a reference Next route, tested with mocked model outputs. D4/D5 have not had a live SDK smoke test, and E has not had a live Anthropic call. Next: F (Funds backend), then G/H. The web prototype's existing Strategy and Activity panels still speak the old router and policy interfaces.
+2026-09-20 (current): sections A, B, C are done and proven live (see `docs/build-log.md`, "Router v2", "Policy v2", "Keeper v2"). D1-D8 are implemented in `packages/core`; E1-E4 are implemented with mocked model tests. F1-F4 are implemented as local demo backend functions and reference routes: the shared landing/SEP code moved from keeper to core, with a private file transfer store. G is complete: mock oracle admin runs as a separate Next app on port 3100, and the web app reads the oracle contract directly. H1 found no public NFT-address getter in the controller ABI; the card should show the account ID only. D4/D5, E and F have not had live SDK/API smoke tests. The frontend teammate merged a new UI during this session; the new panels need integration verification against the v2 SDK.
 
 Earlier: the router is a rule engine on its fixed address; the policy is redeployed at `CBDQPSGJ...5AR2` with a pinned account id and a withdraw-recipient check; the keeper is stateless and the three scenarios fired through the new stack. Deviations from the sketch below, all deliberate: `tick` returns `Option<Executed {rule_index, kind, amount, from_hub, to_hub}>`; `check` returns `Vec<RuleState {ready, holds, conditions: Vec<ConditionState {holds, observed}>, last_fired}>`; `RepayWithCollateral(withdraw_hub, repay_hub, amount)` names both hubs; `KoulAgentParams` has `account_id`.
 
@@ -88,18 +88,18 @@ Constraints carried over: amounts snapped to 0.01 USDC, min move 1 USDC, repay r
 - [x] E4 tests with 6 sentences including one impossible ask (mocked model output; live call pending)
 
 ### F. Funds backend (anchor)
-- [ ] F1 deposit and withdrawal as server functions in `packages/core/server` (moved from keeper scripts): create landing account, SEP-10/12/38/6, return a `transferId` and a status the UI polls, step by step
-- [ ] F2 withdrawal step that needs the passkey returns an unsigned transfer tx for the frontend, then continues
-- [ ] F3 reference route handlers `POST /api/funds/deposit`, `POST /api/funds/withdraw`, `GET /api/funds/:id`
+- [x] F1 deposit and withdrawal as server functions in `packages/core/funds` (landing/SEP helpers moved from keeper): create landing account, SEP-10/12/38/6, return a `transferId` and a status the UI polls, step by step
+- [x] F2 withdrawal step that needs the passkey returns a serialized unsigned transfer tx for the frontend, then continues when the landing balance arrives
+- [x] F3 reference route handlers `POST /api/funds/deposit`, `POST /api/funds/withdraw`, `GET /api/funds/:id`
 - [x] F4 "ready to cash out" detection: wallet idle USDC above a threshold after a `WithdrawToWallet` fired
 
 ### G. Oracle admin app (`oracle-admin/`)
-- [ ] G1 move `web/app/oracle` and `web/app/api/oracle` into a separate Next app on port 3100, remove from `web/`
+- [x] G1 move `web/app/oracle` and `web/app/api/oracle` into a separate Next app on port 3100, remove from `web/`
 
 ### H. Housekeeping
-- [ ] H1 position NFT: check whether the testnet controller exposes a position NFT; note the answer in README
+- [x] H1 position NFT: check whether the testnet controller exposes a position NFT; note the answer in README
 - [x] H2 ship `web/.env.example` (gitignore pattern) or document only
-- [ ] H3 keep README and this file current; update `docs/build-log.md` with every on-chain change
+- [x] H3 keep README and this file current; update `docs/build-log.md` with every on-chain change
 
 ## Session protocol
 

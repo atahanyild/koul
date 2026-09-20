@@ -26,10 +26,10 @@ Everything below runs on testnet and has transaction hashes recorded in `docs/ph
 - **Router contract (`koul_router`).** Stores ordered autopilots per user. `tick(user, id)` evaluates their conditions and executes at most one eligible action: move supply, repay debt or withdraw to the wallet. `check(user, id)` reports live condition and cooldown state. Rebalance, health guard and FX exit have executed live through the rule engine.
 - **Keeper (`keeper/`).** A TypeScript loop that lists users and autopilots from the router, simulates each tick, skips when no action applies, and otherwise signs the smart account auth entry with the agent key and submits. It never holds user funds. It also keeps the mock oracle fresh.
 - **Mock FX oracle (`koul_mock_fx`).** Reflector's read interface with an admin `set_price`, because no Reflector testnet feed lists TRY. Swappable for the real Reflector contract on mainnet through `set_oracle` on the router.
-- **Anchor integration, both directions.** The TR Mock Anchor rejects contract addresses, so Kumbara's ownerless landing account pattern is ported verbatim into `keeper/src/anchor/`. TRY deposit into the smart wallet and USDC withdrawal to TRY from the smart wallet both completed on testnet.
+- **Anchor integration, both directions.** The TR Mock Anchor rejects contract addresses, so Kumbara's ownerless landing account pattern lives in `packages/core/src/anchor/` and is reused by the keeper. TRY deposit into the smart wallet and USDC withdrawal to TRY from the smart wallet both completed on testnet through the original keeper scripts.
 - **Utilisation on the pool.** A second identity supplies XLM collateral and borrows USDC on hub 2, so hub rates differ and the rebalance branch fires on live data.
 - **Typed SDK and parser (`packages/core/`).** Autopilot types, validation, contract codec, reads, unsigned writes, permission lists and templates. The server-only parser turns a sentence into a strict draft autopilot. The reference route is linked into `web/`; live SDK and model calls have not yet been exercised.
-- **Experimental web app (`web/`).** Next.js 16 with Sembol passkeys. Its old Strategy and Activity panels still use the v1 router interface; the new parser route is a reference integration. The mock oracle admin panel still lives here until plan item G moves it.
+- **Web app (`web/`).** Next.js 16 with Sembol passkeys and the new page designs. The frontend teammate merged the new UI during this backend session; its integration with the v2 SDK still needs verification. The mock oracle admin now runs separately in `oracle-admin/`.
 - **Sembol contribution.** Pull request https://github.com/keyboord01/sembol/pull/3 adds `useAgentPermission`, `GrantAgentAccess` and `AgentPermissions` to `@sembol/passkey-react`, with tests, stories and docs.
 
 ## Architecture
@@ -116,7 +116,8 @@ packages/core/                    typed autopilot schema, validation and contrac
   .env.example                    variables the keeper needs
   .phase0-state.json              gitignored: wallet id, software passkey, rule ids, account id
 web/
-  app/                            Next.js 16 app router: page, oracle admin, api/oracle
+  app/                            Next.js 16 app router: product pages and reference API routes
+oracle-admin/                      separate testnet mock-oracle control app on port 3100
   components/                     AgentAccess, Strategy, ActivityFeed, shadcn ui/
   lib/koul.ts                     addresses, policy params, unit helpers
   .env.example
@@ -227,7 +228,7 @@ From `packages/core`, run `pnpm install`, `pnpm test`, and `pnpm typecheck` to c
 
 `packages/core` exports `Autopilot` and its strict `autopilotSchema`, `validateAutopilot`, `encodeAutopilot` and `decodeAutopilot`. Monetary values in the JSON schema are decimal strings of the contract's base units: USDC uses 7 decimals, health factor uses 18, oracle prices use 14. Do not pass JavaScript numbers for these values.
 
-`KoulReader` takes an RPC URL, network passphrase, a funded G-account public key for simulation, and the router, oracle, controller, pool, USDC and XLM contract addresses. Its methods are `readPortfolio(address, accountId?)`, `readOracle(asset?)`, `simulateTick(user, id)`, `checkAutopilot(user, id)`, and `readFired(user, startLedger, limit?)`. `readPortfolio` discovers the account ID from the user's first stored autopilot; pass `accountId` explicitly before the first autopilot is saved. Balances and position amounts are returned as `bigint` base units, rates and utilisation as RAY values, and health factor as WAD. `readFired` requires a starting ledger so callers can paginate within the RPC event retention window. `simulateTick` is a simulation of the authenticated router call and never submits it.
+`KoulReader` takes an RPC URL, network passphrase, a funded G-account public key for simulation, and the router, oracle, controller, pool, USDC and XLM contract addresses. Its methods are `readPortfolio(address, accountId?)`, `readPositionNft(address)`, `readOracle(asset?)`, `simulateTick(user, id)`, `checkAutopilot(user, id)`, and `readFired(user, startLedger, limit?)`. `readPortfolio` discovers the account ID from the user's first stored autopilot; pass `accountId` explicitly before the first autopilot is saved. Balances and position amounts are returned as `bigint` base units, rates and utilisation as RAY values, and health factor as WAD. `readFired` requires a starting ledger so callers can paginate within the RPC event retention window. `simulateTick` is a simulation of the authenticated router call and never submits it.
 
 `KoulWriter` adds the policy address, Ed25519 verifier and XOXNO spoke ID. Each `build*` method returns an unsigned assembled transaction for `kit.signAndSubmit`:
 
@@ -251,6 +252,22 @@ The reference `POST /api/autopilot/parse` route accepts `{ text, context }` and 
 
 `readReadyToCashOut(reader, wallet, startLedger, threshold, accountId?)` checks whether a `WithdrawToWallet` rule fired and the wallet now holds at least the chosen USDC threshold. It only reports readiness; the Funds withdrawal still needs a user passkey confirmation.
 
+The XOXNO position NFT exists on testnet: contract `CDVN5JU675MEDPVRPCYC45AHFC275UH57WEU5OTFE4WFGZBNN7HTLPSY` ("XOXNO Lending Position", symbol `XLEND`), one token per XOXNO account, token id equals the account id, owner is the smart wallet. `reader.readPositionNft(wallet)` returns `{ contract, tokenId, name, symbol, imageUrl }` or null when the wallet has no XOXNO account; the image URL is an SVG served by XOXNO's API (`https://api.xoxno.com/user/lending/image/<id>?isStatic=true&chain=STELLAR`), so the Portfolio page can render the NFT card directly. `readFired(wallet, startLedger, limit?)` walks the ledger range in windows because the RPC answers a range wider than a few thousand ledgers with an empty list, and skips router v1 events.
+
+### Funds backend (local demo)
+
+`packages/core` now owns the landing-account and SEP-10/12/38/6 code. The keeper scripts import it through compatibility files. `FundsService` creates deposit and withdrawal transfers and advances them when `getStatus(transferId)` is polled. It stores the SEP bearer token and pre-authorized envelopes in a private `FundsStore`; `FileFundsStore` is the local reference implementation. The public result includes the transfer ID, landing account, amount, bank instructions or quoted fiat, and status; it omits the token and pre-authorized envelopes.
+
+Reference routes in `web/app/api/funds`:
+
+| Route | Body or parameter | Result |
+|---|---|---|
+| `POST /api/funds/deposit` | `{ wallet, amountTry, customer, simulateSandboxBankTransfer? }` | Bank instructions and transfer ID. The optional simulation flag is for the testnet sandbox only. |
+| `POST /api/funds/withdraw` | `{ wallet, amountUsdc, iban, customer }` | Transfer ID and `unsignedTransfer` (serialized assembled USDC transfer to the landing account). The frontend deserializes it and asks the user to sign with the passkey. |
+| `GET /api/funds/:id` | Transfer ID | Polls SEP-6 and landing balance, forwards funds, runs cleanup and returns current status. |
+
+Set `KEEPER_SECRET` in the web server environment and keep `.funds-state/` private. These reference routes run in development. Production use requires `FUNDS_ALLOW_PRODUCTION=1` and a durable shared store and request authorization before exposing sponsor-funded transfer creation. The new Funds service is typechecked and the amount/public-record boundary is tested; the old keeper scripts remain the live-proven flow while the routes await a smoke test.
+
 ### 3. Web app
 
 ```sh
@@ -260,20 +277,23 @@ cp .env.example .env.local
 pnpm dev                 # http://localhost:3000
 ```
 
-`ORACLE_ADMIN_SECRET` in `.env.local` is the keeper secret; it is only read by the server route `app/api/oracle/route.ts` and never shipped to the browser. The `NEXT_PUBLIC_KOUL_*` overrides are optional and default to the live deployment.
+`ANTHROPIC_API_KEY` and `KEEPER_SECRET` stay server-side for the reference parser and Funds routes. The `NEXT_PUBLIC_KOUL_*` overrides are optional and default to the live deployment. The app reads the mock oracle contract directly, without a web server route.
+
+For mock FX controls, run the separate app:
+
+```sh
+cd oracle-admin
+pnpm install
+cp .env.example .env.local
+# put the keeper G-secret in ORACLE_ADMIN_SECRET
+pnpm dev                 # http://localhost:3100/oracle
+```
+
+The oracle admin's `POST /api/oracle` is disabled in production unless `ORACLE_ALLOW_PRODUCTION=1` is explicitly set. The product app's Demo controls link opens the separate app. Set `NEXT_PUBLIC_ORACLE_ADMIN_URL` in the product app if the admin is hosted elsewhere.
 
 The app uses Sembol's testnet preset and the public SDF relayer, so wallet creation and every passkey-signed call are fee-sponsored and no local secret is needed for user actions. Passkeys are bound to the origin, so a wallet created on `localhost:3000` is only reachable from `localhost:3000`.
 
-The prototype's Strategy and Activity panels still speak the v1 router (`set_rules`, `branch`) and the v1 policy params. They need a separate frontend migration to `@koul/core`; until then use the keeper scripts above for the rule engine.
-
-Flow in the current prototype:
-
-1. Create wallet (Face ID or Touch ID) or Connect wallet.
-2. Fund XLM with friendbot from the wallet row. USDC has to come from the anchor flow or a transfer from a funded account.
-3. Agent access: pick a duration and Grant. One passkey confirmation adds the agent rule with the policy.
-4. Strategy: enter the XOXNO account id (from the first supply) and thresholds, Save rules. One passkey confirmation.
-5. Activity lists every branch the router executed for this wallet, from its `Fired` events.
-6. `/oracle`: current USD/TRY, age, Set price, presets 48.79 calm, 50.25 lira shock, Publish stale.
+The new web UI has Home, Portfolio, Funds, Autopilots and Activity pages. Its current autopilot adapter still calls the v1 router methods (`set_rules`, `get_rules`), so those screens need a frontend migration to `@koul/core` before live use. Until then use the keeper scripts above to operate the rule engine. The separate oracle controls are at `http://localhost:3100/oracle`.
 
 The keeper loop must be running for anything to execute. The web app never signs with the agent key.
 
@@ -294,8 +314,8 @@ The Lira shield autopilot on the headless wallet, each proven on the rule engine
 |---|---|---|
 | Rebalance | hub 2 pays more than hub 1 by over 100 bps (the borrower on account 23 keeps it so) and hub 1 holds collateral: `pnpm position supply 1 10` | rule 1 `MoveSupply(1 -> 2, All)`: withdraw from hub 1 and supply to hub 2 in one transaction, amount capped by hub cash and the 95 percent utilisation ceiling |
 | Health guard | `pnpm position borrow 1 22` with the passkey, health factor drops under 1.25 | rule 0 `RepayFromWallet(1, All)`: repays `debt + 1 grain` from idle wallet USDC, health factor back to infinity |
-| FX exit | on `/oracle` press 50.25 lira shock, or `set_price` on the mock oracle, then a keeper pass | rules 3 and 4 `WithdrawToWallet(hub, All)`: the first hub with something liquid is withdrawn to the wallet, the next tick after the cooldown takes the other hub; an empty hub is skipped |
-| Stale price | `/oracle` Publish stale | `FxPrice` is false for a price older than its limit; `check` shows the observed price with `holds = false` |
+| FX exit | on `localhost:3100/oracle` press 50.25 lira shock, or `set_price` on the mock oracle, then a keeper pass | rules 3 and 4 `WithdrawToWallet(hub, All)`: the first hub with something liquid is withdrawn to the wallet, the next tick after the cooldown takes the other hub; an empty hub is skipped |
+| Stale price | `localhost:3100/oracle` Publish stale | `FxPrice` is false for a price older than its limit; `check` shows the observed price with `holds = false` |
 | Nothing to do | any pass in between | `tick -> None`, the keeper prints the `check` view and spends no fee |
 | Revoke | web app Revoke, or `pnpm phase0:revoke` | the next agent tick fails at simulation with `ContextRuleNotFound`, no fee spent |
 

@@ -10,7 +10,7 @@ import { useFx } from "@/hooks/use-market";
 import { fmtDuration, fmtFx } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
-const ORACLE_DETAIL = "Reflector-shaped mock oracle lastprice(TRY), USD per TRY with 14 decimals, inverted; polled every 10 s. Set it on /oracle.";
+const ORACLE_DETAIL = "Reflector-shaped mock oracle lastprice(TRY), USD per TRY with 14 decimals, inverted; polled every 10 s. Demo controls run in the separate oracle admin app.";
 
 function Status({ fx }: { fx: ReturnType<typeof useFx> }) {
   if (fx.loading) return <span className="skeleton inline-block h-6 w-16 rounded-full" aria-busy />;

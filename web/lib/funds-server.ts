@@ -6,7 +6,7 @@ import { FundsService } from "@koul/core/funds";
 import { FileFundsStore } from "@koul/core/funds-file-store";
 
 export function fundsService(): FundsService {
-  const secret = process.env.KEEPER_SECRET ?? process.env.ORACLE_ADMIN_SECRET;
+  const secret = process.env.KEEPER_SECRET;
   if (!secret) throw new Error("KEEPER_SECRET is required for Funds routes");
   const sponsor = Keypair.fromSecret(secret);
   const rpcUrl = process.env.RPC_URL ?? "https://soroban-testnet.stellar.org";

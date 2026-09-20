@@ -2,7 +2,7 @@
  * Live readers against Stellar testnet. Every function throws on failure; the hooks decide whether to fall back
  * to the demo story. Reads simulate with the keeper's public G-account as source, which needs no signature.
  */
-import { Address, contract, rpc, scValToNative, xdr } from "@stellar/stellar-sdk";
+import { Address, BASE_FEE, Contract, TransactionBuilder, contract, rpc, scValToNative, xdr } from "@stellar/stellar-sdk";
 import type { ContextRule, SmartAccountKit } from "smart-account-kit";
 import { KOUL, SIM_SOURCE, XOXNO, usdPerTryToTryPerUsd } from "@/lib/koul";
 import { fromUnits } from "@/lib/format";
@@ -105,14 +105,20 @@ export async function readPositions(address: string, accountId: bigint | null, k
   return { idleUsdc, idleXlm, supplied, borrowed, accountId: accountId === null ? null : accountId.toString(), health };
 }
 
-/** USD/TRY from the mock oracle through the server route (same read the router does). */
+/** USD/TRY read directly from the mock oracle; the admin write route lives in oracle-admin. */
 export async function readFx(): Promise<FxPrice> {
-  const r = await fetch("/api/oracle", { cache: "no-store" });
-  if (!r.ok) throw new Error(`oracle ${r.status}`);
-  const j = (await r.json()) as { price: string | null; timestamp: number | null; now: number };
-  if (!j.price || !j.timestamp) throw new Error("no price");
-  const ageSec = Math.max(0, j.now - j.timestamp);
-  return { tryPerUsd: usdPerTryToTryPerUsd(BigInt(j.price)), timestamp: j.timestamp, ageSec, stale: ageSec > 900, maxAgeSec: 900 };
+  const server = new rpc.Server(KOUL.rpcUrl);
+  const source = await server.getAccount(SIM_SOURCE);
+  const asset = xdr.ScVal.scvVec([xdr.ScVal.scvSymbol("Other"), xdr.ScVal.scvSymbol("TRY")]);
+  const tx = new TransactionBuilder(source, { fee: BASE_FEE, networkPassphrase: KOUL.networkPassphrase })
+    .addOperation(new Contract(KOUL.oracle).call("lastprice", asset)).setTimeout(30).build();
+  const sim = await server.simulateTransaction(tx);
+  if (!rpc.Api.isSimulationSuccess(sim)) throw new Error("oracle simulation failed");
+  const reading = scValToNative(sim.result!.retval) as { price: bigint; timestamp: bigint } | null;
+  if (!reading) throw new Error("no price");
+  const timestamp = Number(reading.timestamp);
+  const ageSec = Math.max(0, Math.floor(Date.now() / 1000) - timestamp);
+  return { tryPerUsd: usdPerTryToTryPerUsd(reading.price), timestamp, ageSec, stale: ageSec > 900, maxAgeSec: 900 };
 }
 
 export async function readRouterRules(address: string): Promise<RouterRules | null> {

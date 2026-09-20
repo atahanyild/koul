@@ -21,9 +21,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <div className="mt-8"><SidebarNav /></div>
         <div className="mt-auto flex flex-col gap-3">
           <div className="flex items-center justify-between px-1">
-            <Link href="/oracle" className="inline-flex min-h-8 items-center gap-1.5 rounded-md px-1.5 text-xs text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
+            <a href={process.env.NEXT_PUBLIC_ORACLE_ADMIN_URL ?? "http://localhost:3100/oracle"} target="_blank" rel="noreferrer" className="inline-flex min-h-8 items-center gap-1.5 rounded-md px-1.5 text-xs text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
               <Gauge className="size-3.5" aria-hidden /> Demo controls
-            </Link>
+            </a>
             <ThemeToggle />
           </div>
           <WalletChip variant="sidebar" />

@@ -24,6 +24,7 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  if (process.env.NODE_ENV === "production" && process.env.ORACLE_ALLOW_PRODUCTION !== "1") return NextResponse.json({ error: "Oracle admin is disabled in production" }, { status: 503 });
   const secret = process.env.ORACLE_ADMIN_SECRET;
   if (!secret) return NextResponse.json({ error: "ORACLE_ADMIN_SECRET is not set on the server" }, { status: 500 });
   const body = (await req.json()) as { price?: string; timestamp?: number; asset?: string };
