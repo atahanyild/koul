@@ -127,7 +127,7 @@ export function ArmSheet({ open, onOpenChange, ap, onArmed }: ArmSheetProps) {
         </PasskeyButton>
       </div>
       <PasskeyHint phase={phase} error={error} onRetry={() => void run()} />
-      {failure && phase !== "prompt" && phase !== "submitting" && <p className="text-xs text-warning" role="status">{failure}</p>}
+      {failure && phase !== "prompt" && phase !== "signed" && phase !== "submitting" && <p className="text-xs text-warning" role="status">{failure}</p>}
     </div>
   );
 
