@@ -34,6 +34,7 @@ yarn-error.log*
 .env*
 !.env.example
 .funds-state/
+.faucet-state/
 
 # vercel
 .vercel

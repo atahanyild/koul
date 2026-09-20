@@ -268,6 +268,8 @@ Reference routes in `web/app/api/funds`:
 
 Set `KEEPER_SECRET` in the web server environment and keep `.funds-state/` private. These reference routes run in development. Production use requires `FUNDS_ALLOW_PRODUCTION=1` and a durable shared store and request authorization before exposing sponsor-funded transfer creation. The new Funds service is typechecked and the amount/public-record boundary is tested; the old keeper scripts remain the live-proven flow while the routes await a smoke test.
 
+The wallet menu also has **Get test USDC** beside **Add test XLM**. It creates a sponsored testnet G account with a Circle USDC trustline, shows the address to paste into [Circle Faucet](https://faucet.circle.com/) with **Stellar Testnet** selected, then polls and forwards the faucet's 20 USDC to the passkey smart wallet. The request and CAPTCHA are completed on Circle's site. Set `KEEPER_SECRET` and keep `.faucet-state/` private; the browser stores the transfer ID so it can resume polling after reopening the menu. The faucet routes share the development-only guard with Funds. Production use requires `FUNDS_ALLOW_PRODUCTION=1`, a durable shared store, and request authorization before exposing sponsor-funded account creation.
+
 ### 3. Web app
 
 ```sh
