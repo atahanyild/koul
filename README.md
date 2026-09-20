@@ -7,6 +7,9 @@ Repo: **https://github.com/atahanyild/koul** · Pitch deck: _add link_ · Stella
 
 ---
 
+A short, paste-ready version of this for a submission form is in
+[`docs/submission-summary.md`](docs/submission-summary.md).
+
 ## Overview
 
 **What we are building.** Koul is a conditional execution engine on Stellar. A user writes a sentence, Koul turns it
@@ -416,9 +419,10 @@ integration as the milestones, and the audit as the tranche before mainnet.
 
 ## Team
 
-_Add names, roles and contacts before submission._
+- **Atahan Yıldırım**, cofounder — [github.com/atahanyild](https://github.com/atahanyild)
+- **Ahmed Murshed**, cofounder
 
-- **Atahan Yıldırım** — _role_ — _email / X / GitHub_
+Contacts for judging are on the submission form; issues on this repository reach both of us.
 
 ---
 
