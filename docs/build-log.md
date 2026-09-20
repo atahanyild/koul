@@ -6,7 +6,7 @@ Continues `docs/phase0.md`. Same testnet, same headless wallet `CBHMG4IG...` (XO
 
 | Contract | Address | Notes |
 |---|---|---|
-| `koul_router` (real) | `CBHRTWXARGZCUDBE7IX4SZV7GDFA6PRQICZQPUSOUPN3YDCVPXQBMT2P` | admin = keeper G-account, upgradeable in place (`upgrade`, `set_oracle`); wasm `b1d72bd1...` |
+| `koul_router` (real) | `CBHRTWXARGZCUDBE7IX4SZV7GDFA6PRQICZQPUSOUPN3YDCVPXQBMT2P` | admin = keeper G-account, upgradeable in place (`upgrade`, `set_oracle`); wasm `b1d72bd1...` (v1, fixed branches) then `2c8448d6...` (rule engine, 2026-09-20) |
 | `koul_agent_policy` | `CCEYSMIWTRJL7GE6G4MVKEC4NONUCTYVMZKMQH7D3PTQ7DPBLU5V3X4O` | unchanged since T7 |
 | `koul_mock_fx` | `CB6VNXADXR3XHCS4EKV5ZR5UJUZYQ5BZTPRHCNQE3XMKQMB4LJG6MKW2` | Reflector read interface + `set_price`, admin = keeper; TRY quoted as USD per TRY, 14 decimals |
 | router probe (phase 0) | `CA53BZYX...` | retired |
@@ -112,3 +112,32 @@ The Koul web app inlines the same logic against the published 0.4.0 until the PR
 **Not yet exercised: a real Face ID passkey in a browser.** Everything else in the chain (this wallet wasm, the
 WebAuthn verifier, `rules.add` with a custom policy, agent signing, revoke) ran on-chain with a software passkey.
 The remaining check is a human pressing "Create wallet" at `http://localhost:3210`.
+
+## Router v2: rule engine (2026-09-20)
+
+`contracts/koul_router` rewritten as a data-driven rule engine (PLAN.md section A). Same address, upgraded in place.
+
+| Step | Result |
+|---|---|
+| `stellar contract upload` | wasm `2c8448d6189cb23ce096ef30291bb6223bae74a7b87d20648d6bbd6fabd5a661`, tx `ebeef0dfa5631734646bcd8cfbef0db12a65d4cd581fe3dce3d6f1a40547fe19` |
+| `upgrade(new_wasm_hash)` by the keeper admin | tx `2afcf35e5245fda5dc4a1ae9d70da04a65352ad3240b3ff22c65c96fa5f71479` |
+| after upgrade | `list_users() = []`, `get_config` unchanged, `list_ids(CBHMG4IG...) = []`; the v1 `Rules(user)` entry is orphaned and ignored |
+
+Interface: `set_autopilot(user, id, Autopilot)` / `clear_autopilot(user, id)` (user auth), `get_autopilot`,
+`list_ids(user)`, `list_users()`, `check(user, id) -> Vec<RuleState>` (read-only, per rule: ready, holds, per
+condition holds + observed value, last fired ledger), `tick(user, id) -> Option<Executed>` (user auth via the agent
+rule). Types: `Cmp {Below, AtOrAbove}`, `Amount {All, Percent(bps), Fixed(i128)}`, `Condition {HealthFactor(cmp,
+wad), SupplyRateGap(hub_over, hub_under, min_bps), FxPrice(symbol, cmp, level, max_age_secs), IdleBalance(cmp,
+amount)}`, `Action {MoveSupply(from, to, amt), RepayFromWallet(hub, amt), RepayWithCollateral(withdraw_hub,
+repay_hub, amt), WithdrawToWallet(hub, amt)}`, `Rule {conditions, match_all, action, cooldown_ledgers}`,
+`Autopilot {account_id, rules}`. Limits enforced on-chain: 1..=8 rules, 1..=3 conditions, cooldown > 0, hubs differ
+for moves and rate gaps, percent 1..=10000 bps, fixed >= 1 USDC, positive levels. Events: `AutopilotSet`,
+`AutopilotCleared`, `Fired {user, autopilot_id, rule_index, kind, amount, from_hub, to_hub, observed[]}`.
+
+Semantics: rules are walked top to bottom; a rule still in cooldown is skipped; a rule whose conditions hold but
+whose action resolves to nothing (no collateral, no debt, empty wallet, illiquid hub) is skipped and the next rule is
+tried; the first rule that executes ends the tick. Stale or missing oracle prices make `FxPrice` false instead of
+panicking. Tests: 8 (helpers, validation, registries, and three scenario tests against mock controller / pool /
+oracle with a real Stellar asset contract).
+
+The keeper and `setup-rules.ts` still speak the v1 interface at this point; section C updates them.

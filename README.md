@@ -93,7 +93,7 @@ The contract source was renamed from `niet_*` to `koul_*` after these deployment
 Cargo.toml, rust-toolchain.toml   workspace, Rust 1.91.1 pinned
 scripts/env.sh                    PATH and toolchain pins, source it before any build or deploy
 contracts/
-  koul_router/                    the router: Rules, tick, set_rules, get_rules, upgrade, set_oracle, unit tests
+  koul_router/                    the rule engine: Autopilot, set_autopilot, tick, check, list_users, upgrade, set_oracle, tests
   koul_agent_policy/              the policy the agent key is bound to
   koul_mock_fx/                   Reflector-shaped mock oracle with set_price
   noop_policy/, deny_policy/      phase 0 probes, kept for the record
@@ -154,12 +154,12 @@ Upgrading the live router in place, so the address and every user's rules surviv
 
 ```sh
 source scripts/env.sh
-stellar contract upload --wasm target/wasm32v1-none/release/koul_router.wasm --source koul-testnet --network testnet
+stellar contract upload --wasm target/wasm32v1-none/release/koul_router.wasm --source niet-testnet --network testnet
 # prints the new wasm hash, then
-stellar contract invoke --id CBHRTWXARGZCUDBE7IX4SZV7GDFA6PRQICZQPUSOUPN3YDCVPXQBMT2P --source koul-testnet --network testnet -- upgrade --new_wasm_hash <hash>
+stellar contract invoke --id CBHRTWXARGZCUDBE7IX4SZV7GDFA6PRQICZQPUSOUPN3YDCVPXQBMT2P --source niet-testnet --network testnet -- upgrade --new_wasm_hash <hash>
 ```
 
-`koul-testnet` is the stellar CLI identity holding the keeper secret. Create it with `stellar keys add koul-testnet --secret-key` and paste the same secret that goes into `KEEPER_SECRET` below.
+`niet-testnet` is the stellar CLI identity holding the keeper secret (created before the rename; the name is local to this machine). Create yours with `stellar keys add niet-testnet --secret-key` and paste the same secret that goes into `KEEPER_SECRET` below.
 
 Deploying fresh contracts follows the same pattern with `stellar contract deploy` and the constructor arguments listed in each contract's `__constructor`. The router takes `(admin, controller, pool, usdc, oracle, spoke_id)`, the policy takes nothing, the oracle takes `(admin)`.
 

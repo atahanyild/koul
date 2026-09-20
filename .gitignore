@@ -10,3 +10,4 @@ node_modules/
 dist/
 .phase0-state.json
 .env.local
+test_snapshots/
