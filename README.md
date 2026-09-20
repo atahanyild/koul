@@ -1,14 +1,20 @@
 # Koul
 
-**Say what should happen to your money and when. Koul turns it into rules that live on Stellar and execute themselves.**
+## ▶ Try it live: https://koul-stellar.vercel.app
 
-Live app: **https://koul-stellar.vercel.app** · Oracle admin (demo lever): **https://koul-oracle.vercel.app/oracle** ·
-Repo: **https://github.com/atahanyild/koul** · Pitch deck: _add link_ · Stellar **testnet** throughout.
+**Say what should happen to your money and when. Koul turns it into rules that live on Stellar and execute
+themselves.** Stellar **testnet**, no login, no seed phrase.
+
+| | |
+|---|---|
+| **Live app** | **https://koul-stellar.vercel.app** |
+| Oracle admin, the demo lever for USD/TRY | https://koul-oracle.vercel.app/oracle |
+| Repo | https://github.com/atahanyild/koul |
+| Pitch deck | _add link_ |
+| Judge walkthrough | [How to evaluate](#how-to-evaluate), eight steps on the live app |
+| Paste-ready summary | [`docs/submission-summary.md`](docs/submission-summary.md) |
 
 ---
-
-A short, paste-ready version of this for a submission form is in
-[`docs/submission-summary.md`](docs/submission-summary.md).
 
 ## Overview
 
