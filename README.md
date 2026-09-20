@@ -220,7 +220,31 @@ pnpm test          # vitest, runs the ported landing account tests (9 cases)
 pnpm typecheck
 ```
 
-The typed SDK is being built in `packages/core`. Its `Autopilot` JSON uses decimal strings for u64/i128 values to avoid JavaScript precision loss. `autopilotSchema`, `validateAutopilot`, `encodeAutopilot`, and `decodeAutopilot` are available now. From `packages/core`, run `pnpm install`, `pnpm test`, and `pnpm typecheck`. Contract reads and unsigned transaction builders are the next step; see PLAN.md section D.
+From `packages/core`, run `pnpm install`, `pnpm test`, and `pnpm typecheck` to check the typed SDK.
+
+### Frontend integration (`@koul/core`)
+
+`packages/core` exports `Autopilot` and its strict `autopilotSchema`, `validateAutopilot`, `encodeAutopilot` and `decodeAutopilot`. Monetary values in the JSON schema are decimal strings of the contract's base units: USDC uses 7 decimals, health factor uses 18, oracle prices use 14. Do not pass JavaScript numbers for these values.
+
+`KoulReader` takes an RPC URL, network passphrase, a funded G-account public key for simulation, and the router, oracle, controller, pool, USDC and XLM contract addresses. Its methods are `readPortfolio(address, accountId?)`, `readOracle(asset?)`, `simulateTick(user, id)`, `checkAutopilot(user, id)`, and `readFired(user, startLedger, limit?)`. `readPortfolio` discovers the account ID from the user's first stored autopilot; pass `accountId` explicitly before the first autopilot is saved. Balances and position amounts are returned as `bigint` base units, rates and utilisation as RAY values, and health factor as WAD. `readFired` requires a starting ledger so callers can paginate within the RPC event retention window. `simulateTick` is a simulation of the authenticated router call and never submits it.
+
+`KoulWriter` adds the policy address, Ed25519 verifier and XOXNO spoke ID. Each `build*` method returns an unsigned assembled transaction for `kit.signAndSubmit`:
+
+```ts
+import { KoulReader, KoulWriter, liraShield, permissionsFor, validateAutopilot } from "@koul/core";
+
+const ap = liraShield(accountId.toString());
+const errors = validateAutopilot(ap);
+if (errors.length) throw new Error(errors.join("; "));
+const permissionSheet = permissionsFor(ap, { router, controller, pool, usdc });
+const reader = new KoulReader({ rpcUrl, networkPassphrase, publicKey, router, oracle, controller, pool, usdc, xlm });
+const writer = new KoulWriter({ rpcUrl, networkPassphrase, publicKey, router, oracle, controller, pool, usdc, xlm, policy, ed25519Verifier, spoke: 3 });
+const states = await reader.checkAutopilot(wallet, 1);
+const tx = await writer.buildSetAutopilot(wallet, 1, ap);
+await kit.signAndSubmit(tx);
+```
+
+Other builders: `buildClearAutopilot`, `buildGrantAgent(kit, ap, agentRawPublicKey, days, name)`, `buildRevokeAgent(kit, ruleId)`, `buildSupply`, `buildWithdraw`, `buildBorrow`, and `buildTransfer`. `permissionsFor` returns the minimum router, controller and USDC call list plus transfer recipients and short descriptions for the arm sheet. Templates are `liraShield(accountId)`, `yieldOnly(accountId)`, and `healthGuard(accountId)`. The SDK package is local; workspace wiring into the teammate's frontend is still pending.
 
 ### 3. Web app
 

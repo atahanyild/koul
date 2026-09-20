@@ -8,6 +8,9 @@ dependencies:
   '@stellar/stellar-sdk':
     specifier: 16.0.1
     version: 16.0.1
+  smart-account-kit:
+    specifier: 0.6.2
+    version: 0.6.2(@stellar/stellar-sdk@16.0.1)
   zod:
     specifier: ^3.25.76
     version: 3.25.76
@@ -454,6 +457,10 @@ packages:
     dev: true
     optional: true
 
+  /@simplewebauthn/browser@13.3.0:
+    resolution: {integrity: sha512-BE/UWv6FOToAdVk0EokzkqQQDOWtNydYlY6+OrmiZ5SCNmb41VehttboTetUM3T/fr6EAFYVXjz4My2wg230rQ==}
+    dev: false
+
   /@stellar/js-xdr@4.0.0:
     resolution: {integrity: sha512-+NmNa7Tk5BI5XFdy/6xGTqAN4J9a9KgCrCGhj2uEUTCBhLkch0M+QbKzNH8zEnejWe0p8w+0q5hUVX6L3OzoVA==}
     engines: {node: '>=20.0.0', pnpm: '>=9.0.0'}
@@ -589,6 +596,11 @@ packages:
 
   /base64-js@1.5.1:
     resolution: {integrity: sha512-AKpaYlHn8t4SVbOHCy+b5+KKgvR4vrsD8vbvrbiQJps7fKDTkjkDry6ji0rUJjC0kzbNePLwzxq8iypo41qeWA==}
+    dev: false
+
+  /base64url@3.0.1:
+    resolution: {integrity: sha512-ir1UPr3dkwexU7FdV8qBBbNDRUhMmIekYMFZfi+C/sLNnRESKPl23nB9b2pltqfOQNnGzsDdId90AEtG5tCx4A==}
+    engines: {node: '>=6.0.0'}
     dev: false
 
   /bignumber.js@11.1.5:
@@ -966,6 +978,31 @@ packages:
   /siginfo@2.0.0:
     resolution: {integrity: sha512-ybx0WO1/8bSBLEWXZvEd7gMW3Sn3JFlW3TvX1nREbDLRNQNaeNN8WK0meBwPdAaOI7TtRRRJn/Es1zhrrCHu7g==}
     dev: true
+
+  /smart-account-kit-bindings@0.4.0(@stellar/stellar-sdk@16.0.1):
+    resolution: {integrity: sha512-ZYzSr/K1xF8Jn76mhrmkWaZWH0P3KyOdNzoQykPbhEaDtL1X/a7JdxyrKM6rEeEaCh+k/7GhTarzH97hoV2zrQ==}
+    peerDependencies:
+      '@stellar/stellar-sdk': '>=16.0.0'
+    dependencies:
+      '@stellar/stellar-sdk': 16.0.1
+      buffer: 6.0.3
+    dev: false
+
+  /smart-account-kit@0.6.2(@stellar/stellar-sdk@16.0.1):
+    resolution: {integrity: sha512-ek7vC4/gQ57lj+1HTNdvIwF4oORvsNcKrCfriNg69Hi+kHFCthkvRyGg5EUNA2uf/AqYMnOjp0vejVoiege0tA==}
+    engines: {node: '>=22.0.0', pnpm: '>=10.0.0'}
+    peerDependencies:
+      '@creit-tech/stellar-wallets-kit': '>=2.1.0'
+      '@stellar/stellar-sdk': '>=16.0.0'
+    peerDependenciesMeta:
+      '@creit-tech/stellar-wallets-kit':
+        optional: true
+    dependencies:
+      '@simplewebauthn/browser': 13.3.0
+      '@stellar/stellar-sdk': 16.0.1
+      base64url: 3.0.1
+      smart-account-kit-bindings: 0.4.0(@stellar/stellar-sdk@16.0.1)
+    dev: false
 
   /smol-toml@1.8.0:
     resolution: {integrity: sha512-kCZr2V3ch9i00x8zXRhjUNVcjG9ijES5dDudkXvUVCT5QlJNQWElSJdZqyPemffHoLNUYwOcou0Fy+ojN0uHSQ==}

@@ -4,7 +4,7 @@ Read this first in every session. Update the checklist and the "Where we are" li
 
 ## Where we are
 
-2026-09-20 (current): sections A, B, C are done and proven live (see `docs/build-log.md`, "Router v2", "Policy v2", "Keeper v2"). D1-D3 are implemented in `packages/core`: strict JSON schema, contract ScVal codec and mirrored validation. Next: D4 reads. The package is not yet wired into a workspace or frontend. The `web/` prototype is stale against the new router and policy until D rewires it.
+2026-09-20 (current): sections A, B, C are done and proven live (see `docs/build-log.md`, "Router v2", "Policy v2", "Keeper v2"). D1-D8 are implemented in `packages/core`: strict JSON schema, contract ScVal codec, validation, reads, unsigned writes, permissions, templates and frontend integration guide. D4/D5 are typechecked but have not had a live SDK smoke test. Next: E (sentence to rules), then F/G/H. The package is not yet wired into a workspace or the teammate's frontend. The `web/` prototype still speaks the old router and policy interfaces.
 
 Earlier: the router is a rule engine on its fixed address; the policy is redeployed at `CBDQPSGJ...5AR2` with a pinned account id and a withdraw-recipient check; the keeper is stateless and the three scenarios fired through the new stack. Deviations from the sketch below, all deliberate: `tick` returns `Option<Executed {rule_index, kind, amount, from_hub, to_hub}>`; `check` returns `Vec<RuleState {ready, holds, conditions: Vec<ConditionState {holds, observed}>, last_fired}>`; `RepayWithCollateral(withdraw_hub, repay_hub, amount)` names both hubs; `KoulAgentParams` has `account_id`.
 
@@ -75,11 +75,11 @@ Constraints carried over: amounts snapped to 0.01 USDC, min move 1 USDC, repay r
 - [x] D1 TypeScript types mirroring the contract types, plus `zod` schemas (the strict data type the LLM must produce)
 - [x] D2 `encodeAutopilot(ap) -> ScVal`, `decodeAutopilot(ScVal) -> Autopilot`, round-trip tests
 - [x] D3 `validateAutopilot(ap)` with the same limits the contract enforces, returning readable errors
-- [ ] D4 reads: `readPortfolio(address)` (idle USDC, XLM, positions per hub, health factor, hub rates, cash, utilisation), `readOracle()`, `simulateTick(user, id)` (no signing, returns the action or none), `checkAutopilot(user, id)` (per condition truth), `readFired(user)` events
-- [ ] D5 writes as unsigned `AssembledTransaction`s the frontend hands to `kit.signAndSubmit`: `buildSetAutopilot`, `buildClearAutopilot`, `buildGrantAgent(days, neededCalls)`, `buildRevokeAgent`, `buildSupply`, `buildWithdraw`, `buildBorrow`, `buildTransfer`
-- [ ] D6 `permissionsFor(ap)` -> the minimal allowlist and the plain-English list for the arm sheet
-- [ ] D7 templates: Lira shield, Yield only, Health guard as `Autopilot` constants
-- [ ] D8 README section "Frontend integration" documenting D1 to D7 with examples
+- [x] D4 reads: `readPortfolio(address, accountId?)` (idle USDC, XLM, positions per hub, health factor, hub rates, cash, utilisation), `readOracle()`, `simulateTick(user, id)` (no signing, returns the action or none), `checkAutopilot(user, id)` (per condition truth), `readFired(user, startLedger)` events
+- [x] D5 writes as unsigned `AssembledTransaction`s the frontend hands to `kit.signAndSubmit`: `buildSetAutopilot`, `buildClearAutopilot`, `buildGrantAgent`, `buildRevokeAgent`, `buildSupply`, `buildWithdraw`, `buildBorrow`, `buildTransfer`
+- [x] D6 `permissionsFor(ap, contracts)` -> the minimal allowlist and the plain-English list for the arm sheet
+- [x] D7 templates: Lira shield, Yield only, Health guard as `Autopilot` factories taking an account ID
+- [x] D8 README section "Frontend integration" documenting D1 to D7 with examples
 
 ### E. Sentence to rules (`packages/core` + a server route the frontend app hosts)
 - [ ] E1 prompt + tool definition: Claude receives the vocabulary and returns an `Autopilot` matching the zod schema via structured output; unknown or unsupported asks come back in a `notes[]` field, never invented
