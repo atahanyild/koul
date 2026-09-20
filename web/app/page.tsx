@@ -28,8 +28,8 @@ export default function HomePage() {
       <section className="mb-12 sm:mb-16">
         <div className="max-w-3xl">
           <div className="label mb-4 text-muted-foreground">Koul · conditional execution on Stellar</div>
-          <h1 className="display-hero text-[3rem] sm:text-[4.25rem] lg:text-[5.25rem]">
-            Your rules,<br />executed <span className="text-saffron">on-chain</span>.
+          <h1 className="display-hero text-[2.75rem] sm:text-[4rem] lg:text-[4.75rem]">
+            Your rules, executed <span className="whitespace-nowrap text-clay">on-chain</span>.
           </h1>
           <p className="mt-5 max-w-xl text-base leading-relaxed text-muted-foreground sm:text-lg">
             Say what should happen to your position and when. Koul stores it as rules on Stellar and runs them against XOXNO lending from your own wallet, with a key that can only do what you allowed.

@@ -23,7 +23,7 @@ export function SidebarNav() {
           <Link key={href} href={href} aria-current={on ? "page" : undefined}
             className={cn("group flex h-10 items-center gap-3 rounded-lg px-3 text-sm transition-colors focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
               on ? "bg-surface-2 font-medium text-foreground" : "text-muted-foreground hover:bg-surface-2/70 hover:text-foreground")}>
-            <Icon className={cn("size-[18px]", on ? "text-saffron" : "text-muted-foreground group-hover:text-foreground")} strokeWidth={on ? 2 : 1.75} aria-hidden />
+            <Icon className={cn("size-[18px]", on ? "text-clay" : "text-muted-foreground group-hover:text-foreground")} strokeWidth={on ? 2 : 1.75} aria-hidden />
             {label}
           </Link>
         );
@@ -44,8 +44,8 @@ export function BottomTabs() {
               <Link href={href} aria-current={on ? "page" : undefined}
                 className={cn("flex min-h-[3.75rem] flex-col items-center justify-center gap-1 text-[10.5px] font-medium tracking-wide transition-colors focus-visible:outline-none focus-visible:ring-inset focus-visible:ring-3 focus-visible:ring-ring/50",
                   on ? "text-foreground" : "text-muted-foreground")}>
-                <span className={cn("flex h-7 w-12 items-center justify-center rounded-full transition-colors", on && "bg-saffron-soft")}>
-                  <Icon className={cn("size-[20px]", on && "text-saffron")} strokeWidth={on ? 2.1 : 1.75} aria-hidden />
+                <span className={cn("flex h-7 w-12 items-center justify-center rounded-full transition-colors", on && "bg-clay-soft")}>
+                  <Icon className={cn("size-[20px]", on && "text-clay")} strokeWidth={on ? 2.1 : 1.75} aria-hidden />
                 </span>
                 {label}
               </Link>

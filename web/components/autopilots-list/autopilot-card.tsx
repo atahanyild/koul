@@ -13,7 +13,7 @@ import { fmtDuration, fmtRelative } from "@/lib/format";
 import { Numbered } from "@/components/activity/numbered";
 
 export const STATUS: Record<AutopilotStatus, { label: string; tone: PillTone; dot: boolean; pulse: boolean }> = {
-  armed: { label: "Armed", tone: "saffron", dot: true, pulse: true },
+  armed: { label: "Armed", tone: "clay", dot: true, pulse: true },
   paused: { label: "Paused", tone: "warning", dot: true, pulse: false },
   draft: { label: "Draft", tone: "neutral", dot: false, pulse: false },
   ended: { label: "Ended", tone: "neutral", dot: false, pulse: false },
@@ -56,7 +56,7 @@ export function AutopilotCard({ ap, live, liveLoading, now, className }: { ap: A
   const summary = summarize(ap, now);
 
   return (
-    <CardLink href={`/autopilots/${ap.id}`} className={cn("group/ap flex h-full flex-col", ev.firing && ap.status === "armed" && "glow-ring border-saffron/40", className)}>
+    <CardLink href={`/autopilots/${ap.id}`} className={cn("group/ap flex h-full flex-col", ev.firing && ap.status === "armed" && "glow-ring border-clay/40", className)}>
       <div className="flex items-start justify-between gap-3">
         <h3 className="display min-w-0 truncate text-[1.375rem] leading-tight">{ap.name}</h3>
         <StatusPill status={ap.status} className="mt-0.5" />
@@ -77,7 +77,7 @@ export function AutopilotCard({ ap, live, liveLoading, now, className }: { ap: A
             const isFiring = ev.firing?.ruleId === r.id;
             return (
               <li key={r.id}>
-                <Pill tone={isFiring ? "saffron" : "outline"} className={cn(!r.enabled && "line-through opacity-60")}>
+                <Pill tone={isFiring ? "clay" : "outline"} className={cn(!r.enabled && "line-through opacity-60")}>
                   <span className="num opacity-60">{i + 1}</span>
                   {r.name}
                 </Pill>
@@ -92,8 +92,8 @@ export function AutopilotCard({ ap, live, liveLoading, now, className }: { ap: A
           {liveLoading ? (
             <Sk className="h-4 w-56 max-w-full" />
           ) : (
-            <p className={cn("flex items-start gap-2 text-sm leading-snug", ev.firing ? "text-saffron" : "text-muted-foreground")} aria-live="polite">
-              {ev.firing ? <LiveDot tone="saffron" className="mt-[5px]" /> : <span className="mt-[6px] inline-flex size-2 shrink-0 rounded-full border border-current opacity-50" aria-hidden />}
+            <p className={cn("flex items-start gap-2 text-sm leading-snug", ev.firing ? "text-clay" : "text-muted-foreground")} aria-live="polite">
+              {ev.firing ? <LiveDot tone="clay" className="mt-[5px]" /> : <span className="mt-[6px] inline-flex size-2 shrink-0 rounded-full border border-current opacity-50" aria-hidden />}
               <span className="min-w-0">
                 {ev.firing ? (
                   <>

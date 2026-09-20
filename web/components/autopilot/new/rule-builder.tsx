@@ -115,7 +115,7 @@ function EmptyBuilder({ onUseTemplate, onAddRule }: { onUseTemplate: (t: Templat
             >
               <span className="display text-xl leading-tight">{t.name}</span>
               <span className="mt-1 text-sm text-muted-foreground">{t.tagline}</span>
-              <span className="mt-auto pt-3 text-xs font-medium text-saffron">
+              <span className="mt-auto pt-3 text-xs font-medium text-clay">
                 <span className="num">{count}</span> rule{count === 1 ? "" : "s"}
               </span>
             </button>

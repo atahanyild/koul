@@ -107,7 +107,7 @@ function MarketCard({ market, paysMost, index }: { market: MarketReading; paysMo
       whileTap={{ scale: 0.99 }}
       className={cn(
         "group flex h-full flex-col rounded-xl border bg-card p-4 transition-colors hover:border-foreground/30 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 sm:p-5",
-        paysMost ? "border-saffron/40" : "border-border",
+        paysMost ? "border-clay/40" : "border-border",
       )}
     >
       <div className="flex items-start justify-between gap-2">
@@ -119,7 +119,7 @@ function MarketCard({ market, paysMost, index }: { market: MarketReading; paysMo
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          {paysMost && <Pill tone="saffron">Pays most</Pill>}
+          {paysMost && <Pill tone="clay">Pays most</Pill>}
           <ArrowUpRight className="size-4 text-muted-foreground transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" aria-hidden />
         </div>
       </div>

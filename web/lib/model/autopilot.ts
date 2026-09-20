@@ -29,12 +29,14 @@ export interface Condition {
 }
 
 /** What the router can actually do. One action per rule. */
-export type ActionKind = "move_to_best_pool" | "repay_from_wallet" | "withdraw_to_wallet";
+export type ActionKind = "supply_from_wallet" | "move_to_best_pool" | "repay_from_wallet" | "withdraw_to_wallet";
 
 export interface Action {
   kind: ActionKind;
-  /** "all" or a fixed USDC amount. Only "all" is executable today. */
+  /** "all" or a fixed USDC amount. */
   amount: "all" | number;
+  /** Which pool the action names, where it needs one (supply and withdraw). Defaults to the second hub. */
+  pool?: PoolId;
 }
 
 export interface Rule {
@@ -76,7 +78,11 @@ export const CONDITION_LABELS: Record<ConditionKind, { subject: string; unit: st
 
 export const COMPARATOR_LABELS: Record<Comparator, string> = { gte: "is at or above", lte: "is at or below" };
 
-export const ACTION_LABELS: Record<ActionKind, { sentence: (amount: Action["amount"]) => string; technical: string }> = {
+export const ACTION_LABELS: Record<ActionKind, { sentence: (amount: Action["amount"], pool?: PoolId) => string; technical: string }> = {
+  supply_from_wallet: {
+    sentence: (a, pool) => `put ${a === "all" ? "the idle USDC in my wallet" : `${a} USDC from my wallet`} into ${pool ? POOLS[pool].name : "the pool"}`,
+    technical: "controller.supply with idle wallet USDC; this is how an autopilot opens a position",
+  },
   move_to_best_pool: {
     sentence: (a) => `move ${a === "all" ? "all" : `${a} USDC of`} my supplied USDC to the pool that pays more`,
     technical: "controller.withdraw from the lower-rate hub, controller.supply to the higher-rate hub, one transaction",
@@ -204,6 +210,13 @@ function describeAction(r: Rule, live: LiveValues): { actionable: boolean; block
       if ((live.idleUsdc ?? 0) < 0.01) return { actionable: false, blocker: "No idle USDC in the wallet", wouldDo: "repay the loan from the wallet" };
       return { actionable: true, blocker: null, wouldDo: `repay the loan with up to ${fmt2(live.idleUsdc ?? 0)} USDC from the wallet` };
     }
+    case "supply_from_wallet": {
+      const idle = live.idleUsdc ?? 0;
+      const target = r.action.pool ?? "B";
+      const wouldDo = `put ${fmt2(idle)} USDC into ${POOLS[target].name}`;
+      if (idle < 1) return { actionable: false, blocker: "No idle USDC in the wallet", wouldDo };
+      return { actionable: true, blocker: null, wouldDo };
+    }
     case "withdraw_to_wallet": {
       const total = a + b;
       const wouldDo = `withdraw ${fmt2(total)} USDC to the wallet`;
@@ -224,7 +237,7 @@ export function conditionSentence(c: Condition): { subject: string; verb: string
 }
 
 export function actionSentence(a: Action): string {
-  return ACTION_LABELS[a.kind].sentence(a.amount);
+  return ACTION_LABELS[a.kind].sentence(a.amount, a.pool);
 }
 
 // ---------------------------------------------------------------- templates
@@ -233,6 +246,7 @@ let counter = 0;
 export const newId = (prefix = "r") => `${prefix}_${Date.now().toString(36)}_${(counter++).toString(36)}`;
 
 export const RULE_DEFAULTS = {
+  idle_usdc: { value: 10, cooldownSec: 3600 },
   health_factor: { value: 1.25, cooldownSec: 3600 },
   rate_gap: { value: 1, cooldownSec: 6 * 3600 },
   fx_price: { value: 50, cooldownSec: 86400 },
@@ -251,6 +265,16 @@ export interface Template {
 }
 
 export const TEMPLATES: Template[] = [
+  {
+    id: "put-to-work",
+    name: "Put it to work",
+    tagline: "Idle dollars never sit still.",
+    description: "Whenever I have at least 10 USDC sitting in my wallet, put it into the pool that pays more.",
+    rules: () => [
+      makeRule({ name: "Put it to work", conditions: [{ kind: "idle_usdc", comparator: "gte", value: 10 }], action: { kind: "supply_from_wallet", amount: "all", pool: "B" }, cooldownSec: 1800 }),
+      makeRule({ name: "Best rate", conditions: [{ kind: "rate_gap", comparator: "gte", value: 1 }], action: { kind: "move_to_best_pool", amount: "all" }, cooldownSec: 6 * 3600 }),
+    ],
+  },
   {
     id: "lira-shield",
     name: "Lira shield",
@@ -344,6 +368,10 @@ export function toCoreAutopilot(ap: Pick<Autopilot, "rules">, accountId: bigint)
         if (gapIndex >= 0) { unsupported.push(r); continue; }
         for (const hub of HUBS) push(conditionsFor(0), { type: "WithdrawToWallet", hub, amount });
         break;
+      case "supply_from_wallet":
+        if (gapIndex >= 0) { unsupported.push(r); continue; }
+        push(conditionsFor(0), { type: "SupplyFromWallet", hub: POOLS[r.action.pool ?? "B"].hub, amount });
+        break;
     }
   }
   return { autopilot: { account_id: accountId.toString(), rules }, unsupported, ruleIds };
@@ -358,21 +386,22 @@ function fromCoreCondition(c: CoreCondition): Condition {
   }
 }
 
-const RULE_NAMES: Record<ActionKind, string> = { move_to_best_pool: "Best rate", repay_from_wallet: "Stay safe", withdraw_to_wallet: "Lira exit" };
+const RULE_NAMES: Record<ActionKind, string> = { supply_from_wallet: "Put it to work", move_to_best_pool: "Best rate", repay_from_wallet: "Stay safe", withdraw_to_wallet: "Lira exit" };
 
 /** Read the router's autopilot back into rule cards, folding the per-hub pairs back into one rule each. */
 export function fromCoreAutopilot(core: CoreAutopilot): Rule[] {
   const out: Rule[] = [];
   const shapes: string[] = [];
   core.rules.forEach((r, index) => {
-    const kind: ActionKind = r.action.type === "MoveSupply" ? "move_to_best_pool" : r.action.type === "WithdrawToWallet" ? "withdraw_to_wallet" : "repay_from_wallet";
+    const kind: ActionKind = r.action.type === "MoveSupply" ? "move_to_best_pool" : r.action.type === "WithdrawToWallet" ? "withdraw_to_wallet" : r.action.type === "SupplyFromWallet" ? "supply_from_wallet" : "repay_from_wallet";
     const conditions = r.conditions.map(fromCoreCondition);
     const amount = fromAmount(r.action.amount);
-    const shape = JSON.stringify([kind, conditions, amount, r.match_all, r.cooldown_ledgers]);
+    const pool: PoolId | undefined = r.action.type === "SupplyFromWallet" ? poolByHub(r.action.hub) : undefined;
+    const shape = JSON.stringify([kind, conditions, amount, r.match_all, r.cooldown_ledgers, pool]);
     const prev = shapes.length ? shapes[shapes.length - 1] : null;
     if (prev === shape) return;
     shapes.push(shape);
-    out.push(makeRule({ id: `chain_${index}`, name: RULE_NAMES[kind], conditions, match: r.match_all ? "all" : "any", action: { kind, amount }, cooldownSec: r.cooldown_ledgers * LEDGER_SECONDS }));
+    out.push(makeRule({ id: `chain_${index}`, name: RULE_NAMES[kind], conditions, match: r.match_all ? "all" : "any", action: { kind, amount, ...(pool ? { pool } : {}) }, cooldownSec: r.cooldown_ledgers * LEDGER_SECONDS }));
   });
   return out;
 }
@@ -382,6 +411,7 @@ export function permissionsFor(ap: Pick<Autopilot, "rules">): { can: string[]; t
   const kinds = new Set(ap.rules.filter((r) => r.enabled).map((r) => r.action.kind));
   const can: string[] = [];
   const technical: string[] = ["router.tick"];
+  if (kinds.has("supply_from_wallet")) { can.push("Put idle USDC from this wallet into your XOXNO position"); technical.push("controller.supply", "usdc.transfer → XOXNO pool only"); }
   if (kinds.has("move_to_best_pool")) { can.push("Move your USDC between the two USDC hubs"); technical.push("controller.withdraw", "controller.supply", "usdc.transfer → XOXNO pool only"); }
   if (kinds.has("repay_from_wallet")) { can.push("Repay your loan with USDC from this wallet"); technical.push("controller.repay", "usdc.transfer → XOXNO pool only"); }
   if (kinds.has("withdraw_to_wallet")) { can.push("Withdraw your USDC from the pools back into this wallet"); technical.push("controller.withdraw"); }

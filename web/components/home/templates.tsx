@@ -31,7 +31,7 @@ export function TemplateCards() {
                 <RuleLines key={i} rule={r} />
               ))}
             </ol>
-            <div className="mt-5 flex items-center gap-1 text-xs font-medium text-saffron">
+            <div className="mt-5 flex items-center gap-1 text-xs font-medium text-clay">
               Use this template <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" aria-hidden />
             </div>
           </CardLink>

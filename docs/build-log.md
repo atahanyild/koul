@@ -228,3 +228,30 @@ broken anchor. No forward or cleanup was submitted, and no wallet funds were mov
 Transfer ID `7eb83fc2-c8a3-4922-9357-87e867c2b648` has a private local record at
 `/private/tmp/koul-funds-smoke/7eb83fc2-c8a3-4922-9357-87e867c2b648.json`. It contains the SEP bearer token and
 pre-authorized envelopes, so do not publish the record. Resume or abort only after the anchor is healthy.
+
+## Router v3: an autopilot can open a position (2026-09-20)
+
+`Action::SupplyFromWallet(hub, amount)` added: it takes the wallet's idle USDC, resolves the amount against that
+balance and calls `controller.supply` into `hub`. Without it a rule could only move a position that already existed,
+so a demo that starts from an empty wallet had nothing to show. The policy already allowlists `controller.supply`
+and USDC transfers to the pool, so no policy change was needed.
+
+| Step | Result |
+|---|---|
+| `stellar contract upload` | wasm `2b8822123c73a09f0d7ab962faf90dd6bbcf04999792010890c4e5c29f10f96d` |
+| `upgrade(new_wasm_hash)` | tx `bed45bc361d8fc4468a2bdf78798c98ff859417f7ca625fb2c239b3668db5a06` |
+| `set_autopilot(CBHMG4IG..., 2, [idle >= 10 USDC -> SupplyFromWallet(hub 1, Fixed 5 USDC), cooldown 20])` (passkey) | tx `0544d798790f9552ed183ec403799cc9c57758697c8cab1edff34b33c4d2c220`; `check` reported the condition true with 25.82 USDC observed |
+| keeper pass, agent-signed | `tick -> supply rule 0 amount 5.00 USDC hub 1`, auth `tick > supply > transfer`, tx `a51bb8b56525b2228154e7384eb7f3c3664ef6e58efef54b41bd0a03c2b5923e` |
+| after | wallet 25.82 -> 20.82 USDC, hub 1 collateral 0.00 -> 5.00 |
+| `clear_autopilot(2)` (passkey) | tx `b5f8de8b2fa0232143f90bdd5015d49ca032d5a4953985637ae335cc8897b60a`, ids back to `[1]` |
+
+`@koul/core` carries the variant through the schema, codec and permissions; the web model exposes it as "put the idle
+USDC in my wallet into a pool" with a pool picker, and a new "Put it to work" template starts from it. Unit tests: 9.
+
+## Event reads fixed (2026-09-20)
+
+`readFired` asked for seven days of history while the testnet RPC keeps about `120000` ledgers, so the node rejected
+the call with a plain `{ code: -32600, message: "startLedger must be within the ledger range: ..." }`. That object
+reached the UI as "[object Object]" on Activity and on the Funds history. The reader now clamps the window to
+`getHealth().oldestLedger` and wraps RPC rejections in an `Error` carrying the node's own sentence (`rpcMessage`),
+which the web store also uses for anything else that throws a bare object.

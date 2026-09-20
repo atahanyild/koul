@@ -43,14 +43,14 @@ function Step({ n, state, title, children }: { n: number; state: StepState; titl
       <span
         className={cn(
           "num mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full text-[11px] font-medium",
-          state === "done" ? "bg-positive-soft text-positive" : state === "active" ? "bg-saffron-soft text-saffron" : "bg-surface-2 text-muted-foreground",
+          state === "done" ? "bg-positive-soft text-positive" : state === "active" ? "bg-clay-soft text-clay" : "bg-surface-2 text-muted-foreground",
         )}
         aria-hidden
       >
         {state === "done" ? <Check className="size-3" /> : n}
       </span>
       <div className="min-w-0">
-        <div className={cn("text-sm", state === "active" && "text-saffron")}>{title}</div>
+        <div className={cn("text-sm", state === "active" && "text-clay")}>{title}</div>
         <div className="text-xs text-muted-foreground">{children}</div>
       </div>
     </li>

@@ -15,8 +15,8 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { LiveDot, Term } from "@/components/koul/primitives";
 import {
-  ACTION_LABELS, CONDITION_LABELS, COOLDOWN_OPTIONS, conditionSentence, evaluateAutopilot, makeRule,
-  type ActionKind, type Comparator, type Condition, type ConditionKind, type LiveValues, type Rule,
+  ACTION_LABELS, CONDITION_LABELS, COOLDOWN_OPTIONS, POOLS, conditionSentence, evaluateAutopilot, makeRule,
+  type ActionKind, type Comparator, type Condition, type ConditionKind, type LiveValues, type PoolId, type Rule,
 } from "@/lib/model/autopilot";
 import { Segmented } from "./segmented";
 import { NowPill } from "./rule-card";
@@ -28,6 +28,7 @@ const KIND_ITEMS: { value: ConditionKind; label: string }[] = [
   { value: "idle_usdc", label: "Idle USDC in my wallet" },
 ];
 const ACTION_ITEMS: { value: ActionKind; label: string }[] = [
+  { value: "supply_from_wallet", label: "Put the idle USDC in my wallet into a pool" },
   { value: "withdraw_to_wallet", label: "Withdraw from the pools to my wallet" },
   { value: "move_to_best_pool", label: "Move my USDC to the pool that pays more" },
   { value: "repay_from_wallet", label: "Repay my loan from the USDC in my wallet" },
@@ -207,6 +208,14 @@ export function RuleEditorSheet({ open, onOpenChange, rule, live, onSave, onDele
             <SelectTrigger className="h-11 w-full data-[size=default]:h-11" aria-label="What to do"><SelectValue /></SelectTrigger>
             <SelectContent>{ACTION_ITEMS.map((a) => <SelectItem key={a.value} value={a.value}>{a.label}</SelectItem>)}</SelectContent>
           </Select>
+          {draft.action.kind === "supply_from_wallet" && (
+            <Segmented
+              label="Into which pool"
+              value={draft.action.pool ?? "B"}
+              onChange={(v) => patch((r) => ({ ...r, action: { ...r.action, pool: v as PoolId } }))}
+              options={(["A", "B"] as PoolId[]).map((id) => ({ value: id, label: POOLS[id].name }))}
+            />
+          )}
           <div className="grid grid-cols-[minmax(0,1fr)_7.5rem] gap-2">
             <Segmented
               label="How much"
@@ -221,7 +230,7 @@ export function RuleEditorSheet({ open, onOpenChange, rule, live, onSave, onDele
           </div>
           <p className="text-xs text-muted-foreground">
             <Term detail={ACTION_LABELS[draft.action.kind].technical}>Technical</Term>
-            {draft.action.amount !== "all" && <span className="text-warning"> · Only “everything” can run on-chain today; an amount is saved locally.</span>}
+            {draft.action.amount !== "all" && draft.action.amount < 1 && <span className="text-warning"> · The router ignores anything under 1 USDC.</span>}
           </p>
         </fieldset>
 
@@ -242,16 +251,16 @@ export function RuleEditorSheet({ open, onOpenChange, rule, live, onSave, onDele
           <Switch id="rule-enabled" checked={draft.enabled} onCheckedChange={(v) => patch((r) => ({ ...r, enabled: v }))} />
         </div>
 
-        <div className={cn("flex items-start gap-3 rounded-lg p-3 text-sm", evalLine.tone === "saffron" ? "bg-saffron-soft" : "bg-surface-2")} role="status" aria-live="polite">
-          <LiveDot tone={evalLine.tone === "saffron" ? "saffron" : evalLine.tone === "warning" ? "warning" : "muted"} className="mt-1.5" />
-          <span className={cn("leading-relaxed", evalLine.tone === "saffron" && "text-saffron")}>{evalLine.text}</span>
+        <div className={cn("flex items-start gap-3 rounded-lg p-3 text-sm", evalLine.tone === "clay" ? "bg-clay-soft" : "bg-surface-2")} role="status" aria-live="polite">
+          <LiveDot tone={evalLine.tone === "clay" ? "clay" : evalLine.tone === "warning" ? "warning" : "muted"} className="mt-1.5" />
+          <span className={cn("leading-relaxed", evalLine.tone === "clay" && "text-clay")}>{evalLine.text}</span>
         </div>
       </div>
     </CenterDialog>
   );
 }
 
-function describeEval(rule: Rule, ev: ReturnType<typeof evaluateAutopilot>["rules"][number]): { text: string; tone: "saffron" | "neutral" | "warning" } {
+function describeEval(rule: Rule, ev: ReturnType<typeof evaluateAutopilot>["rules"][number]): { text: string; tone: "clay" | "neutral" | "warning" } {
   if (!rule.enabled) return { text: "Switched off. Koul skips this rule until you turn it on.", tone: "neutral" };
   const parts = rule.conditions.map((c, i) => {
     const s = conditionSentence(c);
@@ -260,7 +269,7 @@ function describeEval(rule: Rule, ev: ReturnType<typeof evaluateAutopilot>["rule
     return `${s.subject} is ${now}, the level is ${s.value}`;
   });
   const unreadable = ev.conditions.some((c) => c.met === null && c.nowLabel !== "no loan");
-  if (ev.wouldRun) return { text: `True now: Koul would ${ev.wouldDo}.`, tone: "saffron" };
+  if (ev.wouldRun) return { text: `True now: Koul would ${ev.wouldDo}.`, tone: "clay" };
   if (ev.conditionsMet) return { text: `True, nothing to do: ${ev.blocker ?? "nothing to act on"}.`, tone: "neutral" };
   if (unreadable) return { text: `No reading right now: ${parts.join("; ")}.`, tone: "warning" };
   return { text: `Not true now: ${parts.join("; ")}.`, tone: "neutral" };

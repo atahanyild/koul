@@ -40,6 +40,17 @@ export interface Portfolio {
 export interface OracleReading { asset: string; price: bigint; timestamp: bigint; decimals: number; ageSeconds: number }
 export interface FiredEvent { ledger: number; txHash: string; user: string; autopilot_id: number; rule_index: number; kind: string; amount: bigint; from_hub: number; to_hub: number; observed: bigint[] }
 
+/** Turn whatever the RPC threw into a sentence. */
+export function rpcMessage(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  if (err && typeof err === "object") {
+    const o = err as { message?: unknown; error?: { message?: unknown }; code?: unknown };
+    const m = typeof o.message === "string" ? o.message : typeof o.error?.message === "string" ? o.error.message : null;
+    if (m) return m;
+  }
+  return String(err);
+}
+
 const EVENT_WINDOW = 5000;
 const EVENT_PAGE = 200;
 type Call = (args: Record<string, unknown>) => Promise<contract.AssembledTransaction<unknown>>;
@@ -155,18 +166,20 @@ export class KoulReader {
   }
 
   /**
-   * `Fired` events for one wallet from `startLedger` to now. The RPC answers a window wider than a few thousand
-   * ledgers with an empty list instead of an error, so the range is walked in windows and each window is paged.
+   * `Fired` events for one wallet from `startLedger` to now. Two limits of the RPC are handled here: it only keeps a
+   * few days of history, and it answers a window wider than a few thousand ledgers with an empty list instead of an
+   * error. So the range is clamped to what the node still has and then walked in windows, each one paged.
    */
   async readFired(user: string, startLedger: number, limit = 100): Promise<FiredEvent[]> {
-    const latest = (await this.server.getLatestLedger()).sequence;
+    const [latest, oldest] = await this.ledgerRange();
     const topics = [[xdr.ScVal.scvSymbol("fired").toXDR("base64"), new Address(user).toScVal().toXDR("base64")]];
+    const filters = [{ type: "contract" as const, contractIds: [this.config.router], topics }];
     const out: FiredEvent[] = [];
-    for (let from = Math.max(startLedger, 1); from <= latest && out.length < limit; from += EVENT_WINDOW) {
+    for (let from = Math.max(startLedger, oldest); from <= latest && out.length < limit; from += EVENT_WINDOW) {
       const to = Math.min(from + EVENT_WINDOW - 1, latest);
       let cursor: string | undefined;
       do {
-        const res = await this.server.getEvents(cursor ? { cursor, limit: EVENT_PAGE, filters: [{ type: "contract", contractIds: [this.config.router], topics }] } : { startLedger: from, endLedger: to, limit: EVENT_PAGE, filters: [{ type: "contract", contractIds: [this.config.router], topics }] });
+        const res = await this.getEvents(cursor ? { cursor, limit: EVENT_PAGE, filters } : { startLedger: from, endLedger: to, limit: EVENT_PAGE, filters });
         for (const event of res.events) {
           if (event.ledger > to) break;
           const value = scValToNative(event.value) as Omit<FiredEvent, "ledger" | "txHash" | "user"> & { branch?: string };
@@ -178,5 +191,21 @@ export class KoulReader {
       } while (cursor && out.length < limit);
     }
     return out.slice(0, limit);
+  }
+
+  /** The window of ledgers this RPC still answers for, newest first. */
+  async ledgerRange(): Promise<[latest: number, oldest: number]> {
+    const health = await this.server.getHealth();
+    const latest = health.latestLedger ?? (await this.latestLedger());
+    return [latest, Math.max(1, (health.oldestLedger ?? 1) + 1)];
+  }
+
+  /** The RPC rejects with a plain `{ code, message }`, which would reach the UI as "[object Object]". */
+  private async getEvents(request: Parameters<rpc.Server["getEvents"]>[0]): Promise<rpc.Api.GetEventsResponse> {
+    try {
+      return await this.server.getEvents(request);
+    } catch (err) {
+      throw new Error(rpcMessage(err));
+    }
   }
 }

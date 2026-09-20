@@ -50,13 +50,13 @@ export function SentenceBox({ value, onChange, onSubmit, busy, lastSource, lastC
   };
 
   return (
-    <section aria-labelledby="sentence-title" className={cn("rounded-xl border border-saffron/50 bg-card p-4 sm:p-6", className)}>
+    <section aria-labelledby="sentence-title" className={cn("rounded-xl border border-clay/50 bg-card p-4 sm:p-6", className)}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h2 id="sentence-title" className="display text-2xl leading-tight">Say what you want, in your words</h2>
           <p className="mt-1 text-sm text-muted-foreground">Koul turns it into rules you can read. Only things the router can check and do; anything else is flagged, never invented.</p>
         </div>
-        <span className="hidden size-10 shrink-0 items-center justify-center rounded-full bg-saffron-soft text-saffron sm:inline-flex" aria-hidden>
+        <span className="hidden size-10 shrink-0 items-center justify-center rounded-full bg-clay-soft text-clay sm:inline-flex" aria-hidden>
           <Sparkles className="size-5" />
         </span>
       </div>
@@ -95,7 +95,7 @@ export function SentenceBox({ value, onChange, onSubmit, busy, lastSource, lastC
         <p className="text-xs text-muted-foreground" aria-live="polite">
           {lastCount !== null && lastSource ? (
             <span className="inline-flex flex-wrap items-center gap-2">
-              <Pill tone={lastCount > 0 ? "saffron" : "warning"}>
+              <Pill tone={lastCount > 0 ? "clay" : "warning"}>
                 <span className="num">{lastCount}</span> rule{lastCount === 1 ? "" : "s"} written
               </Pill>
               <span>{lastSource === "koul" ? "Written by Koul from your sentence." : "Matched by keywords; Koul's parser is not set up here."}</span>

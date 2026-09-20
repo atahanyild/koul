@@ -19,7 +19,7 @@ export function TransferProgress({ transfer, className }: { transfer: Transfer; 
   const done = transfer.steps.filter((s) => s.state === "done").length;
   const active = transfer.steps.some((s) => s.state === "active");
   const pct = transfer.status === "done" ? 100 : Math.round(((done + (active ? 0.45 : 0)) / total) * 100);
-  const tone = transfer.status === "failed" ? "bg-negative" : transfer.status === "done" ? "bg-positive" : "bg-saffron";
+  const tone = transfer.status === "failed" ? "bg-negative" : transfer.status === "done" ? "bg-positive" : "bg-clay";
   return (
     <div role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct} aria-label="Transfer progress" className={cn("h-1 w-full overflow-hidden rounded-full bg-surface-3", className)}>
       <div className={cn("h-full rounded-full transition-[width,background-color] duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]", tone)} style={{ width: `${pct}%` }} />
@@ -51,9 +51,9 @@ function StepRow({ step, last, extra }: { step: TransferStep; last: boolean; ext
   return (
     <li aria-current={active ? "step" : undefined} className={cn("relative flex gap-3.5", !last && "pb-6")}>
       {!last && <span aria-hidden className={cn("absolute top-6 bottom-0 left-[9px] w-px", done ? "bg-positive/40" : "bg-border")} />}
-      <span className={cn("mt-px flex size-5 shrink-0 items-center justify-center rounded-full", done && "bg-positive-soft text-positive", active && "bg-saffron-soft", pending && "border border-border bg-background", failed && "bg-negative-soft text-negative")} aria-hidden>
+      <span className={cn("mt-px flex size-5 shrink-0 items-center justify-center rounded-full", done && "bg-positive-soft text-positive", active && "bg-clay-soft", pending && "border border-border bg-background", failed && "bg-negative-soft text-negative")} aria-hidden>
         {done && <Check className="size-3" strokeWidth={3} />}
-        {active && <LiveDot tone="saffron" />}
+        {active && <LiveDot tone="clay" />}
         {pending && <span className="size-1.5 rounded-full bg-muted-foreground/40" />}
         {failed && <X className="size-3" strokeWidth={3} />}
       </span>
@@ -104,7 +104,7 @@ export function BankInstructions({ amountTry, reference, instructions }: { amoun
         <InstructionRow label="Recipient"><span className="text-[13px]">{name}</span></InstructionRow>
         <InstructionRow label="Amount"><span className="num text-[13px]">{fmtTry(amountTry)}</span></InstructionRow>
         <InstructionRow label="Reference">
-          {reference ? <><span className="mono text-base font-medium text-saffron">{reference}</span><CopyButton text={reference} label="reference" /></> : <span className="skeleton h-5 w-24" aria-busy />}
+          {reference ? <><span className="mono text-base font-medium text-clay">{reference}</span><CopyButton text={reference} label="reference" /></> : <span className="skeleton h-5 w-24" aria-busy />}
         </InstructionRow>
         {shown.map(([k, v]) => <InstructionRow key={k} label={v.description ?? k.replace(/_/g, " ")}><span className="mono text-[13px]">{v.value}</span></InstructionRow>)}
       </dl>

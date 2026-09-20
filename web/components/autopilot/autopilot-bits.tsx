@@ -29,7 +29,7 @@ export function useNow(intervalMs = 20_000): number {
 
 const STATUS: Record<AutopilotStatus, { label: string; tone: PillTone; dot: boolean; pulse: boolean }> = {
   draft: { label: "Draft", tone: "outline", dot: false, pulse: false },
-  armed: { label: "Armed", tone: "saffron", dot: true, pulse: true },
+  armed: { label: "Armed", tone: "clay", dot: true, pulse: true },
   paused: { label: "Paused", tone: "warning", dot: true, pulse: false },
   ended: { label: "Ended", tone: "neutral", dot: false, pulse: false },
 };
@@ -68,7 +68,7 @@ export function EditableName({ name, editable, onRename }: { name: string; edita
         onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); save(); } if (e.key === "Escape") { e.preventDefault(); setEditing(false); } }}
         aria-label="Autopilot name"
         maxLength={48}
-        className="display w-full min-w-0 max-w-[16ch] rounded-sm border-b border-saffron bg-transparent text-[2rem] leading-none tracking-tight outline-none sm:text-[2.5rem]"
+        className="display w-full min-w-0 max-w-[16ch] rounded-sm border-b border-clay bg-transparent text-[2rem] leading-none tracking-tight outline-none sm:text-[2.5rem]"
       />
     );
   }
@@ -132,8 +132,8 @@ export function DecisionBanner({ ap, evaluation, loading, className }: { ap: Aut
   const lead = armed ? "Right now" : "Once armed, right now";
   if (firing) {
     return (
-      <div role="status" aria-live="polite" className={cn("flex items-start gap-3 rounded-xl border border-saffron/50 bg-saffron-soft p-4 sm:p-5", className)}>
-        <LiveDot tone="saffron" className="mt-2" />
+      <div role="status" aria-live="polite" className={cn("flex items-start gap-3 rounded-xl border border-clay/50 bg-clay-soft p-4 sm:p-5", className)}>
+        <LiveDot tone="clay" className="mt-2" />
         <p className="text-[15px] leading-relaxed">
           <span className="display text-xl">{lead} rule <span className="num">{n}</span> would run:</span>{" "}
           <span className="text-foreground">{firing.wouldDo}.</span>
@@ -157,10 +157,10 @@ export function DecisionBanner({ ap, evaluation, loading, className }: { ap: Aut
 
 // ---------------------------------------------------------------- notices
 
-export function Notice({ tone = "warning", children, actions, onDismiss, className }: { tone?: "warning" | "saffron" | "neutral"; children: React.ReactNode; actions?: React.ReactNode; onDismiss?: () => void; className?: string }) {
+export function Notice({ tone = "warning", children, actions, onDismiss, className }: { tone?: "warning" | "clay" | "neutral"; children: React.ReactNode; actions?: React.ReactNode; onDismiss?: () => void; className?: string }) {
   const tones = {
     warning: "border-warning/40 bg-warning-soft text-foreground",
-    saffron: "border-saffron/40 bg-saffron-soft text-foreground",
+    clay: "border-clay/40 bg-clay-soft text-foreground",
     neutral: "border-border bg-card text-foreground",
   };
   return (

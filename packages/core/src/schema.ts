@@ -18,6 +18,7 @@ export const conditionSchema = z.discriminatedUnion("type", [
 ]);
 export const actionSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("MoveSupply"), from_hub: uint, to_hub: uint, amount: amountSchema }).strict(),
+  z.object({ type: z.literal("SupplyFromWallet"), hub: uint, amount: amountSchema }).strict(),
   z.object({ type: z.literal("RepayFromWallet"), hub: uint, amount: amountSchema }).strict(),
   z.object({ type: z.literal("RepayWithCollateral"), withdraw_hub: uint, repay_hub: uint, amount: amountSchema }).strict(),
   z.object({ type: z.literal("WithdrawToWallet"), hub: uint, amount: amountSchema }).strict(),

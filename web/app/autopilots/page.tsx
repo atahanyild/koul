@@ -76,7 +76,7 @@ export default function AutopilotsPage() {
             {TABS.map((t) => (
               <TabsTrigger key={t.key} value={t.key} className="h-full flex-none gap-2 px-3 text-[15px] first:pl-1 data-active:text-foreground">
                 {t.label}
-                <span className={cn("num rounded-full px-1.5 py-px text-[11px] leading-4", tab === t.key ? "bg-saffron-soft text-saffron" : "bg-surface-2 text-muted-foreground")} aria-label={`${groups[t.key].length} ${t.label.toLowerCase()}`}>
+                <span className={cn("num rounded-full px-1.5 py-px text-[11px] leading-4", tab === t.key ? "bg-clay-soft text-clay" : "bg-surface-2 text-muted-foreground")} aria-label={`${groups[t.key].length} ${t.label.toLowerCase()}`}>
                   {loading ? "–" : groups[t.key].length}
                 </span>
               </TabsTrigger>

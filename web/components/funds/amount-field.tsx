@@ -58,7 +58,7 @@ export function AmountField({ id, label, value, onChange, unit, chips, hint, err
               disabled={disabled}
               aria-pressed={value === c.value}
               onClick={() => onChange(c.value)}
-              className="num inline-flex min-h-9 items-center rounded-full border border-border bg-transparent px-3.5 text-[13px] text-foreground/85 transition-colors hover:bg-surface-2 hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 aria-pressed:border-saffron/40 aria-pressed:bg-saffron-soft aria-pressed:text-saffron disabled:opacity-50"
+              className="num inline-flex min-h-9 items-center rounded-full border border-border bg-transparent px-3.5 text-[13px] text-foreground/85 transition-colors hover:bg-surface-2 hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 aria-pressed:border-clay/40 aria-pressed:bg-clay-soft aria-pressed:text-clay disabled:opacity-50"
             >
               {c.label}
             </button>

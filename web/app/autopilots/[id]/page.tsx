@@ -170,7 +170,7 @@ export default function AutopilotPage({ params }: { params: Promise<{ id: string
 
           {hasPending && (
             <Notice
-              tone="saffron"
+              tone="clay"
               className="mb-4"
               actions={
                 <>

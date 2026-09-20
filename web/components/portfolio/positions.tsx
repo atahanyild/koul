@@ -27,7 +27,7 @@ export function PositionsSection({ positions, pools, poolsLoading, managedBy }: 
 
   const managed = managedBy ? (
     <Link href={`/autopilots/${managedBy.id}`} className="inline-flex rounded-full focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50" aria-label={`Managed by ${managedBy.name}, open autopilot`}>
-      <Pill tone="saffron" dot>{managedBy.name}</Pill>
+      <Pill tone="clay" dot>{managedBy.name}</Pill>
     </Link>
   ) : (
     <span className="text-muted-foreground" aria-label="Not managed by an autopilot">—</span>

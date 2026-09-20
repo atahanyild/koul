@@ -16,10 +16,10 @@ export function permissionsFor(ap: Autopilot, contracts: PermissionContracts): A
   const allowedCalls: AgentPermissions["allowedCalls"] = [[contracts.router, "tick"]];
   const descriptions = ["Check and run the first eligible autopilot rule"];
   const needsWithdraw = kinds.has("MoveSupply") || kinds.has("RepayWithCollateral") || kinds.has("WithdrawToWallet");
-  const needsSupply = kinds.has("MoveSupply");
+  const needsSupply = kinds.has("MoveSupply") || kinds.has("SupplyFromWallet");
   const needsRepay = kinds.has("RepayFromWallet") || kinds.has("RepayWithCollateral");
   if (needsWithdraw) { allowedCalls.push([contracts.controller, "withdraw"]); descriptions.push("Withdraw USDC from your own XOXNO position to your wallet"); }
-  if (needsSupply) { allowedCalls.push([contracts.controller, "supply"]); descriptions.push("Supply wallet USDC to your own XOXNO position"); }
+  if (needsSupply) { allowedCalls.push([contracts.controller, "supply"]); descriptions.push(kinds.has("SupplyFromWallet") ? "Put idle USDC from your wallet into your own XOXNO position" : "Supply wallet USDC to your own XOXNO position"); }
   if (needsRepay) { allowedCalls.push([contracts.controller, "repay"]); descriptions.push("Repay debt on your own XOXNO position"); }
   if (needsSupply || needsRepay) { allowedCalls.push([contracts.usdc, "transfer"]); descriptions.push("Transfer USDC from your wallet to the XOXNO pool"); }
   return { allowedCalls, transferRecipients: needsSupply || needsRepay ? [contracts.pool] : [], descriptions };

@@ -30,6 +30,7 @@ function encodeCondition(condition: Condition): xdr.ScVal {
 function encodeAction(action: Action): xdr.ScVal {
   switch (action.type) {
     case "MoveSupply": return variant("MoveSupply", [u32(action.from_hub), u32(action.to_hub), encodeAmount(action.amount)]);
+    case "SupplyFromWallet": return variant("SupplyFromWallet", [u32(action.hub), encodeAmount(action.amount)]);
     case "RepayFromWallet": return variant("RepayFromWallet", [u32(action.hub), encodeAmount(action.amount)]);
     case "RepayWithCollateral": return variant("RepayWithCollateral", [u32(action.withdraw_hub), u32(action.repay_hub), encodeAmount(action.amount)]);
     case "WithdrawToWallet": return variant("WithdrawToWallet", [u32(action.hub), encodeAmount(action.amount)]);
@@ -81,6 +82,7 @@ function decodeAction(value: unknown): Action {
   const v = rawVariant(value), a = values(value);
   switch (v.tag) {
     case "MoveSupply": return { type: v.tag, from_hub: asNumber(a[0]), to_hub: asNumber(a[1]), amount: decodeAmount(a[2]) };
+    case "SupplyFromWallet": return { type: v.tag, hub: asNumber(a[0]), amount: decodeAmount(a[1]) };
     case "RepayFromWallet": return { type: v.tag, hub: asNumber(a[0]), amount: decodeAmount(a[1]) };
     case "RepayWithCollateral": return { type: v.tag, withdraw_hub: asNumber(a[0]), repay_hub: asNumber(a[1]), amount: decodeAmount(a[2]) };
     case "WithdrawToWallet": return { type: v.tag, hub: asNumber(a[0]), amount: decodeAmount(a[1]) };

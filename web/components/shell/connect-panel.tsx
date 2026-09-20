@@ -29,7 +29,7 @@ export function ConnectPanel({ className, onDone, compact = false }: { className
       {!busy && ob.phase !== "success" && (
         <>
           <div className="mb-5 flex items-center gap-3">
-            <div className="flex size-11 items-center justify-center rounded-full bg-saffron-soft text-saffron"><ScanFace className="size-5" aria-hidden /></div>
+            <div className="flex size-11 items-center justify-center rounded-full bg-clay-soft text-clay"><ScanFace className="size-5" aria-hidden /></div>
             <div>
               <h2 className="display text-2xl leading-tight">Sign in with your face</h2>
               <p className="text-sm text-muted-foreground">Face ID or Touch ID creates the wallet. Nothing to write down.</p>
@@ -57,8 +57,8 @@ export function ConnectPanel({ className, onDone, compact = false }: { className
       {busy && (
         <div className="flex flex-col items-center py-4 text-center" role="status" aria-live="polite">
           <div className="relative mb-5 flex size-16 items-center justify-center">
-            <span className="absolute inset-0 animate-breathe rounded-full bg-saffron-soft" aria-hidden />
-            {ob.phase === "prompt" ? <ScanFace className="relative size-7 text-saffron" aria-hidden /> : <LoaderCircle className="relative size-7 animate-spin text-saffron" aria-hidden />}
+            <span className="absolute inset-0 animate-breathe rounded-full bg-clay-soft" aria-hidden />
+            {ob.phase === "prompt" ? <ScanFace className="relative size-7 text-clay" aria-hidden /> : <LoaderCircle className="relative size-7 animate-spin text-clay" aria-hidden />}
           </div>
           <div className="display text-2xl">{PHASE_TEXT[ob.phase]?.title}</div>
           <p className="mt-1 max-w-xs text-sm text-muted-foreground">{PHASE_TEXT[ob.phase]?.body}</p>
@@ -85,7 +85,7 @@ function Steps({ phase, creating }: { phase: PasskeyPhase; creating: boolean }) 
     <ol className="mt-5 flex items-center gap-2" aria-label="Progress">
       {["Passkey", "Deploy", "Fund"].map((l, i) => (
         <li key={l} className="flex items-center gap-2 text-[11px] uppercase tracking-wider">
-          <span className={cn("size-1.5 rounded-full", i < idx ? "bg-positive" : i === idx ? "bg-saffron animate-breathe" : "bg-foreground/15")} aria-hidden />
+          <span className={cn("size-1.5 rounded-full", i < idx ? "bg-positive" : i === idx ? "bg-clay animate-breathe" : "bg-foreground/15")} aria-hidden />
           <span className={i <= idx ? "text-foreground" : "text-muted-foreground"}>{l}</span>
         </li>
       ))}

@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * A rule as a sentence: when / do / then. The live value sits next to the threshold and turns saffron when the
+ * A rule as a sentence: when / do / then. The live value sits next to the threshold and turns clay when the
  * condition holds. Anything Koul filled in without being told is marked, never hidden.
  */
 import * as React from "react";
@@ -14,31 +14,31 @@ import { fmtCooldown } from "@/lib/format";
 
 const INFERRED_DETAIL = "You did not state this; Koul picked a sensible default. Tap the card to change it.";
 
-/** A value Koul chose on its own: dotted saffron underline plus a small tag that explains itself on tap. */
+/** A value Koul chose on its own: dotted clay underline plus a small tag that explains itself on tap. */
 export function InferredMark({ children, compact = false }: { children: React.ReactNode; compact?: boolean }) {
   return (
     <span className="inline-flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
-      <span className="underline decoration-saffron decoration-dotted decoration-[1.5px] underline-offset-4">{children}</span>
+      <span className="underline decoration-clay decoration-dotted decoration-[1.5px] underline-offset-4">{children}</span>
       <Term detail={INFERRED_DETAIL} className="no-underline align-baseline">
-        <span className={cn("inline-flex h-[18px] items-center whitespace-nowrap rounded-full bg-saffron-soft px-1.5 text-[10px] font-medium tracking-wide text-saffron", compact && "h-4 px-1")}>Koul filled this in</span>
+        <span className={cn("inline-flex h-[18px] items-center whitespace-nowrap rounded-full bg-clay-soft px-1.5 text-[10px] font-medium tracking-wide text-clay", compact && "h-4 px-1")}>Koul filled this in</span>
       </Term>
     </span>
   );
 }
 
-/** "now 48.79" next to the threshold: saffron when the condition holds, muted when not, warning when unreadable. */
+/** "now 48.79" next to the threshold: clay when the condition holds, muted when not, warning when unreadable. */
 export function NowPill({ ev, className }: { ev: ConditionEval; className?: string }) {
   if (ev.met === null) {
     const label = ev.nowLabel === "—" ? "no reading" : ev.nowLabel;
     return <Pill tone="warning" className={cn("num", className)}>{label}</Pill>;
   }
   const label = ev.nowLabel === "no loan" ? "no loan" : `now ${ev.nowLabel}`;
-  return <Pill tone={ev.met ? "saffron" : "neutral"} className={cn("num", ev.met && "font-semibold", className)}>{label}</Pill>;
+  return <Pill tone={ev.met ? "clay" : "neutral"} className={cn("num", ev.met && "font-semibold", className)}>{label}</Pill>;
 }
 
 export function RuleStatePill({ rule, ev }: { rule: Rule; ev: RuleEval }) {
   if (!rule.enabled) return <Pill tone="outline">Off</Pill>;
-  if (ev.wouldRun) return <Pill tone="saffron" dot pulse>Would run now</Pill>;
+  if (ev.wouldRun) return <Pill tone="clay" dot pulse>Would run now</Pill>;
   if (ev.conditions.some((c) => c.met === null) && !ev.conditionsMet) return <Pill tone="warning">No reading</Pill>;
   if (ev.conditionsMet) return <Pill tone="neutral" dot>True, nothing to do</Pill>;
   return <Pill tone="outline">Not true now</Pill>;
@@ -73,7 +73,7 @@ export function RuleCard({ rule, ev, index, count, readOnly = false, onEdit, onM
       className={cn(
         "relative list-none rounded-xl border border-border bg-card p-4 transition-[border-color,box-shadow,opacity] sm:p-5",
         editable && "cursor-pointer hover:border-foreground/25",
-        ev.wouldRun && rule.enabled && "glow-ring border-saffron/60",
+        ev.wouldRun && rule.enabled && "glow-ring border-clay/60",
         !rule.enabled && "opacity-60",
         className,
       )}
@@ -122,7 +122,7 @@ export function RuleCard({ rule, ev, index, count, readOnly = false, onEdit, onM
 
       {(ev.wouldRun || (ev.conditionsMet && ev.blocker) || !readOnly) && (
         <div className="mt-4 flex items-end justify-between gap-3">
-          <p className={cn("min-w-0 text-sm", ev.wouldRun ? "text-saffron" : "text-muted-foreground")} aria-live="polite">
+          <p className={cn("min-w-0 text-sm", ev.wouldRun ? "text-clay" : "text-muted-foreground")} aria-live="polite">
             {rule.enabled && ev.wouldRun && <>Koul would {ev.wouldDo}.</>}
             {rule.enabled && !ev.wouldRun && ev.conditionsMet && ev.blocker && <>{ev.blocker}.</>}
             {!rule.enabled && <>Switched off. Koul skips this rule.</>}

@@ -122,7 +122,7 @@ export function SendCrypto({ onLockedChange }: FlowProps) {
           balance === null ? <span className="skeleton inline-block h-3 w-24 align-middle" aria-busy /> : (
             <span className="inline-flex items-center gap-2">
               <span>Available <span className="num text-foreground">{fmtUsdc(balance)}</span> {asset}</span>
-              <button type="button" disabled={busy || balance <= 0} onClick={() => setRaw(String(balance))} className="num rounded-md px-1.5 py-0.5 text-[11px] font-medium uppercase tracking-wider text-saffron hover:bg-saffron-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 disabled:opacity-50">Max</button>
+              <button type="button" disabled={busy || balance <= 0} onClick={() => setRaw(String(balance))} className="num rounded-md px-1.5 py-0.5 text-[11px] font-medium uppercase tracking-wider text-clay hover:bg-clay-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 disabled:opacity-50">Max</button>
             </span>
           )
         }

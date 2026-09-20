@@ -40,7 +40,7 @@ export function HowItWorks() {
         <ol className="grid gap-3 md:grid-cols-3 md:gap-4">
           {STEPS.map((s) => (
             <li key={s.n} className="flex gap-4 rounded-xl border border-border bg-card p-4 sm:p-5 md:flex-col md:gap-3">
-              <span className="display shrink-0 text-[2rem] leading-none text-saffron md:text-[2.5rem]" aria-hidden>{s.n}</span>
+              <span className="display shrink-0 text-[2rem] leading-none text-clay md:text-[2.5rem]" aria-hidden>{s.n}</span>
               <p className="text-sm leading-relaxed sm:text-[15px]">
                 <span className="sr-only">Step {s.n}. </span>
                 {s.text}

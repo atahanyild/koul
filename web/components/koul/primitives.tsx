@@ -127,12 +127,12 @@ export function Term({ children, detail, className }: { children: React.ReactNod
 
 // ---------------------------------------------------------------- status
 
-export type PillTone = "neutral" | "saffron" | "positive" | "negative" | "warning" | "outline";
+export type PillTone = "neutral" | "clay" | "positive" | "negative" | "warning" | "outline";
 
 export function Pill({ tone = "neutral", dot = false, pulse = false, className, children }: { tone?: PillTone; dot?: boolean; pulse?: boolean; className?: string; children: React.ReactNode }) {
   const tones: Record<PillTone, string> = {
     neutral: "bg-surface-2 text-muted-foreground",
-    saffron: "bg-saffron-soft text-saffron",
+    clay: "bg-clay-soft text-clay",
     positive: "bg-positive-soft text-positive",
     negative: "bg-negative-soft text-negative",
     warning: "bg-warning-soft text-warning",
@@ -147,8 +147,8 @@ export function Pill({ tone = "neutral", dot = false, pulse = false, className, 
 }
 
 /** A breathing dot for "live" and "waiting" states. */
-export function LiveDot({ tone = "positive", className }: { tone?: "positive" | "saffron" | "warning" | "muted"; className?: string }) {
-  const c = { positive: "bg-positive", saffron: "bg-saffron", warning: "bg-warning", muted: "bg-muted-foreground" }[tone];
+export function LiveDot({ tone = "positive", className }: { tone?: "positive" | "clay" | "warning" | "muted"; className?: string }) {
+  const c = { positive: "bg-positive", clay: "bg-clay", warning: "bg-warning", muted: "bg-muted-foreground" }[tone];
   return (
     <span className={cn("relative inline-flex size-2 shrink-0", className)} aria-hidden>
       <span className={cn("absolute inset-0 animate-breathe rounded-full opacity-60", c)} />

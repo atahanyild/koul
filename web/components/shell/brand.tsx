@@ -6,8 +6,8 @@ export function Mark({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" className={cn("size-6", className)} aria-hidden>
       <circle cx="12" cy="12" r="9.25" fill="none" stroke="currentColor" strokeWidth="1.5" />
-      <circle cx="12" cy="12" r="2.2" fill="var(--saffron)" />
-      <path d="M12 12 L17.5 7.5" stroke="var(--saffron)" strokeWidth="1.75" strokeLinecap="round" />
+      <circle cx="12" cy="12" r="2.2" fill="var(--clay)" />
+      <path d="M12 12 L17.5 7.5" stroke="var(--clay)" strokeWidth="1.75" strokeLinecap="round" />
     </svg>
   );
 }

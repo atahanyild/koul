@@ -143,6 +143,8 @@ pub enum Condition {
 pub enum Action {
     /// Withdraw `amount` of the collateral in `from_hub` and supply it to `to_hub`.
     MoveSupply(u32, u32, Amount),
+    /// Supply `amount` of the wallet's idle USDC into `hub`. This is how an autopilot opens a position.
+    SupplyFromWallet(u32, Amount),
     /// Repay `amount` of the debt in `hub` from idle wallet USDC.
     RepayFromWallet(u32, Amount),
     /// Withdraw `amount` of the debt in `repay_hub` from the collateral in `withdraw_hub`, then repay.
@@ -330,6 +332,7 @@ fn condition_ok(c: &Condition) -> bool {
 fn action_ok(a: &Action) -> bool {
     match a {
         Action::MoveSupply(from, to, amt) => from != to && amount_ok(amt),
+        Action::SupplyFromWallet(_, amt) => amount_ok(amt),
         Action::RepayFromWallet(_, amt) => amount_ok(amt),
         Action::RepayWithCollateral(_, _, amt) => amount_ok(amt),
         Action::WithdrawToWallet(_, amt) => amount_ok(amt),
@@ -492,6 +495,17 @@ impl<'a> Reads<'a> {
                 s.push_back((key(self.cfg, *to), received));
                 self.controller.supply(user, &account_id, &self.cfg.spoke_id, &s);
                 Some(Executed { rule_index, kind: Symbol::new(self.e, "move_supply"), amount: received, from_hub: *from, to_hub: *to })
+            }
+            Action::SupplyFromWallet(hub, amt) => {
+                let idle = floor_grain(token::TokenClient::new(self.e, &self.cfg.usdc).balance(user));
+                let put = resolve(amt, idle);
+                if put < MIN_MOVE {
+                    return None;
+                }
+                let mut s = Vec::new(self.e);
+                s.push_back((key(self.cfg, *hub), put));
+                self.controller.supply(user, &account_id, &self.cfg.spoke_id, &s);
+                Some(Executed { rule_index, kind: Symbol::new(self.e, "supply"), amount: put, from_hub: *hub, to_hub: *hub })
             }
             Action::RepayFromWallet(hub, amt) => {
                 let want = resolve(amt, self.debt_base(account_id, *hub));
@@ -1035,6 +1049,24 @@ mod tick_test {
         let st = w.router.check(&w.user, &1);
         assert!(!st.get(2).unwrap().holds);
         assert_eq!(st.get(2).unwrap().conditions.get(0).unwrap().observed, 1_900_000_000_000);
+    }
+
+    #[test]
+    fn supply_from_wallet_opens_a_position() {
+        let e = Env::default();
+        let w = world(&e);
+        w.controller.set(&(2 * WAD), &0, &0, &0, &0);
+        let ap = Autopilot {
+            account_id: 12,
+            rules: vec![&e, rule(&e, vec![&e, Condition::IdleBalance(Cmp::AtOrAbove, 10 * USDC)], true, Action::SupplyFromWallet(2, Amount::All), 10)],
+        };
+        w.router.set_autopilot(&w.user, &3, &ap);
+        // Nothing in the wallet yet: the condition is false and the action has nothing to put to work.
+        assert_eq!(w.router.tick(&w.user, &3), None);
+        w.usdc.mint(&w.user, &(25 * USDC));
+        let ex = w.router.tick(&w.user, &3).unwrap();
+        assert_eq!(ex, Executed { rule_index: 0, kind: Symbol::new(&e, "supply"), amount: 25 * USDC, from_hub: 2, to_hub: 2 });
+        assert_eq!(w.controller.get_collateral_amount(&12, &HubAssetKey { asset: w.usdc.address.clone(), hub_id: 2 }), 25 * USDC);
     }
 
     #[test]

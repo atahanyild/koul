@@ -27,7 +27,7 @@ export function FactsTicker() {
         {items.map((f, i) => (
           <span key={`${f}-${i}`} className="label flex items-center gap-10 text-muted-foreground">
             {f}
-            <span className="size-1 rounded-full bg-saffron/60" />
+            <span className="size-1 rounded-full bg-clay/60" />
           </span>
         ))}
       </motion.div>

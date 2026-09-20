@@ -5,6 +5,7 @@
  * and re-render together. No library, ~90 lines, enough for a handful of RPC reads.
  */
 import { useCallback, useEffect, useRef, useSyncExternalStore } from "react";
+import { rpcMessage } from "@koul/core";
 
 interface Snapshot<T> {
   data: T | undefined;
@@ -41,7 +42,7 @@ export async function refreshKey<T>(key: string, fetcher: () => Promise<T>): Pro
   set(e, { loading: true });
   e.inflight = fetcher()
     .then((data) => set(e, { data, error: null, updatedAt: Date.now() }))
-    .catch((err) => set(e, { error: err instanceof Error ? err : new Error(String(err)) }))
+    .catch((err) => set(e, { error: err instanceof Error ? err : new Error(rpcMessage(err)) }))
     .finally(() => { e.inflight = null; set(e, { loading: false }); });
   return e.inflight;
 }

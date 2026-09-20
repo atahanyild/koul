@@ -13,7 +13,7 @@ const config: SembolConfig = {
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
-    <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} disableTransitionOnChange>
+    <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false} disableTransitionOnChange>
       <PasskeyWalletProvider config={config}>
         <TooltipProvider delay={200}>
           {children}

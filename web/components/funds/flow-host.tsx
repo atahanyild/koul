@@ -35,7 +35,7 @@ export function FlowPanel({ kind, locked, onClose, children }: { kind: FlowKind;
       <div className="mb-5 flex items-start justify-between gap-4">
         <div className="min-w-0">
           <div className="flex items-center gap-2.5">
-            <span className={cn("flex size-8 shrink-0 items-center justify-center rounded-full", meta.primary ? "bg-saffron-soft text-saffron" : "bg-surface-2 text-foreground")}><Icon className="size-4" aria-hidden /></span>
+            <span className={cn("flex size-8 shrink-0 items-center justify-center rounded-full", meta.primary ? "bg-clay-soft text-clay" : "bg-surface-2 text-foreground")}><Icon className="size-4" aria-hidden /></span>
             <h2 id={`flow-${kind}-title`} className="display text-2xl leading-tight">{meta.title}</h2>
           </div>
           <p className="mt-1.5 text-sm text-muted-foreground">{meta.description}</p>
@@ -64,11 +64,11 @@ export function ActionGrid({ active, locked, onPick }: { active: FlowKind | null
             disabled={locked && !on}
             className={cn(
               "group flex min-h-[7.25rem] flex-col items-start justify-between rounded-xl border p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50",
-              m.primary ? "border-saffron/35 bg-saffron-soft hover:border-saffron/70" : "border-border bg-card hover:border-foreground/25",
+              m.primary ? "border-clay/35 bg-clay-soft hover:border-clay/70" : "border-border bg-card hover:border-foreground/25",
               on && "border-foreground/40 ring-1 ring-foreground/25",
             )}
           >
-            <span className={cn("flex size-10 items-center justify-center rounded-full transition-colors", m.primary ? "bg-saffron text-saffron-foreground" : "bg-surface-2 text-foreground group-hover:bg-surface-3")}>
+            <span className={cn("flex size-10 items-center justify-center rounded-full transition-colors", m.primary ? "bg-clay text-clay-foreground" : "bg-surface-2 text-foreground group-hover:bg-surface-3")}>
               <Icon className="size-[18px]" aria-hidden />
             </span>
             <span className="mt-4 block">

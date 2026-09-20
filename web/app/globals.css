@@ -5,9 +5,10 @@
 @custom-variant dark (&:is(.dark *));
 
 /* ------------------------------------------------------------------
-   Koul design tokens. "Ink and saffron": deep cool ink surfaces, a
-   saffron accent for primary actions and for rules that are true now,
-   sage for earning, coral for risk. Dark is the hero; light is warm paper.
+   Koul design tokens. "Terracotta on bone": bone paper, ink text and one
+   burnt clay accent for anything you can act on and for a rule that is
+   true right now. Green for earning, red for risk, amber for a warning.
+   Light is the hero; dark is the same room at night.
    ------------------------------------------------------------------ */
 
 @theme inline {
@@ -36,9 +37,9 @@
   --color-ring: var(--ring);
 
   /* Koul semantic colours */
-  --color-saffron: var(--saffron);
-  --color-saffron-foreground: var(--saffron-foreground);
-  --color-saffron-soft: var(--saffron-soft);
+  --color-clay: var(--clay);
+  --color-clay-foreground: var(--clay-foreground);
+  --color-clay-soft: var(--clay-soft);
   --color-positive: var(--positive);
   --color-positive-soft: var(--positive-soft);
   --color-negative: var(--negative);
@@ -59,7 +60,7 @@
   --color-sidebar-border: var(--border);
   --color-sidebar-ring: var(--ring);
 
-  --color-chart-1: var(--saffron);
+  --color-chart-1: var(--clay);
   --color-chart-2: var(--positive);
   --color-chart-3: var(--negative);
   --color-chart-4: var(--muted-foreground);
@@ -83,79 +84,79 @@
 :root {
   --radius: 0.875rem;
 
-  /* Light: warm paper */
-  --background: oklch(0.985 0.006 85);
-  --foreground: oklch(0.21 0.015 250);
-  --surface-1: oklch(1 0 0);
-  --surface-2: oklch(0.965 0.006 85);
-  --surface-3: oklch(0.935 0.008 85);
-  --hairline: oklch(0.21 0.02 250 / 9%);
+  /* Light, the default: bone paper, ink text, one burnt clay accent. */
+  --background: oklch(0.975 0.012 75);
+  --foreground: oklch(0.24 0.03 45);
+  --surface-1: oklch(0.995 0.006 75);
+  --surface-2: oklch(0.95 0.014 70);
+  --surface-3: oklch(0.91 0.018 65);
+  --hairline: oklch(0.3 0.04 45 / 14%);
 
   --card: var(--surface-1);
   --card-foreground: var(--foreground);
   --popover: var(--surface-1);
   --popover-foreground: var(--foreground);
 
-  --saffron: oklch(0.72 0.15 75);
-  --saffron-foreground: oklch(0.2 0.03 80);
-  --saffron-soft: oklch(0.72 0.15 75 / 14%);
-  --positive: oklch(0.55 0.12 160);
-  --positive-soft: oklch(0.55 0.12 160 / 12%);
-  --negative: oklch(0.56 0.18 25);
-  --negative-soft: oklch(0.56 0.18 25 / 12%);
-  --warning: oklch(0.62 0.15 55);
-  --warning-soft: oklch(0.62 0.15 55 / 14%);
+  --clay: oklch(0.55 0.16 40);
+  --clay-foreground: oklch(0.99 0.005 75);
+  --clay-soft: oklch(0.55 0.16 40 / 12%);
+  --positive: oklch(0.5 0.12 155);
+  --positive-soft: oklch(0.5 0.12 155 / 12%);
+  --negative: oklch(0.52 0.19 28);
+  --negative-soft: oklch(0.52 0.19 28 / 12%);
+  --warning: oklch(0.58 0.14 65);
+  --warning-soft: oklch(0.58 0.14 65 / 14%);
 
-  --primary: var(--saffron);
-  --primary-foreground: var(--saffron-foreground);
+  --primary: var(--clay);
+  --primary-foreground: var(--clay-foreground);
   --secondary: var(--surface-2);
   --secondary-foreground: var(--foreground);
   --muted: var(--surface-2);
-  --muted-foreground: oklch(0.5 0.015 250);
+  --muted-foreground: oklch(0.54 0.03 50);
   --accent: var(--surface-2);
   --accent-foreground: var(--foreground);
   --destructive: var(--negative);
   --border: var(--hairline);
-  --input: oklch(0.21 0.02 250 / 14%);
-  --ring: var(--saffron);
+  --input: oklch(0.3 0.04 45 / 18%);
+  --ring: var(--clay);
 }
 
 .dark {
-  /* Dark: deep cool ink, the hero */
-  --background: oklch(0.15 0.012 255);
-  --foreground: oklch(0.95 0.008 90);
-  --surface-1: oklch(0.185 0.012 255);
-  --surface-2: oklch(0.225 0.012 255);
-  --surface-3: oklch(0.27 0.012 255);
-  --hairline: oklch(1 0 0 / 9%);
+  /* Dark: the same room at night. Warm brown-black, bone text, the clay accent lifted so it still burns. */
+  --background: oklch(0.16 0.014 45);
+  --foreground: oklch(0.95 0.012 75);
+  --surface-1: oklch(0.2 0.016 45);
+  --surface-2: oklch(0.245 0.018 45);
+  --surface-3: oklch(0.3 0.02 45);
+  --hairline: oklch(0.95 0.02 75 / 11%);
 
   --card: var(--surface-1);
   --card-foreground: var(--foreground);
   --popover: var(--surface-2);
   --popover-foreground: var(--foreground);
 
-  --saffron: oklch(0.84 0.155 82);
-  --saffron-foreground: oklch(0.2 0.03 80);
-  --saffron-soft: oklch(0.84 0.155 82 / 14%);
-  --positive: oklch(0.8 0.13 160);
-  --positive-soft: oklch(0.8 0.13 160 / 14%);
-  --negative: oklch(0.74 0.16 25);
-  --negative-soft: oklch(0.74 0.16 25 / 14%);
-  --warning: oklch(0.8 0.14 55);
-  --warning-soft: oklch(0.8 0.14 55 / 14%);
+  --clay: oklch(0.7 0.16 42);
+  --clay-foreground: oklch(0.16 0.02 40);
+  --clay-soft: oklch(0.7 0.16 42 / 16%);
+  --positive: oklch(0.78 0.13 155);
+  --positive-soft: oklch(0.78 0.13 155 / 14%);
+  --negative: oklch(0.7 0.17 28);
+  --negative-soft: oklch(0.7 0.17 28 / 14%);
+  --warning: oklch(0.78 0.13 70);
+  --warning-soft: oklch(0.78 0.13 70 / 14%);
 
-  --primary: var(--saffron);
-  --primary-foreground: var(--saffron-foreground);
+  --primary: var(--clay);
+  --primary-foreground: var(--clay-foreground);
   --secondary: var(--surface-2);
   --secondary-foreground: var(--foreground);
   --muted: var(--surface-2);
-  --muted-foreground: oklch(0.7 0.012 255);
+  --muted-foreground: oklch(0.72 0.022 60);
   --accent: var(--surface-2);
   --accent-foreground: var(--foreground);
   --destructive: var(--negative);
   --border: var(--hairline);
-  --input: oklch(1 0 0 / 14%);
-  --ring: var(--saffron);
+  --input: oklch(0.95 0.02 75 / 16%);
+  --ring: var(--clay);
 }
 
 @keyframes breathe {
@@ -167,8 +168,8 @@
   to { opacity: 1; transform: translateY(0); }
 }
 @keyframes glow {
-  0%, 100% { box-shadow: 0 0 0 1px var(--saffron), 0 0 0 0 var(--saffron-soft); }
-  50% { box-shadow: 0 0 0 1px var(--saffron), 0 0 24px 4px var(--saffron-soft); }
+  0%, 100% { box-shadow: 0 0 0 1px var(--clay), 0 0 0 0 var(--clay-soft); }
+  50% { box-shadow: 0 0 0 1px var(--clay), 0 0 24px 4px var(--clay-soft); }
 }
 @keyframes sweep {
   from { background-position: 200% 0; }
@@ -195,7 +196,7 @@
     overflow-x: clip;
   }
   h1, h2, h3 { text-wrap: balance; }
-  ::selection { background: var(--saffron-soft); }
+  ::selection { background: var(--clay-soft); }
   input, textarea, select { font-variant-numeric: tabular-nums; }
 }
 
@@ -206,7 +207,7 @@
   /* Addresses, hashes and references, where every character matters. */
   .mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
   .display { font-family: var(--font-display); font-weight: 600; letter-spacing: -0.02em; }
-  .display-italic { font-family: var(--font-display); font-weight: 600; font-style: normal; letter-spacing: -0.02em; color: var(--saffron); }
+  .display-italic { font-family: var(--font-display); font-weight: 600; font-style: normal; letter-spacing: -0.02em; color: var(--clay); }
   /* The hero voice: set tight and shouted, the way the Sembol and No Name pages do it. */
   .display-hero { font-family: var(--font-display); font-weight: 700; text-transform: uppercase; letter-spacing: -0.03em; line-height: 0.92; }
   /* Small capitals for labels, eyebrows and the ticker. */
