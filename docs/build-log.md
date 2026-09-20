@@ -400,3 +400,17 @@ A third, smaller fix came out of replaying an old state afterwards: reading the 
 "Landing balance simulation failed" because the account had already merged itself away. A balance that cannot be read
 is no longer an error; when the anchor says completed or the forward already happened, a missing landing account
 means the transfer is done, which is exactly what it means on-chain.
+
+## Why the hosted deposit looked like it failed (2026-09-20)
+
+Opening a transfer takes ten to thirty seconds: it creates and locks a landing account, then runs SEP-10, SEP-12,
+SEP-38 and SEP-6. That is longer than a serverless function's default limit, so the gateway cut the call and the UI
+reported "Stopped at Preparing your transfer" while the server carried on and finished. The money arrived; the
+screen said it had not.
+
+`maxDuration = 60` on the four Funds routes gives them the time they need, and the client retries a 502 or 504 once,
+which is the only class of failure worth repeating; anything the server itself refused is shown as it is.
+
+Verified in the browser on the live site, with the passkey wallet `CC2F5O…VUIN` connected: ₺1.000,00 at 50.50 became
+19.80 USDC, every step ticking in order, the FAST instructions shown with a reference, the sandbox bank leg pressed,
+and the wallet chip going from 20.40 to 40.79 USDC.

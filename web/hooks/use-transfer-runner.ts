@@ -45,7 +45,7 @@ async function call<T>(url: string, init?: RequestInit, attempt = 0): Promise<T>
   const res = await fetch(url, { ...init, headers: { "content-type": "application/json", ...(init?.headers ?? {}) } });
   const body = (await res.json().catch(() => ({}))) as T & { error?: string };
   if (!res.ok) {
-    if (attempt === 0 && [502, 503, 504].includes(res.status)) return call<T>(url, init, 1);
+    if (attempt === 0 && (res.status === 502 || res.status === 504)) return call<T>(url, init, 1);
     throw new Error(body.error ?? `The server answered ${res.status}. ${res.status >= 500 ? "Nothing was signed; try again." : ""}`.trim());
   }
   return body;
