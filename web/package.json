@@ -15,6 +15,7 @@
     "@tailwindcss/postcss": "^4.3.3",
     "class-variance-authority": "^0.7.1",
     "cn": "^0.3.0",
+    "embla-carousel-auto-scroll": "^8.6.0",
     "embla-carousel-react": "^8.6.0",
     "lucide-react": "^1.47.0",
     "motion": "^13.4.0",

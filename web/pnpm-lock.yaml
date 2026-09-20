@@ -26,6 +26,9 @@ dependencies:
   cn:
     specifier: ^0.3.0
     version: 0.3.0
+  embla-carousel-auto-scroll:
+    specifier: ^8.6.0
+    version: 8.6.0(embla-carousel@8.6.0)
   embla-carousel-react:
     specifier: ^8.6.0
     version: 8.6.0(react@19.2.8)
@@ -1633,6 +1636,14 @@ packages:
 
   /electron-to-chromium@1.5.433:
     resolution: {integrity: sha512-5lCAbyZBjtmUt/RAGHRqrL2q0oEFRThDAsZHHDn9XHa89Qw7gMYOeSicBTy+AHfvo0r6vwsZvqNJTQIQy1BLzA==}
+    dev: false
+
+  /embla-carousel-auto-scroll@8.6.0(embla-carousel@8.6.0):
+    resolution: {integrity: sha512-WT9fWhNXFpbQ6kP+aS07oF5IHYLZ1Dx4DkwgCY8Hv2ZyYd2KMCPfMV1q/cA3wFGuLO7GMgKiySLX90/pQkcOdQ==}
+    peerDependencies:
+      embla-carousel: 8.6.0
+    dependencies:
+      embla-carousel: 8.6.0
     dev: false
 
   /embla-carousel-react@8.6.0(react@19.2.8):

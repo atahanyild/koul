@@ -1,6 +1,12 @@
 "use client";
 
-/** Every XOXNO testnet market in one swipeable line, on the shadcn carousel (Embla): asset, hub, rates, liquidity. Each card opens that market on xoxno.com. */
+/**
+ * Every XOXNO testnet market in one line, on the shadcn carousel (Embla) with its auto-scroll plugin: the row
+ * drifts on its own, stops under the cursor or keyboard focus, and picks up again when you leave. Someone who
+ * asked for less motion gets a still row. Each card opens that market on xoxno.com.
+ */
+import * as React from "react";
+import AutoScroll from "embla-carousel-auto-scroll";
 import { motion } from "motion/react";
 import { ArrowUpRight } from "lucide-react";
 import { Section, AnimatedNumber, Term, Pill, LiveDot, ErrorState, Sk } from "@/components/koul/primitives";
@@ -18,12 +24,13 @@ const ITEM = "basis-[17.5rem] pl-4 sm:basis-[19rem]";
 export function PoolCards() {
   const m = useMarkets();
   const now = useNow(1000);
+  const plugins = useAutoScroll();
   const live = !m.loading && !m.error && m.markets.length > 0;
   const ageSec = live && now !== null && m.updatedAt > 0 ? Math.max(0, Math.round((now - m.updatedAt) / 1000)) : null;
   const best = m.markets.reduce<MarketReading | null>((a, b) => (a === null || b.supplyApr > a.supplyApr ? b : a), null);
 
   return (
-    <Carousel opts={{ align: "start", containScroll: "trimSnaps" }}>
+    <Carousel opts={{ align: "start", loop: plugins.length > 0, containScroll: plugins.length > 0 ? undefined : "trimSnaps" }} plugins={plugins}>
       <Section
         title="Markets on XOXNO"
         description="Every market Koul can act on, read from the pool contract as you look."
@@ -72,6 +79,20 @@ export function PoolCards() {
       </Section>
     </Carousel>
   );
+}
+
+/** The auto-scroll plugin, held still for one render pass and skipped when the viewer asked for reduced motion. */
+function useAutoScroll() {
+  const [reduced, setReduced] = React.useState(true);
+  React.useEffect(() => {
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const apply = () => setReduced(mq.matches);
+    apply();
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
+  }, []);
+  const plugin = React.useRef(AutoScroll({ speed: 0.6, startDelay: 1200, stopOnMouseEnter: true, stopOnFocusIn: true, stopOnInteraction: false }));
+  return React.useMemo(() => (reduced ? [] : [plugin.current]), [reduced]);
 }
 
 function MarketCard({ market, paysMost, index }: { market: MarketReading; paysMost: boolean; index: number }) {
