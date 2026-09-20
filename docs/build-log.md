@@ -210,3 +210,21 @@ Position NFT (PLAN H1): XOXNO's `get_health_factor` calls `owner_of(12)` on
 `owner_of(12)` = the headless wallet, `balance(wallet)` = 1, `get_owner_token_id(wallet, 0)` = 12, `token_uri(12)` =
 `https://api.xoxno.com/user/lending/image/12?isStatic=true&chain=STELLAR` (HTTP 200, `image/svg+xml`, 86 KB).
 `KoulReader.readPositionNft(address)` added.
+
+## FundsService deposit smoke, stopped at anchor (2026-09-20)
+
+The new `FundsService.createDeposit` was exercised with 100 simulated TRY for the headless wallet. It created ownerless
+landing account `GA2JQQPGSDANJELXGEGGIOCEENQZXTA57SQ6MWBQAM7YW67DQZESJVUY` and locked its pre-authorized
+forward/cleanup envelopes. The SEP-38 quote expected 2.0396090 USDC. The sandbox bank-transfer hook accepted the
+payment (a second call returned HTTP 409, "This deposit already received its bank transfer"), but SEP-6 remained
+`pending_anchor` with "TRY received; paying USDC on Stellar." Polling was stopped at the user's request to ignore the
+broken anchor. No forward or cleanup was submitted, and no wallet funds were moved by this run.
+
+| Step | Testnet transaction |
+|---|---|
+| landing account created | `4f00f3922edbd7cd3cbc2b1aadd37a80e9d5704e2fcfe9eed06ce1f44750de1e` |
+| pre-authorized envelopes locked | `e52080b23bfd58fc4d4bc2411e660e2a7c214d5c39fcecef0711901f79d91fb4` |
+
+Transfer ID `7eb83fc2-c8a3-4922-9357-87e867c2b648` has a private local record at
+`/private/tmp/koul-funds-smoke/7eb83fc2-c8a3-4922-9357-87e867c2b648.json`. It contains the SEP bearer token and
+pre-authorized envelopes, so do not publish the record. Resume or abort only after the anchor is healthy.
