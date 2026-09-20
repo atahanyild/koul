@@ -83,12 +83,16 @@ export class FundsService {
     if (!anchor.fiatCode || !anchor.sep38 || !anchor.sep6) throw new Error("Anchor does not offer the required fiat transfer flow");
     return { asset: new Asset(anchor.usdc.code, anchor.usdc.issuer), fiat: fiatAsset(anchor.fiatCode) };
   }
-  private async balance(contractId: string, address: string): Promise<bigint> {
+  /**
+   * The landing account's USDC. Null when it cannot be read at all, which for a finished transfer means the account
+   * already merged itself away: a caller replaying an older state would otherwise see a failure where there is none.
+   */
+  private async balance(contractId: string, address: string): Promise<bigint | null> {
     const account = await this.deps.server.getAccount(this.deps.sponsor.publicKey());
     const tx = new TransactionBuilder(account, { fee: BASE_FEE, networkPassphrase: this.deps.networkPassphrase })
       .addOperation(new Contract(contractId).call("balance", new Address(address).toScVal())).setTimeout(30).build();
     const sim = await this.deps.server.simulateTransaction(tx);
-    if (!rpc.Api.isSimulationSuccess(sim)) throw new Error("Landing balance simulation failed");
+    if (!rpc.Api.isSimulationSuccess(sim)) return null;
     return scValToNative(sim.result!.retval) as bigint;
   }
 
@@ -124,7 +128,9 @@ export class FundsService {
     const amount = parseAssetAmount(input.amountUsdc);
     if (!/^TR\d{24}$/.test(input.iban)) throw new Error("Invalid Turkish IBAN format");
     const anchor = await this.anchor(), { asset, fiat } = this.checkAsset(anchor);
-    if (await this.balance(anchor.usdc.contractId, input.wallet) < amount) throw new Error("Wallet has insufficient USDC");
+    const walletUsdc = await this.balance(anchor.usdc.contractId, input.wallet);
+    if (walletUsdc === null) throw new Error("Could not read the wallet's USDC balance");
+    if (walletUsdc < amount) throw new Error("Wallet has insufficient USDC");
     if (!anchor.sep6?.withdrawExchange) throw new Error("Anchor has no withdraw-exchange");
     const method = anchor.sep6.withdraw?.fundingMethods[0] ?? "bank_account";
     const deliveryMethod = anchor.sep38!.buyDeliveryMethods.includes(method) ? method : (anchor.sep38!.buyDeliveryMethods[0] ?? method);
@@ -183,11 +189,18 @@ export class FundsService {
     const anchor = await discoverAnchor(record.anchorHomeDomain);
     const status = await sep6Transaction(anchor, record.sepToken, record.sep6Id);
     if (/error|expired|refunded/.test(status.status)) { record.stage = "failed"; record.error = status.message ?? status.status; await this.store.put(record); return this.publish(record, { anchorStatus: status.status }); }
+    const landing = await this.balance(anchor.usdc.contractId, record.plan.publicKey);
+    if (landing === null && (record.forwardHash || status.status === "completed")) {
+      // The landing account is gone, which is the last thing a finished transfer does to itself.
+      record.stage = "completed";
+      await this.store.put(record);
+      return this.publish(record, { anchorStatus: status.status });
+    }
     if (record.kind === "deposit") {
       if (status.status !== "completed") return this.publish(record, { anchorStatus: status.status });
-      if (await this.balance(anchor.usdc.contractId, record.plan.publicKey) < BigInt(record.plan.amountStroops)) return this.publish(record, { anchorStatus: status.status });
+      if (landing === null || landing < BigInt(record.plan.amountStroops)) return this.publish(record, { anchorStatus: status.status });
     } else if (record.stage === "awaiting_passkey") {
-      if (await this.balance(anchor.usdc.contractId, record.plan.publicKey) < BigInt(record.plan.amountStroops)) return this.publish(record, { anchorStatus: status.status });
+      if (landing === null || landing < BigInt(record.plan.amountStroops)) return this.publish(record, { anchorStatus: status.status });
       record.stage = "forwarding"; await this.store.put(record);
     }
     if (!record.forwardHash) {

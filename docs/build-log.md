@@ -379,3 +379,24 @@ The hosted Deposit lira flow stopped at the first step with `ENOENT: no such fil
 place, and it is not shared between instances. `FileFundsStore` now defaults to `os.tmpdir()/koul-funds` and keeps a
 process-wide cache in front of the files, which is what carries a transfer through the polling that follows it on the
 same instance. Records hold SEP bearer tokens and pre-authorized XDR, so they never leave the server either way.
+
+## The hosted anchor flow works (2026-09-20)
+
+Two problems, both from running on a serverless host, both fixed and proven on https://koul-stellar.vercel.app.
+
+1. The transfer record was written to the working directory, which is read-only there: the flow died at the first
+   step with `ENOENT: mkdir '/var/task/web/.funds-state'`. Records now go to the temp directory with a process cache
+   in front.
+2. The temp directory is not shared between instances, so the next request landed elsewhere and answered
+   `Unknown transfer ID`. The record now travels with the caller instead, sealed with AES-256-GCM under a key derived
+   from the server's own secret and returned as `state` on every answer, which the client sends back in the
+   `x-koul-transfer-state` header. The browser holds an opaque blob; the SEP bearer token and the pre-authorized XDR
+   inside it never leave the server in the clear.
+
+End to end on the live site: 250.00 TRY became 5.0990227 USDC in wallet `CCDWPO4Q...`, through a landing account,
+SEP-10/12/38/6, the sandbox bank leg, the pre-authorized forward and the cleanup merge.
+
+A third, smaller fix came out of replaying an old state afterwards: reading the landing account's balance failed with
+"Landing balance simulation failed" because the account had already merged itself away. A balance that cannot be read
+is no longer an error; when the anchor says completed or the forward already happened, a missing landing account
+means the transfer is done, which is exactly what it means on-chain.
