@@ -62,8 +62,9 @@ export function fmtDuration(seconds: number): string {
   return h ? `${d} d ${h} h` : `${d} d`;
 }
 
-/** Short cooldown labels for rule cards: "1 h", "24 h", "30 min", "2 d". */
+/** Short cooldown labels for rule cards: "5 s", "30 min", "1 h", "24 h", "2 d". */
 export function fmtCooldown(seconds: number): string {
+  if (seconds < 60) return `${Math.max(1, Math.round(seconds))} s`;
   if (seconds % 86400 === 0 && seconds >= 86400) return `${seconds / 86400} d`;
   if (seconds % 3600 === 0) return `${seconds / 3600} h`;
   return `${Math.round(seconds / 60)} min`;

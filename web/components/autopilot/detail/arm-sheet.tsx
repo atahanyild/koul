@@ -2,12 +2,12 @@
 
 /**
  * The arm sheet: how long Koul's key stays valid, what it may do, which rules the router cannot run, then one
- * button. Arming is up to two passkey prompts: grant the key (skipped when one is already active), then save the
- * rules on the router.
+ * button. Arming is up to three passkey prompts: open the position when the wallet has never supplied, grant the
+ * key (skipped when one is already active), then save the rules on the router.
  */
 import * as React from "react";
 import Link from "next/link";
-import { Check, KeyRound, ScrollText } from "lucide-react";
+import { Check, KeyRound, PiggyBank, ScrollText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ResponsiveSheet } from "@/components/koul/responsive-sheet";
@@ -16,8 +16,9 @@ import { Term } from "@/components/koul/primitives";
 import { useArmAutopilot, type ArmResult } from "@/hooks/use-autopilots";
 import { usePortfolio } from "@/hooks/use-portfolio";
 import type { ActionPhase } from "@/hooks/use-passkey-action";
-import { permissionsFor, type Autopilot } from "@/lib/model/autopilot";
-import { fmtDuration } from "@/lib/format";
+import { POOLS, permissionsFor, type Autopilot, type PoolId } from "@/lib/model/autopilot";
+import { usePools, bestPool } from "@/hooks/use-market";
+import { fmtDuration, fmtUsdc } from "@/lib/format";
 import { Segmented } from "@/components/autopilot/segmented";
 import { CanList, Notice } from "@/components/autopilot/autopilot-bits";
 
@@ -75,27 +76,38 @@ export function ArmSheet({ open, onOpenChange, ap, onArmed }: ArmSheetProps) {
 
   const accountId = pf.accountId;
   const noAccount = !pf.loading && accountId === null;
+  // A wallet that never supplied has no XOXNO account. Rather than sending the user away, the first prompt opens the
+  // position with the idle USDC already in the wallet, into the pool the rules name or the one paying more today.
+  const pools = usePools();
+  const idle = pf.positions.idleUsdc;
+  const namedPool = ap.rules.find((r) => r.enabled && r.action.pool)?.action.pool;
+  const bestId = (bestPool(pools.pools)?.id ?? "B") as PoolId;
+  const openPool = POOLS[(namedPool ?? bestId) as PoolId];
+  const openUnits = BigInt(Math.floor(idle * 100)) * 100_000n; // floored to the cent, in 7-decimal units
+  const canOpen = noAccount && openUnits >= 10_000_000n;
   const preview = React.useMemo(() => armer.preview(ap, accountId ?? 0n), [armer.preview, ap, accountId]);
   const permissions = React.useMemo(() => permissionsFor(ap), [ap]);
   const keyActive = agent.active;
-  const prompts = keyActive ? 1 : 2;
+  const prompts = (canOpen ? 1 : 0) + (keyActive ? 1 : 2);
   const enabledRules = ap.rules.filter((r) => r.enabled).length;
-  const blocked = noAccount || pf.loading || preview.errors.length > 0;
-  const busy = grantAction.busy || rulesAction.busy;
+  const blocked = (noAccount && !canOpen) || pf.loading || preview.errors.length > 0;
+  const busy = grantAction.busy || rulesAction.busy || armer.openAction.busy;
 
-  const phase: ActionPhase = rulesAction.phase !== "idle" ? rulesAction.phase : grantAction.phase;
-  const error = rulesAction.phase !== "idle" ? rulesAction.error : grantAction.error;
+  const phase: ActionPhase = rulesAction.phase !== "idle" ? rulesAction.phase : grantAction.phase !== "idle" ? grantAction.phase : armer.openAction.phase;
+  const error = rulesAction.phase !== "idle" ? rulesAction.error : grantAction.phase !== "idle" ? grantAction.error : armer.openAction.error;
 
+  const openState: StepState = armer.openAction.phase === "success" ? "done" : armer.openAction.busy ? "active" : "pending";
   const grantState: StepState = keyActive ? "skipped" : grantAction.phase === "success" ? "done" : grantAction.busy ? "active" : "pending";
   const rulesState: StepState = rulesAction.phase === "success" ? "done" : rulesAction.busy ? "active" : "pending";
 
   const run = async () => {
-    if (blocked || accountId === null) return;
+    if (blocked) return;
     setFailure(null);
-    const res = await armer.arm(ap, { days, accountId });
+    const res = await armer.arm(ap, { days, accountId, openWith: canOpen ? { hub: openPool.hub, units: openUnits } : undefined });
     if (res.ok) { onArmed(res); onOpenChange(false); return; }
     if (res.step === "wallet") setFailure("The wallet is not ready. Reconnect and try again.");
-    if (res.step === "account") setFailure("This wallet has no XOXNO account yet.");
+    if (res.step === "account") setFailure("This wallet has no XOXNO position and no USDC to open one with. Bring funds in first.");
+    if (res.step === "open") setFailure("The position was not opened, so nothing else was signed. Check your USDC balance and try again.");
     if (res.step === "rules") setFailure("The router rejected these rules. Fix them and try again.");
     if (res.step === "write" && res.grantHash) setFailure("Koul's key was granted, but the rules were not saved. Try again: only the rules step is repeated, no second key is needed.");
   };
@@ -156,22 +168,27 @@ export function ArmSheet({ open, onOpenChange, ap, onArmed }: ArmSheetProps) {
           </Notice>
         )}
 
-        {noAccount && (
+        {noAccount && !canOpen && (
           <Notice
             tone="warning"
             actions={<Button variant="outline" size="lg" className="min-h-11" nativeButton={false} render={<Link href="/funds" />}>Add funds</Button>}
           >
-            This wallet has no XOXNO position yet, so there is no account for the router to manage. Supply USDC first, then arm.
+            This wallet has no XOXNO position and less than 1 USDC to open one with. Bring lira in, or receive USDC, then arm.
           </Notice>
         )}
 
         <section className="grid gap-3">
           <h3 className="text-xs uppercase tracking-[0.12em] text-muted-foreground">What happens when you tap Arm</h3>
           <ol className="grid gap-3">
-            <Step n={1} state={grantState} title={keyActive ? "Grant Koul's key (already done)" : "Grant Koul's key"}>
+            {canOpen && (
+              <Step n={1} state={openState} title="Open your position">
+                <span className="inline-flex items-center gap-1"><PiggyBank className="size-3" aria-hidden /> One Face ID prompt supplies the <span className="num">{fmtUsdc(idle)} USDC</span> in your wallet to {openPool.name}. XOXNO creates the position and Koul reads its id, so the rules have an account to manage.</span>
+              </Step>
+            )}
+            <Step n={canOpen ? 2 : 1} state={grantState} title={keyActive ? "Grant Koul's key (already done)" : "Grant Koul's key"}>
               <span className="inline-flex items-center gap-1"><KeyRound className="size-3" aria-hidden /> {keyActive ? "An active key is on your smart account, so this prompt is skipped." : `One Face ID prompt adds the keeper's key to your smart account, restricted by the Koul policy, for ${days} day${days === 1 ? "" : "s"}.`}</span>
             </Step>
-            <Step n={2} state={rulesState} title="Save the rules on-chain">
+            <Step n={canOpen ? 3 : 2} state={rulesState} title="Save the rules on-chain">
               <span className="inline-flex items-center gap-1"><ScrollText className="size-3" aria-hidden /> One Face ID prompt writes the rules to the router. Koul starts checking them within a few minutes.</span>
             </Step>
           </ol>

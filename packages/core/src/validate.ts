@@ -18,6 +18,7 @@ export function validateAutopilot(input: unknown): string[] {
       const p = `${path}.conditions.${j}`;
       if (condition.type === "SupplyRateGap" && condition.hub_over === condition.hub_under) errors.push(`${p}: hubs must differ`);
       if (condition.type === "SupplyRateGap" && condition.min_bps === 0) errors.push(`${p}.min_bps must be positive`);
+      if (condition.type === "SupplyRate" && condition.bps === 0) errors.push(`${p}.bps must be positive`);
       if (condition.type === "FxPrice" && BigInt(condition.max_age_secs) === 0n) errors.push(`${p}.max_age_secs must be positive`);
       const values = condition.type === "HealthFactor" ? [condition.level_wad] : condition.type === "FxPrice" ? [condition.level] : condition.type === "IdleBalance" ? [condition.amount] : [];
       for (const value of values) if (BigInt(value) > I128_MAX) errors.push(`${p}: value exceeds i128`);

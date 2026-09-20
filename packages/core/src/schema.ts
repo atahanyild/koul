@@ -13,6 +13,7 @@ export const amountSchema = z.discriminatedUnion("type", [
 export const conditionSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("HealthFactor"), cmp: cmpSchema, level_wad: positive }).strict(),
   z.object({ type: z.literal("SupplyRateGap"), hub_over: uint, hub_under: uint, min_bps: uint }).strict(),
+  z.object({ type: z.literal("SupplyRate"), hub: uint, cmp: cmpSchema, bps: uint }).strict(),
   z.object({ type: z.literal("FxPrice"), asset: z.string().min(1).max(32), cmp: cmpSchema, level: positive, max_age_secs: decimal }).strict(),
   z.object({ type: z.literal("IdleBalance"), cmp: cmpSchema, amount: decimal }).strict(),
 ]);

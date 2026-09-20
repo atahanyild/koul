@@ -7,10 +7,11 @@
  */
 import { useCallback, useMemo } from "react";
 import { usePasskeyWallet } from "@sembol/passkey-react";
-import { KoulWriter, validateAutopilot, type Autopilot as CoreAutopilot } from "@koul/core";
+import { KoulReader, KoulWriter, validateAutopilot, type Autopilot as CoreAutopilot } from "@koul/core";
 import { createLocalStore } from "@/lib/data/store";
 import type { ChainAutopilot } from "@/lib/data/live";
-import { WRITE_CONFIG } from "@/lib/koul";
+import { READ_CONFIG, WRITE_CONFIG } from "@/lib/koul";
+import { fmtUsdc } from "@/lib/format";
 import { fromCoreAutopilot, newId, toCoreAutopilot, type Autopilot, type Rule } from "@/lib/model/autopilot";
 import { useAgentAccess } from "./use-agent-access";
 import { useChainAutopilots } from "./use-portfolio";
@@ -18,6 +19,7 @@ import { usePasskeyAction } from "./use-passkey-action";
 
 const drafts = createLocalStore<Autopilot[]>("koul.autopilots", []);
 const writer = new KoulWriter(WRITE_CONFIG);
+const reader = new KoulReader(READ_CONFIG);
 export const CHAIN_PREFIX = "chain-";
 export const chainUiId = (id: number) => `${CHAIN_PREFIX}${id}`;
 export const chainIdOf = (uiId: string): number | null => (uiId.startsWith(CHAIN_PREFIX) ? Number(uiId.slice(CHAIN_PREFIX.length)) : null);
@@ -90,8 +92,20 @@ export function useAutopilotEditor() {
 }
 
 export type ArmResult =
-  | { ok: true; chainId: number; grantHash: string | null; rulesHash: string }
-  | { ok: false; step: "wallet" | "account" | "rules" | "grant" | "write"; grantHash?: string | null; errors?: string[] };
+  | { ok: true; chainId: number; grantHash: string | null; rulesHash: string; openHash?: string | null }
+  | { ok: false; step: "wallet" | "account" | "open" | "rules" | "grant" | "write"; grantHash?: string | null; errors?: string[] };
+
+/** XOXNO mints the position inside the first supply, and the id shows up on the position NFT a ledger later. */
+async function waitForAccountId(address: string, attempts = 12): Promise<bigint | null> {
+  for (let i = 0; i < attempts; i++) {
+    await new Promise((r) => setTimeout(r, i === 0 ? 1500 : 2500));
+    try {
+      const nft = await reader.readPositionNft(address);
+      if (nft) return BigInt(nft.tokenId);
+    } catch { /* keep waiting */ }
+  }
+  return null;
+}
 
 /**
  * Arming = up to two passkey confirmations: grant the agent key (if not already active), then `set_autopilot` on
@@ -102,18 +116,37 @@ export function useArmAutopilot() {
   const agent = useAgentAccess();
   const chain = useChainAutopilots();
   const write = usePasskeyAction();
+  const openAction = usePasskeyAction();
 
   const preview = useCallback((ap: Autopilot, accountId: bigint) => {
     const m = toCoreAutopilot(ap, accountId);
     return { ...m, errors: m.autopilot.rules.length ? validateAutopilot(m.autopilot) : ["No rule the router can run"] };
   }, []);
 
-  const arm = useCallback(async (ap: Autopilot, opts: { days: number; accountId: bigint | null }): Promise<ArmResult> => {
+  /**
+   * Arming a wallet that has never supplied opens the position first: one passkey-signed supply with account id 0,
+   * which XOXNO turns into a position, then the id comes back from the position NFT. `openWith` says how much and
+   * where; without it a wallet with no position cannot be armed.
+   */
+  const arm = useCallback(async (ap: Autopilot, opts: { days: number; accountId: bigint | null; openWith?: { hub: number; units: bigint } }): Promise<ArmResult> => {
     if (!kit || !address) return { ok: false, step: "wallet" };
-    if (opts.accountId === null) return { ok: false, step: "account" };
-    const m = preview(ap, opts.accountId);
+    let accountId = opts.accountId;
+    let openHash: string | null = null;
+    if (accountId === null) {
+      if (!opts.openWith || opts.openWith.units <= 0n) return { ok: false, step: "account" };
+      const opened = await openAction.run(() => writer.buildSupply(address, 0n, opts.openWith!.hub, opts.openWith!.units), {
+        title: `Position opened with ${fmtUsdc(Number(opts.openWith.units) / 1e7)} USDC`,
+        description: "XOXNO minted your position; Koul reads its id from the position NFT.",
+        invalidatePrefixes: ["portfolio:", "pools"],
+      });
+      if (!opened) return { ok: false, step: "open" };
+      openHash = opened.hash;
+      accountId = await waitForAccountId(address);
+      if (accountId === null) return { ok: false, step: "open", grantHash: null };
+    }
+    const m = preview(ap, accountId);
     if (m.errors.length) return { ok: false, step: "rules", errors: m.errors };
-    const core: CoreAutopilot = m.autopilot;
+    const core: CoreAutopilot = { ...m.autopilot, account_id: accountId.toString() };
     let grantHash: string | null = null;
     if (!agent.active) {
       const g = await agent.grant(opts.days, core);
@@ -127,8 +160,8 @@ export function useArmAutopilot() {
     // The chain now holds the rules: keep name, sentence and marks under the chain id, drop the draft it came from.
     const armed: Autopilot = { ...ap, id: chainUiId(chainId), status: "armed", armedUntil: Date.now() + opts.days * 86400_000, agentRuleId: agent.active?.ruleId ?? null };
     drafts.set((prev) => [armed, ...prev.filter((a) => a.id !== ap.id && a.id !== armed.id)]);
-    return { ok: true, chainId, grantHash, rulesHash: res.hash };
-  }, [kit, address, agent, chain.list, preview, write]);
+    return { ok: true, chainId, grantHash, rulesHash: res.hash, openHash };
+  }, [kit, address, agent, chain.list, preview, write, openAction]);
 
   /** Revoke the agent key: every autopilot stops, the rules stay stored. */
   const pause = useCallback(async () => {
@@ -145,5 +178,5 @@ export function useArmAutopilot() {
     return res;
   }, [address, write]);
 
-  return { arm, pause, clear, preview, agent, grantAction: agent.action, rulesAction: write, chain };
+  return { arm, pause, clear, preview, agent, grantAction: agent.action, rulesAction: write, openAction, chain };
 }

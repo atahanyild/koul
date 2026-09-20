@@ -131,6 +131,8 @@ pub enum Condition {
     HealthFactor(Cmp, i128),
     /// `deposit_rate(hub_over) - deposit_rate(hub_under) >= min_bps` (annual rates, basis points).
     SupplyRateGap(u32, u32, u32),
+    /// One hub's deposit rate against a level, in basis points of the pool's annual simple rate.
+    SupplyRate(u32, Cmp, u32),
     /// Oracle `lastprice(Other(asset))` (USD per unit, 14 decimals) compared with the level. A missing price or one
     /// older than `max_age_secs` never matches.
     FxPrice(Symbol, Cmp, i128, u64),
@@ -324,6 +326,7 @@ fn condition_ok(c: &Condition) -> bool {
     match c {
         Condition::HealthFactor(_, level) => *level > 0,
         Condition::SupplyRateGap(over, under, min_bps) => over != under && *min_bps > 0,
+        Condition::SupplyRate(_, _, bps) => *bps > 0,
         Condition::FxPrice(_, _, level, max_age) => *level > 0 && *max_age > 0,
         Condition::IdleBalance(_, amount) => *amount >= 0,
     }
@@ -424,6 +427,10 @@ impl<'a> Reads<'a> {
                 let gap = self.pool.get_deposit_rate(&key(self.cfg, *over)) - self.pool.get_deposit_rate(&key(self.cfg, *under));
                 let gap_bps = gap / BPS_RAY;
                 ConditionState { holds: gap >= (*min_bps as i128) * BPS_RAY, observed: gap_bps }
+            }
+            Condition::SupplyRate(hub, cmp, bps) => {
+                let rate_bps = self.pool.get_deposit_rate(&key(self.cfg, *hub)) / BPS_RAY;
+                ConditionState { holds: holds(*cmp, rate_bps, *bps as i128), observed: rate_bps }
             }
             Condition::FxPrice(asset, cmp, level, max_age) => {
                 let oracle = OracleClient::new(self.e, &self.cfg.oracle);
@@ -1049,6 +1056,31 @@ mod tick_test {
         let st = w.router.check(&w.user, &1);
         assert!(!st.get(2).unwrap().holds);
         assert_eq!(st.get(2).unwrap().conditions.get(0).unwrap().observed, 1_900_000_000_000);
+    }
+
+    #[test]
+    fn a_hub_rate_against_a_level() {
+        let e = Env::default();
+        let w = world(&e);
+        w.controller.set(&(2 * WAD), &0, &0, &0, &0);
+        w.usdc.mint(&w.user, &(20 * USDC));
+        // Hub 2 pays 300 bps, hub 1 pays 100 bps (set in `world`).
+        let ap = Autopilot {
+            account_id: 12,
+            rules: vec![
+                &e,
+                rule(&e, vec![&e, Condition::SupplyRate(2, Cmp::AtOrAbove, 500)], true, Action::SupplyFromWallet(2, Amount::All), 10),
+                rule(&e, vec![&e, Condition::SupplyRate(2, Cmp::AtOrAbove, 250)], true, Action::SupplyFromWallet(2, Amount::All), 10),
+            ],
+        };
+        w.router.set_autopilot(&w.user, &4, &ap);
+        let st = w.router.check(&w.user, &4);
+        assert_eq!(st.get(0).unwrap().conditions.get(0).unwrap().observed, 300);
+        assert!(!st.get(0).unwrap().holds, "300 bps is not at or above 500");
+        assert!(st.get(1).unwrap().holds, "300 bps is at or above 250");
+        let ex = w.router.tick(&w.user, &4).unwrap();
+        assert_eq!(ex.rule_index, 1);
+        assert_eq!(ex.amount, 20 * USDC);
     }
 
     #[test]

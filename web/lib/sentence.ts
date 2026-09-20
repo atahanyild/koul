@@ -3,7 +3,7 @@
  * the router can check and do, fills gaps with defaults it marks as inferred, and reports anything it could not
  * place instead of inventing. A Claude-backed route can replace `parseSentence` with the same return shape.
  */
-import { makeRule, RULE_DEFAULTS, type Rule } from "@/lib/model/autopilot";
+import { makeRule, RULE_DEFAULTS, type ConditionKind, type Rule } from "@/lib/model/autopilot";
 
 export interface ParseResult {
   rules: Rule[];
@@ -78,7 +78,7 @@ export function parseSentence(input: string): ParseResult {
   }
 
   // The router evaluates health, then rates, then FX. Keep that order so the adapter maps one to one.
-  const order = { health_factor: 0, rate_gap: 1, fx_price: 2, idle_usdc: 3 } as const;
+  const order: Record<ConditionKind, number> = { health_factor: 0, pool_rate: 1, rate_gap: 2, fx_price: 3, idle_usdc: 4 };
   rules.sort((a, b) => order[a.conditions[0].kind] - order[b.conditions[0].kind]);
 
   const name = rules.length === 3 ? "Lira shield" : rules.length === 1 ? rules[0].name : rules.length ? "My autopilot" : "Untitled autopilot";

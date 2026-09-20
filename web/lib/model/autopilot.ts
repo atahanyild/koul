@@ -19,13 +19,15 @@ export const poolByHub = (hub: number): PoolId => (hub === 2 ? "B" : "A");
 // ---------------------------------------------------------------- vocabulary
 
 /** What the router can actually check. Anything outside this list is flagged, never invented. */
-export type ConditionKind = "rate_gap" | "health_factor" | "fx_price" | "idle_usdc";
+export type ConditionKind = "rate_gap" | "pool_rate" | "health_factor" | "fx_price" | "idle_usdc";
 export type Comparator = "gte" | "lte";
 
 export interface Condition {
   kind: ConditionKind;
   comparator: Comparator;
   value: number;
+  /** Which pool the condition reads, where it names one. Defaults to the second hub. */
+  pool?: PoolId;
 }
 
 /** What the router can actually do. One action per rule. */
@@ -71,6 +73,7 @@ export interface Autopilot {
 
 export const CONDITION_LABELS: Record<ConditionKind, { subject: string; unit: string; technical: string }> = {
   rate_gap: { subject: "the better hub pays more by", unit: "pts", technical: "|deposit_rate(hub_b) − deposit_rate(hub_a)| in basis points, the pool's annualised simple rate (APR, not the compounded APY XOXNO shows)" },
+  pool_rate: { subject: "the pool pays", unit: "%", technical: "deposit_rate(hub) in basis points. You type the compounded APY XOXNO shows; Koul stores the simple rate the pool returns, ln(1 + APY) in basis points" },
   health_factor: { subject: "my loan health", unit: "", technical: "XOXNO controller get_health_factor (WAD); liquidation at 1.00" },
   fx_price: { subject: "USD/TRY", unit: "", technical: "Reflector-shaped oracle lastprice(TRY), USD per TRY with 14 decimals, inverted" },
   idle_usdc: { subject: "idle USDC in my wallet", unit: "USDC", technical: "USDC SAC balance of the smart account" },
@@ -162,6 +165,15 @@ export function evaluateCondition(c: Condition, live: LiveValues): ConditionEval
         nowLabel = `${fmt2(now)} pts`;
       }
       break;
+    case "pool_rate": {
+      // Shown, and compared, as the compounded APY the markets row shows.
+      const apr = (c.pool ?? "B") === "A" ? live.rateA : live.rateB;
+      if (apr !== null) {
+        now = aprToApy(apr);
+        nowLabel = `${fmt2(now)}%`;
+      }
+      break;
+    }
     case "health_factor":
       if (!live.hasLoan) return { met: c.comparator === "gte", now: null, nowLabel: "no loan" };
       now = live.healthFactor;
@@ -235,9 +247,10 @@ function describeAction(r: Rule, live: LiveValues): { actionable: boolean; block
 /** "when USD/TRY is at or above 50.00" — the pieces a rule card renders. */
 export function conditionSentence(c: Condition): { subject: string; verb: string; value: string; technical: string } {
   const l = CONDITION_LABELS[c.kind];
-  const value = c.kind === "rate_gap" ? `${fmt2(c.value)} pts` : c.kind === "idle_usdc" ? `${fmt2(c.value)} USDC` : fmt2(c.value);
+  const subject = c.kind === "pool_rate" ? `${POOLS[c.pool ?? "B"].name} pays` : l.subject;
+  const value = c.kind === "rate_gap" ? `${fmt2(c.value)} pts` : c.kind === "idle_usdc" ? `${fmt2(c.value)} USDC` : c.kind === "pool_rate" ? `${fmt2(c.value)}%` : fmt2(c.value);
   const verb = c.kind === "rate_gap" ? (c.comparator === "gte" ? "at least" : "at most") : COMPARATOR_LABELS[c.comparator];
-  return { subject: l.subject, verb, value, technical: l.technical };
+  return { subject, verb, value, technical: l.technical };
 }
 
 export function actionSentence(a: Action): string {
@@ -250,6 +263,7 @@ let counter = 0;
 export const newId = (prefix = "r") => `${prefix}_${Date.now().toString(36)}_${(counter++).toString(36)}`;
 
 export const RULE_DEFAULTS = {
+  pool_rate: { value: 20, cooldownSec: 5 },
   idle_usdc: { value: 10, cooldownSec: 5 },
   health_factor: { value: 1.25, cooldownSec: 5 },
   rate_gap: { value: 1, cooldownSec: 5 },
@@ -316,6 +330,10 @@ export const TEMPLATES: Template[] = [
 const HUBS = [POOLS.A.hub, POOLS.B.hub] as const;
 const WAD = 1e18;
 
+/** The pool returns a simple annual rate; XOXNO and Koul both show it compounded. Percentages both ways. */
+export const aprToApy = (apr: number) => Math.expm1(apr / 100) * 100;
+export const apyToApr = (apy: number) => Math.log1p(apy / 100) * 100;
+
 const toLedgers = (sec: number) => Math.max(1, Math.round(sec / LEDGER_SECONDS));
 const toUnits = (usdc: number) => BigInt(Math.round(usdc * 1e7)).toString();
 const toAmount = (a: Action["amount"]): CoreAmount => (a === "all" ? { type: "All" } : { type: "Fixed", value: toUnits(a) });
@@ -337,6 +355,10 @@ function toCoreConditions(c: Condition): { variants: CoreCondition[][]; unsuppor
       if (c.comparator !== "gte") return { variants: [], unsupported: true };
       const bps = Math.max(1, Math.round(c.value * 100));
       return { variants: [[{ type: "SupplyRateGap", hub_over: HUBS[1], hub_under: HUBS[0], min_bps: bps }], [{ type: "SupplyRateGap", hub_over: HUBS[0], hub_under: HUBS[1], min_bps: bps }]], unsupported: false };
+    }
+    case "pool_rate": {
+      const bps = Math.max(1, Math.round(apyToApr(c.value) * 100));
+      return { variants: [[{ type: "SupplyRate", hub: POOLS[c.pool ?? "B"].hub, cmp: c.comparator === "gte" ? "AtOrAbove" : "Below", bps }]], unsupported: false };
     }
   }
 }
@@ -387,6 +409,7 @@ function fromCoreCondition(c: CoreCondition): Condition {
     case "FxPrice": return { kind: "fx_price", comparator: c.cmp === "Below" ? "gte" : "lte", value: Number(usdPerTryToTryPerUsd(BigInt(c.level)).toFixed(2)) };
     case "IdleBalance": return { kind: "idle_usdc", comparator: c.cmp === "AtOrAbove" ? "gte" : "lte", value: Number(c.amount) / 1e7 };
     case "SupplyRateGap": return { kind: "rate_gap", comparator: "gte", value: c.min_bps / 100 };
+    case "SupplyRate": return { kind: "pool_rate", comparator: c.cmp === "AtOrAbove" ? "gte" : "lte", value: Number(aprToApy(c.bps / 100).toFixed(2)), pool: poolByHub(c.hub) };
   }
 }
 

@@ -23,6 +23,7 @@ function encodeCondition(condition: Condition): xdr.ScVal {
   switch (condition.type) {
     case "HealthFactor": return variant("HealthFactor", [cmp(condition.cmp), i128(condition.level_wad)]);
     case "SupplyRateGap": return variant("SupplyRateGap", [u32(condition.hub_over), u32(condition.hub_under), u32(condition.min_bps)]);
+    case "SupplyRate": return variant("SupplyRate", [u32(condition.hub), variant(condition.cmp, []), u32(condition.bps)]);
     case "FxPrice": return variant("FxPrice", [sym(condition.asset), cmp(condition.cmp), i128(condition.level), u64(condition.max_age_secs)]);
     case "IdleBalance": return variant("IdleBalance", [cmp(condition.cmp), i128(condition.amount)]);
   }
@@ -73,6 +74,7 @@ function decodeCondition(value: unknown): Condition {
   switch (v.tag) {
     case "HealthFactor": return { type: v.tag, cmp: decodeCmp(a[0]), level_wad: asString(a[1]) };
     case "SupplyRateGap": return { type: v.tag, hub_over: asNumber(a[0]), hub_under: asNumber(a[1]), min_bps: asNumber(a[2]) };
+    case "SupplyRate": return { type: v.tag, hub: asNumber(a[0]), cmp: decodeCmp(a[1]), bps: asNumber(a[2]) };
     case "FxPrice": return { type: v.tag, asset: asString(a[0]), cmp: decodeCmp(a[1]), level: asString(a[2]), max_age_secs: asString(a[3]) };
     case "IdleBalance": return { type: v.tag, cmp: decodeCmp(a[0]), amount: asString(a[1]) };
     default: throw new Error(`Unknown condition ${v.tag}`);

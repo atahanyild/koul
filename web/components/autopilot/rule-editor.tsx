@@ -22,6 +22,7 @@ import { Segmented } from "./segmented";
 import { NowPill } from "./rule-card";
 
 const KIND_ITEMS: { value: ConditionKind; label: string }[] = [
+  { value: "pool_rate", label: "What a pool pays" },
   { value: "fx_price", label: "USD/TRY" },
   { value: "health_factor", label: "My loan health" },
   { value: "rate_gap", label: "The better pool pays more by" },
@@ -38,9 +39,9 @@ const comparatorItems = (kind: ConditionKind): { value: Comparator; label: strin
     ? [{ value: "gte", label: "at least" }, { value: "lte", label: "at most" }]
     : [{ value: "gte", label: "is at or above" }, { value: "lte", label: "is at or below" }];
 const COOLDOWN_ITEMS = COOLDOWN_OPTIONS.map((o) => ({ value: String(o.value), label: o.label }));
-const DEFAULT_VALUE: Record<ConditionKind, number> = { fx_price: 50, health_factor: 1.25, rate_gap: 1, idle_usdc: 10 };
-const DEFAULT_COMPARATOR: Record<ConditionKind, Comparator> = { fx_price: "gte", health_factor: "lte", rate_gap: "gte", idle_usdc: "gte" };
-const UNIT: Record<ConditionKind, string> = { fx_price: "TRY per USD", health_factor: "", rate_gap: "pts", idle_usdc: "USDC" };
+const DEFAULT_VALUE: Record<ConditionKind, number> = { fx_price: 50, health_factor: 1.25, rate_gap: 1, idle_usdc: 10, pool_rate: 20 };
+const DEFAULT_COMPARATOR: Record<ConditionKind, Comparator> = { fx_price: "gte", health_factor: "lte", rate_gap: "gte", idle_usdc: "gte", pool_rate: "gte" };
+const UNIT: Record<ConditionKind, string> = { fx_price: "TRY per USD", health_factor: "", rate_gap: "pts", idle_usdc: "USDC", pool_rate: "% a year" };
 const MAX_CONDITIONS = 3;
 
 const parseNum = (s: string): number | null => {
