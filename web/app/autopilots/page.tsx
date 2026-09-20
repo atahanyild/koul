@@ -8,13 +8,13 @@ import * as React from "react";
 import Link from "next/link";
 import { Plus, PenLine, Compass, Archive } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { PageHeader, EmptyState, ErrorState, DemoChip } from "@/components/koul/primitives";
+import { PageHeader, EmptyState, ErrorState } from "@/components/koul/primitives";
 import { RequireWallet } from "@/components/shell/connect-panel";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useWallet } from "@/hooks/use-wallet";
 import { useAutopilots } from "@/hooks/use-autopilots";
-import { useRouterRules } from "@/hooks/use-portfolio";
+import { useChainAutopilots } from "@/hooks/use-portfolio";
 import { useLiveValues } from "@/hooks/use-live-values";
 import type { Autopilot } from "@/lib/model/autopilot";
 import { AutopilotCard, AutopilotCardSkeleton } from "@/components/autopilots-list/autopilot-card";
@@ -39,8 +39,8 @@ function groupAutopilots(list: Autopilot[]): Record<TabKey, Autopilot[]> {
 
 export default function AutopilotsPage() {
   const w = useWallet();
-  const { autopilots, source, loading, error } = useAutopilots();
-  const rr = useRouterRules();
+  const { autopilots, loading, error } = useAutopilots();
+  const chain = useChainAutopilots();
   const { live, loading: liveLoading } = useLiveValues();
   const now = useNow(30_000);
   const [tab, setTab] = React.useState<TabKey>("active");
@@ -58,7 +58,6 @@ export default function AutopilotsPage() {
         eyebrow="Autopilots"
         title="Rules that run for you"
         description="Each autopilot is a short list of rules. Koul checks them every few minutes and only ever does what they say."
-        chips={source === "mock" && !loading ? <DemoChip /> : null}
         actions={newButton(w.isConnected ? "max-md:hidden" : undefined)}
       />
 
@@ -68,7 +67,7 @@ export default function AutopilotsPage() {
             className="mb-5"
             title="Could not read the router"
             description={autopilots.length ? "Showing what this browser has saved until the chain answers." : error.message}
-            onRetry={() => void rr.refresh()}
+            onRetry={() => void chain.refresh()}
           />
         )}
 

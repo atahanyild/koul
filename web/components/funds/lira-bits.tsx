@@ -6,11 +6,11 @@ import Link from "next/link";
 import { ArrowRight, Check } from "lucide-react";
 import type { Transfer } from "@/lib/data/types";
 import type { FxState } from "@/hooks/use-market";
-import { AnimatedNumber, DemoChip, ErrorState, LiveDot, Money, Pill, Term, TxLink } from "@/components/koul/primitives";
+import { AnimatedNumber, ErrorState, LiveDot, Money, Pill, Term, TxLink } from "@/components/koul/primitives";
 import { Button } from "@/components/ui/button";
 import { fmtDuration, fmtFx, fmtTime, fmtTry, fmtUsdc } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { SimulationChip, TransferProgress } from "./timeline";
+import { TransferProgress } from "./timeline";
 import { useCountUpFromZero } from "./use-funds";
 
 const ORACLE_DETAIL = "Reflector-shaped mock oracle lastprice(TRY), USD per TRY with 14 decimals, inverted; polled every 10 s.";
@@ -38,7 +38,6 @@ export function QuoteLine({ amount, currency, fx, className }: { amount: number;
           ) : (
             <span className="inline-flex items-center gap-1.5"><LiveDot tone="positive" /><Term detail={ORACLE_DETAIL}>rate</Term> from {fmtDuration(fx.fx.ageSec)} ago</span>
           )}
-          {fx.source === "mock" && !fx.loading && <DemoChip />}
         </div>
       </div>
       {fx.fx.stale && <p className="mt-2 text-xs text-warning">The oracle price is older than {fmtDuration(fx.fx.maxAgeSec)}. The bank partner quotes a fresh rate when you start.</p>}
@@ -61,7 +60,6 @@ export function RunningHeader({ transfer }: { transfer: Transfer }) {
           </div>
           <div className="num mt-1 text-xs text-muted-foreground">at {fmtFx(transfer.rate)} · started {fmtTime(transfer.startedAt)}{transfer.reference && <> · {transfer.reference}</>}</div>
         </div>
-        <SimulationChip className="mt-0.5" />
       </div>
       <TransferProgress transfer={transfer} className="mt-4" />
     </div>

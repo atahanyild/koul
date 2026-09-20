@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { decodeAutopilot, encodeAutopilot } from "./codec.js";
-import { type Autopilot } from "./schema.js";
-import { validateAutopilot } from "./validate.js";
+import { decodeAutopilot, encodeAutopilot } from "./codec";
+import { type Autopilot } from "./schema";
+import { validateAutopilot } from "./validate";
 
 const all = { type: "All" } as const;
 const ap: Autopilot = { account_id: "18446744073709551615", rules: [

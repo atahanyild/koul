@@ -6,7 +6,7 @@
  * live demo moment: every step has a state and the waiting step counts.
  */
 import * as React from "react";
-import { DemoChip, Money, PageHeader, Section, Sk } from "@/components/koul/primitives";
+import { Money, PageHeader, Section, Sk } from "@/components/koul/primitives";
 import { ResponsiveSheet } from "@/components/koul/responsive-sheet";
 import { RequireWallet } from "@/components/shell/connect-panel";
 import { useWallet } from "@/hooks/use-wallet";
@@ -15,15 +15,12 @@ import { DepositFlow } from "@/components/funds/deposit-flow";
 import { WithdrawFlow } from "@/components/funds/withdraw-flow";
 import { ReceiveCrypto } from "@/components/funds/receive-crypto";
 import { SendCrypto } from "@/components/funds/send-crypto";
-import { HistoryAside, TransferHistory, useTransferHistory } from "@/components/funds/history";
+import { HistoryAside, TransferHistory } from "@/components/funds/history";
 import { RateCard, RateStrip } from "@/components/funds/rate-card";
 import { useMediaQuery } from "@/components/funds/use-funds";
 
-const SAMPLE = { usdc: 30, xlm: 412.5 };
-
 export default function FundsPage() {
   const w = useWallet();
-  const history = useTransferHistory();
   const inline = useMediaQuery("(min-width: 1024px)");
   const [flow, setFlow] = React.useState<FlowKind>("deposit");
   const [open, setOpen] = React.useState(false);
@@ -37,8 +34,8 @@ export default function FundsPage() {
   const close = React.useCallback(() => { setOpen(false); setLocked(false); }, []);
   const onLockedChange = React.useCallback((l: boolean) => setLocked(l), []);
 
-  const usdc = w.isConnected ? w.usdc : SAMPLE.usdc;
-  const xlm = w.isConnected ? w.xlm : SAMPLE.xlm;
+  const usdc = w.isConnected ? w.usdc : null;
+  const xlm = w.isConnected ? w.xlm : null;
   const meta = FLOW_META[flow];
   const flowProps = { onLockedChange, onClose: close };
   const body = open ? (
@@ -62,7 +59,6 @@ export default function FundsPage() {
                 {xlm === null ? <Sk className="h-5 w-20" /> : <Money value={xlm} currency="XLM" size="sm" className="text-muted-foreground" />}
               </div>
             </div>
-            {!w.isConnected && !w.initializing && <DemoChip className="mb-1" />}
           </div>
         }
       />
@@ -74,7 +70,7 @@ export default function FundsPage() {
               <ActionGrid active={open ? flow : null} locked={locked} onPick={pick} />
             </Section>
             <RateStrip className="-mt-4 mb-8 lg:hidden" />
-            <Section title="History" aside={<HistoryAside source={history.source} loading={history.loading} />}>
+            <Section title="History" aside={<HistoryAside />}>
               <TransferHistory onDeposit={() => pick("deposit")} />
             </Section>
           </div>

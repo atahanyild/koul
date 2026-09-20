@@ -1,4 +1,4 @@
-import type { Autopilot } from "./schema.js";
+import type { Autopilot } from "./schema";
 
 const all = { type: "All" } as const;
 const fx = { type: "FxPrice", asset: "TRY", cmp: "Below", level: "2000000000000", max_age_secs: "900" } as const;

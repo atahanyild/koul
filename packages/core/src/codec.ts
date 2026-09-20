@@ -1,6 +1,6 @@
 import { nativeToScVal, scValToNative, xdr } from "@stellar/stellar-sdk";
-import { autopilotSchema, type Action, type Amount, type Autopilot, type Cmp, type Condition } from "./schema.js";
-import { validateAutopilot } from "./validate.js";
+import { autopilotSchema, type Action, type Amount, type Autopilot, type Cmp, type Condition } from "./schema";
+import { validateAutopilot } from "./validate";
 
 const sym = (s: string) => xdr.ScVal.scvSymbol(s);
 const u32 = (n: number) => xdr.ScVal.scvU32(n);

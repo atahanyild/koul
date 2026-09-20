@@ -1,8 +1,9 @@
 "use client";
 
 /**
- * Deposit lira: amount → live quote → one honest sentence → the timeline. The waiting step shows the FAST
- * instructions with the reference and counts the seconds so the stage never looks stuck.
+ * Deposit lira: amount → live quote → one honest sentence → the timeline. The transfer runs through the funds
+ * routes; the waiting step shows the anchor's FAST instructions with the reference and, on the sandbox, a button
+ * that simulates the bank leg so the demo does not wait on a real transfer.
  */
 import * as React from "react";
 import { ArrowRight } from "lucide-react";
@@ -33,7 +34,7 @@ export function DepositFlow({ onLockedChange }: FlowProps) {
 
   React.useEffect(() => { onLockedChange(!!running); return () => onLockedChange(false); }, [running, onLockedChange]);
 
-  const start = () => { if (amountTry >= MIN_TRY && rate > 0) runner.start("in", amountTry, amountUsdc, rate); };
+  const start = () => { if (amountTry >= MIN_TRY && rate > 0) void runner.start("in", { amountTry, amountUsdc, rate }); };
 
   if (t && t.status === "done") {
     const last = t.steps[t.steps.length - 1];
@@ -57,7 +58,14 @@ export function DepositFlow({ onLockedChange }: FlowProps) {
           transfer={t}
           renderExtra={(s) => {
             if (s.id !== "instructions") return null;
-            if (s.state === "active") return <BankInstructions amountTry={t.amountTry} reference={t.reference} />;
+            if (s.state === "active") return (
+              <div className="flex flex-col gap-3">
+                <BankInstructions amountTry={t.amountTry} reference={t.reference} instructions={t.instructions} />
+                <Button variant="outline" size="lg" className="min-h-11 w-full text-[15px]" disabled={runner.busy || !t.transferId} onClick={() => void runner.simulateBank()}>
+                  {runner.busy ? "Telling the sandbox…" : "Sandbox: pretend I sent the lira"}
+                </Button>
+              </div>
+            );
             if (s.state === "done" && t.reference) return <div className="text-xs text-muted-foreground">Reference <span className="num text-foreground">{t.reference}</span> · matched by the bank partner</div>;
             return null;
           }}
@@ -83,7 +91,7 @@ export function DepositFlow({ onLockedChange }: FlowProps) {
       <p className="text-sm leading-relaxed text-muted-foreground">
         The bank partner pays a <Term detail="Ownerless classic G-account per transfer, sponsored by the keeper, with pre-authorised forward and cleanup transactions (the Kumbara landing account pattern).">temporary receiving account</Term> that forwards to your wallet on its own. Nothing to sign.
       </p>
-      <Button type="submit" size="lg" className="min-h-12 w-full text-[15px]" disabled={amountTry < MIN_TRY || fx.loading}>
+      <Button type="submit" size="lg" className="min-h-12 w-full text-[15px]" disabled={amountTry < MIN_TRY || fx.loading || rate <= 0 || runner.busy}>
         Start deposit <ArrowRight data-icon="inline-end" aria-hidden />
       </Button>
     </form>

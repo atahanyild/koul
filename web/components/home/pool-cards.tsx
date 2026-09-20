@@ -1,7 +1,7 @@
 "use client";
 
 /** One card per pool, live from XOXNO. Big rate, what the pool can release, how much of it is in use. */
-import { Card, Section, AnimatedNumber, Term, Pill, LiveDot, DemoChip, SkCard, ErrorState } from "@/components/koul/primitives";
+import { Card, Section, AnimatedNumber, Term, Pill, LiveDot, SkCard, ErrorState } from "@/components/koul/primitives";
 import { usePools, bestPool, rateGap } from "@/hooks/use-market";
 import type { Pool } from "@/lib/data/types";
 import { fmtPct, fmtUsdc, fmtInt } from "@/lib/format";
@@ -13,7 +13,7 @@ export function PoolCards() {
   const now = useNow(1000);
   const best = bestPool(pools.pools);
   const gap = rateGap(pools.pools);
-  const live = !pools.loading && pools.source === "live";
+  const live = !pools.loading && !pools.error && pools.pools.length > 0;
   const ageSec = live && now !== null && pools.updatedAt > 0 ? Math.max(0, Math.round((now - pools.updatedAt) / 1000)) : null;
 
   return (
@@ -25,13 +25,11 @@ export function PoolCards() {
           <span className="flex shrink-0 items-center gap-2 whitespace-nowrap text-xs text-muted-foreground">
             <LiveDot /> Live{ageSec !== null && <> · updated <span className="num">{ageSec} s</span> ago</>}
           </span>
-        ) : !pools.loading ? (
-          <DemoChip />
         ) : null
       }
     >
       {pools.error && !pools.loading && (
-        <ErrorState className="mb-4" title="Could not read the pools" description="Showing the sample rates until the next read succeeds." onRetry={() => void pools.refresh()} />
+        <ErrorState className="mb-4" title="Could not read the pools" description={pools.pools.length ? "Showing the last read until the next one succeeds." : pools.error.message} onRetry={() => void pools.refresh()} />
       )}
       <div className="grid gap-4 sm:grid-cols-2">
         {pools.loading ? (
@@ -40,7 +38,7 @@ export function PoolCards() {
             <SkCard lines={2} />
           </>
         ) : (
-          pools.pools.map((p) => <PoolCard key={p.id} pool={p} paysMore={gap > 0 && p.id === best.id} />)
+          pools.pools.map((p) => <PoolCard key={p.id} pool={p} paysMore={gap > 0 && best !== null && p.id === best.id} />)
         )}
       </div>
     </Section>

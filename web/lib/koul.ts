@@ -1,5 +1,5 @@
-/** Koul testnet deployment and helpers shared by the experimental frontend. */
-import { Address, xdr } from "@stellar/stellar-sdk";
+/** Koul testnet deployment and the SDK configuration the app reads and writes through. */
+import { XOXNO_POSITION_NFT, type KoulConfig, type KoulWriteConfig } from "@koul/core";
 
 export const KOUL = {
   router: process.env.NEXT_PUBLIC_KOUL_ROUTER ?? "CBHRTWXARGZCUDBE7IX4SZV7GDFA6PRQICZQPUSOUPN3YDCVPXQBMT2P",
@@ -9,43 +9,47 @@ export const KOUL = {
   agentPublicKey: process.env.NEXT_PUBLIC_KOUL_AGENT_PUBLIC_KEY ?? "GBVD753EJMRQYI6WQCWC4OMDCNMGQMHXRT7IOAHTT3FD7ON6OQXTSAK3",
   rpcUrl: "https://soroban-testnet.stellar.org",
   networkPassphrase: "Test SDF Network ; September 2015",
+  ed25519Verifier: "CAAVTMCBXEIBPR64EAASKFXERVPYFZA2JYP5A3BG6PESWEFUJX5IHKN4",
 } as const;
 
 export const XOXNO = {
   controller: "CCXRWJ6SIU2WPFEGLFGJVITPL57QAYIMIO6OAM2NBGNDQSSCK2FFV3F3",
   pool: "CBSGF6QOQAMPFBEVSYPEQHSZRIHJ6RCGUPCRDMUX36DEKRWFAO2PZB5A",
   usdc: "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA",
+  xlm: "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+  positionNft: XOXNO_POSITION_NFT,
   spoke: 3,
 } as const;
 
 export const LEDGERS_PER_DAY = 17280;
+export const LEDGER_SECONDS = 5;
 export const ORACLE_DECIMALS = 14;
+/** Rules reject oracle prices older than this. */
+export const MAX_PRICE_AGE_SECS = 900;
 
-const sym = (s: string) => xdr.ScVal.scvSymbol(s);
-const addr = (a: string) => new Address(a).toScVal();
+/** The keeper's G-account: public, funded, used only as a simulation source for read-only contract calls. */
+export const SIM_SOURCE = "GAFHZTSL63YZYU35SCHDOGOMXQ25266DBQYG7KETG6HC2AHBIZMGXP6U";
 
-/** What the agent may do with this wallet. Everything else is rejected on-chain by koul_agent_policy. */
-export const AGENT_ALLOWED_CALLS: [string, string][] = [
-  [KOUL.router, "tick"],
-  [XOXNO.controller, "withdraw"],
-  [XOXNO.controller, "supply"],
-  [XOXNO.controller, "repay"],
-  [XOXNO.usdc, "transfer"],
-];
-export const AGENT_TRANSFER_RECIPIENTS = [XOXNO.pool];
+export const READ_CONFIG: KoulConfig = {
+  rpcUrl: KOUL.rpcUrl,
+  networkPassphrase: KOUL.networkPassphrase,
+  publicKey: SIM_SOURCE,
+  router: KOUL.router,
+  oracle: KOUL.oracle,
+  controller: XOXNO.controller,
+  pool: XOXNO.pool,
+  usdc: XOXNO.usdc,
+  xlm: XOXNO.xlm,
+  positionNft: XOXNO.positionNft,
+  hubs: [1, 2],
+};
 
-/** `KoulAgentParams` for the policy install, keys in the order the contract type sorts them. */
-export function agentPolicyParams(maxCalls = 40, windowLedgers = 2000): xdr.ScVal {
-  return xdr.ScVal.scvMap([
-    new xdr.ScMapEntry({ key: sym("allowed_calls"), val: xdr.ScVal.scvVec(AGENT_ALLOWED_CALLS.map(([c, f]) => xdr.ScVal.scvVec([addr(c), sym(f)]))) }),
-    new xdr.ScMapEntry({ key: sym("allowed_transfer_recipients"), val: xdr.ScVal.scvVec(AGENT_TRANSFER_RECIPIENTS.map(addr)) }),
-    new xdr.ScMapEntry({ key: sym("max_calls_per_window"), val: xdr.ScVal.scvU32(maxCalls) }),
-    new xdr.ScMapEntry({ key: sym("window_ledgers"), val: xdr.ScVal.scvU32(windowLedgers) }),
-  ]);
-}
+export const WRITE_CONFIG: KoulWriteConfig = { ...READ_CONFIG, policy: KOUL.policy, ed25519Verifier: KOUL.ed25519Verifier, spoke: XOXNO.spoke };
 
 export const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;
 export const explorerTx = (h: string) => `https://stellar.expert/explorer/testnet/tx/${h}`;
+export const explorerContract = (id: string) => `https://stellar.expert/explorer/testnet/contract/${id}`;
+export const explorerAccount = (id: string) => `https://stellar.expert/explorer/testnet/account/${id}`;
 
 /** USD per TRY with 14 decimals -> TRY per USD, as people read it. */
 export function usdPerTryToTryPerUsd(price: bigint): number {
@@ -54,8 +58,3 @@ export function usdPerTryToTryPerUsd(price: bigint): number {
 export function tryPerUsdToUsdPerTry(tryPerUsd: number): bigint {
   return BigInt(Math.round((10 ** ORACLE_DECIMALS) / tryPerUsd));
 }
-
-/** The keeper's G-account: public, funded, used only as a simulation source for read-only contract calls. */
-export const SIM_SOURCE = "GAFHZTSL63YZYU35SCHDOGOMXQ25266DBQYG7KETG6HC2AHBIZMGXP6U";
-export const explorerContract = (id: string) => `https://stellar.expert/explorer/testnet/contract/${id}`;
-export const explorerAccount = (id: string) => `https://stellar.expert/explorer/testnet/account/${id}`;

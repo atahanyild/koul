@@ -1,9 +1,9 @@
 import { Address, contract, nativeToScVal, xdr } from "@stellar/stellar-sdk";
 import { createDefaultContext, createEd25519Signer, type SmartAccountKit } from "smart-account-kit";
-import { encodeAutopilot } from "./codec.js";
-import { permissionsFor } from "./permissions.js";
-import type { KoulConfig } from "./read.js";
-import type { Autopilot } from "./schema.js";
+import { encodeAutopilot } from "./codec";
+import { permissionsFor } from "./permissions";
+import type { KoulConfig } from "./read";
+import type { Autopilot } from "./schema";
 
 export interface KoulWriteConfig extends KoulConfig { policy: string; ed25519Verifier: string; spoke: number }
 type Call = (args: Record<string, unknown>) => Promise<contract.AssembledTransaction<unknown>>;

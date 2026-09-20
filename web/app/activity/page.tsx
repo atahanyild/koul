@@ -8,7 +8,7 @@ import * as React from "react";
 import Link from "next/link";
 import { RefreshCw, Activity as ActivityIcon, Compass } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { PageHeader, EmptyState, ErrorState, DemoChip, LiveDot } from "@/components/koul/primitives";
+import { PageHeader, EmptyState, ErrorState, LiveDot } from "@/components/koul/primitives";
 import { RequireWallet } from "@/components/shell/connect-panel";
 import { Button } from "@/components/ui/button";
 import { useWallet } from "@/hooks/use-wallet";
@@ -19,7 +19,7 @@ import { useNow } from "@/components/activity/use-now";
 
 export default function ActivityPage() {
   const w = useWallet();
-  const { items, source, loading, error, refresh } = useActivity();
+  const { items, loading, error, refresh } = useActivity();
   const now = useNow(30_000);
   const [filter, setFilter] = React.useState<FilterKey>("all");
   const [refreshing, setRefreshing] = React.useState(false);
@@ -41,7 +41,7 @@ export default function ActivityPage() {
     finally { setRefreshing(false); }
   };
 
-  const isLive = source === "live" && !loading && items.length > 0;
+  const isLive = !loading && !error && items.length > 0;
   const filterLabel = FILTERS.find((f) => f.key === filter)?.label.toLowerCase() ?? "";
 
   return (
@@ -53,8 +53,6 @@ export default function ActivityPage() {
         chips={
           isLive ? (
             <span className="inline-flex items-center gap-2 text-xs text-muted-foreground" role="status"><LiveDot /> Live from the router</span>
-          ) : source === "mock" && !loading ? (
-            <DemoChip />
           ) : null
         }
         actions={

@@ -6,7 +6,7 @@
  */
 import Link from "next/link";
 import { ArrowDownToLine } from "lucide-react";
-import { PageHeader, DemoChip, EmptyState, ErrorState, Sk } from "@/components/koul/primitives";
+import { PageHeader, EmptyState, ErrorState, Sk } from "@/components/koul/primitives";
 import { RequireWallet } from "@/components/shell/connect-panel";
 import { Button } from "@/components/ui/button";
 import { useWallet } from "@/hooks/use-wallet";
@@ -26,14 +26,13 @@ export default function PortfolioPage() {
   const aps = useAutopilots();
   const activity = useActivity();
   const armed = aps.autopilots.find((a) => a.status === "armed") ?? null;
-  const showDemo = w.isConnected && !pf.loading && pf.source === "mock";
 
   return (
     <>
-      <PageHeader eyebrow="Portfolio" title="Everything you hold" chips={showDemo ? <DemoChip /> : null} />
+      <PageHeader eyebrow="Portfolio" title="Everything you hold" />
       <RequireWallet connected={w.isConnected} initializing={w.initializing}>
         {pf.error && !pf.loading && (
-          <ErrorState className="mb-6" title="Could not read your positions" description={pf.empty ? "Check your connection and try again." : "Showing the last known numbers until the next read succeeds."} onRetry={() => void pf.refresh()} />
+          <ErrorState className="mb-6" title="Could not read your positions" description={pf.loaded ? "Showing the last known numbers until the next read succeeds." : pf.error.message} onRetry={() => void pf.refresh()} />
         )}
 
         {pf.loading ? (
@@ -67,7 +66,7 @@ export default function PortfolioPage() {
         ) : (
           <>
             <div className="mb-4 grid gap-4 lg:grid-cols-[1fr_360px]">
-              <PortfolioHero positions={pf.positions} fx={fx.fx} fxLive={fx.source === "live"} pools={pools.pools} poolsLoading={pools.loading} />
+              <PortfolioHero positions={pf.positions} fx={fx.fx} fxLive={!fx.loading && !fx.error} pools={pools.pools} poolsLoading={pools.loading} />
               <MoneyInOut items={activity.items} loading={activity.loading} />
             </div>
             <div className="mb-8 sm:mb-10">

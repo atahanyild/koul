@@ -22,7 +22,7 @@
     "anchor:withdraw": "tsx scripts/anchor-withdraw.ts"
   },
   "dependencies": {
-    "@koul/core": "file:../packages/core",
+    "@koul/core": "link:../packages/core",
     "@stellar/stellar-sdk": "16.0.1",
     "smart-account-kit": "0.6.2"
   },

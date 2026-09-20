@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { Address, Asset, BASE_FEE, Contract, TransactionBuilder, contract, nativeToScVal, rpc, scValToNative } from "@stellar/stellar-sdk";
-import { discoverAnchor, type AnchorDiscovery } from "./anchor/discovery.js";
-import { createLandingAccount, submitPreauthorized, type LandingDeps, type LandingPlan } from "./anchor/landing.js";
-import { fiatAsset, sep10Authenticate, sep12Register, sep38Quote, sep6DepositExchange, sep6SimulateBankTransfer, sep6Transaction, sep6WithdrawExchange, stellarAsset, type Sep6Instruction } from "./anchor/sep.js";
+import { discoverAnchor, type AnchorDiscovery } from "./anchor/discovery";
+import { createLandingAccount, submitPreauthorized, type LandingDeps, type LandingPlan } from "./anchor/landing";
+import { fiatAsset, sep10Authenticate, sep12Register, sep38Quote, sep6DepositExchange, sep6SimulateBankTransfer, sep6Transaction, sep6WithdrawExchange, stellarAsset, type Sep6Instruction } from "./anchor/sep";
 
 export type FundsKind = "deposit" | "withdraw";
 export type FundsStage = "awaiting_bank" | "awaiting_passkey" | "awaiting_anchor" | "forwarding" | "completed" | "failed";
@@ -122,6 +122,16 @@ export class FundsService {
       rpcUrl: this.deps.server.serverURL.toString(), publicKey: this.deps.sponsor.publicKey(), parseResultXdr: () => null,
     });
     return publicFundsRecord(record, { unsignedTransfer: tx.toJSON() });
+  }
+
+  /** Sandbox only: ask the mock anchor to pretend the user's bank transfer for a deposit arrived. */
+  async simulateBankTransfer(id: string): Promise<FundsPublic> {
+    const record = await this.store.get(id);
+    if (!record) throw new Error("Unknown transfer ID");
+    if (record.kind !== "deposit" || record.stage !== "awaiting_bank") throw new Error("Only a deposit waiting for the bank can be simulated");
+    const anchor = await discoverAnchor(record.anchorHomeDomain);
+    await sep6SimulateBankTransfer(anchor, record.sepToken, record.sep6Id);
+    return publicFundsRecord(record, { anchorStatus: "pending_anchor" });
   }
 
   async getStatus(id: string): Promise<FundsPublic> {

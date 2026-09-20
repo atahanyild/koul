@@ -1,7 +1,7 @@
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
-import type { FundsRecord, FundsStore } from "./funds.js";
+import type { FundsRecord, FundsStore } from "./funds";
 
 /** Local demo store. Keep this directory private: records contain SEP bearer tokens and pre-authorized XDR. */
 export class FileFundsStore implements FundsStore {

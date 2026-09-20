@@ -1,5 +1,6 @@
 import { Address, BASE_FEE, Contract, TransactionBuilder, contract, rpc, scValToNative, xdr } from "@stellar/stellar-sdk";
-import type { Executed, RuleState } from "./schema.js";
+import type { Autopilot, Executed, RuleState } from "./schema";
+import { decodeAutopilot } from "./codec";
 
 export interface KoulConfig {
   rpcUrl: string;
@@ -42,7 +43,7 @@ export interface FiredEvent { ledger: number; txHash: string; user: string; auto
 const EVENT_WINDOW = 5000;
 const EVENT_PAGE = 200;
 type Call = (args: Record<string, unknown>) => Promise<contract.AssembledTransaction<unknown>>;
-type Router = { list_ids: Call; get_autopilot: Call; check: Call; tick: Call };
+type Router = { list_ids: Call; get_autopilot: Call; check: Call; tick: Call; list_users: Call };
 type Controller = { get_health_factor: Call; get_collateral_amount: Call; get_borrow_amount: Call };
 type Pool = { get_deposit_rate: Call; get_sync_data: Call; get_supplied_amount: Call; get_borrowed_amount: Call; get_utilisation: Call };
 
@@ -51,13 +52,15 @@ export class KoulReader {
   constructor(readonly config: KoulConfig) { this.server = new rpc.Server(config.rpcUrl); }
   private options() { return { rpcUrl: this.config.rpcUrl, networkPassphrase: this.config.networkPassphrase, publicKey: this.config.publicKey }; }
   private async client<T>(id: string): Promise<T> { return await contract.Client.from({ contractId: id, ...this.options() }) as T; }
-  private async raw(contractId: string, method: string, args: xdr.ScVal[]): Promise<unknown> {
+  private async raw(contractId: string, method: string, args: xdr.ScVal[], keepScVal = false): Promise<unknown> {
     const account = await this.server.getAccount(this.config.publicKey);
     const tx = new TransactionBuilder(account, { fee: BASE_FEE, networkPassphrase: this.config.networkPassphrase })
       .addOperation(new Contract(contractId).call(method, ...args)).setTimeout(30).build();
     const sim = await this.server.simulateTransaction(tx);
     if (!rpc.Api.isSimulationSuccess(sim)) throw new Error(`${method} simulation failed: ${"error" in sim ? String(sim.error) : "no result"}`);
-    return scValToNative(sim.result!.retval);
+    const retval = sim.result!.retval;
+    if (keepScVal) return retval.switch().name === "scvVoid" ? null : retval;
+    return scValToNative(retval);
   }
   private key(hub: number) { return { asset: this.config.usdc, hub_id: hub }; }
 
@@ -119,6 +122,26 @@ export class KoulReader {
     ]);
     if (!price) return null;
     return { asset, price: price.price, timestamp: price.timestamp, decimals, ageSeconds: Math.max(0, Math.floor(Date.now() / 1000) - Number(price.timestamp)) };
+  }
+
+  async latestLedger(): Promise<number> {
+    return (await this.server.getLatestLedger()).sequence;
+  }
+
+  async listIds(user: string): Promise<number[]> {
+    const router = await this.client<Router>(this.config.router);
+    return (await router.list_ids({ user })).result as number[];
+  }
+
+  async listUsers(): Promise<string[]> {
+    const router = await this.client<Router>(this.config.router);
+    return (await router.list_users({})).result as string[];
+  }
+
+  /** The stored autopilot in the JSON shape of `autopilotSchema`, or null when the id is unknown. */
+  async readAutopilot(user: string, id: number): Promise<Autopilot | null> {
+    const raw = await this.raw(this.config.router, "get_autopilot", [new Address(user).toScVal(), xdr.ScVal.scvU32(id)], true);
+    return raw ? decodeAutopilot(raw as xdr.ScVal) : null;
   }
 
   async simulateTick(user: string, id: number): Promise<Executed | null> {

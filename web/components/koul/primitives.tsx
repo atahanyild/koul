@@ -157,13 +157,6 @@ export function LiveDot({ tone = "positive", className }: { tone?: "positive" | 
   );
 }
 
-export function DemoChip({ className }: { className?: string }) {
-  return (
-    <Term detail="Shown until the chain has data for this wallet. Live reads always win. Switch it off in the wallet menu." className={cn("no-underline", className)}>
-      <Pill tone="outline">Sample data</Pill>
-    </Term>
-  );
-}
 
 // ---------------------------------------------------------------- skeletons, empty, error
 

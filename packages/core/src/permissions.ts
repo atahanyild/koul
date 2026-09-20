@@ -1,5 +1,5 @@
-import type { Autopilot } from "./schema.js";
-import { validateAutopilot } from "./validate.js";
+import type { Autopilot } from "./schema";
+import { validateAutopilot } from "./validate";
 
 export interface AgentPermissions {
   allowedCalls: Array<[contractId: string, method: string]>;

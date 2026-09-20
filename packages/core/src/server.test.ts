@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { parseAutopilot, PARSE_TOOL, type ParseContext } from "./server.js";
-import { healthGuard, liraShield, yieldOnly } from "./templates.js";
+import { parseAutopilot, PARSE_TOOL, type ParseContext } from "./server";
+import { healthGuard, liraShield, yieldOnly } from "./templates";
 
 const context: ParseContext = { accountId: "12", hubIds: [1, 2], idleUsdc: "250000000", healthFactorWad: "1600000000000000000", depositRatesRay: { "1": "10000000000000000000000000", "2": "12000000000000000000000000" }, fxAsset: "TRY", fxPrice: "2050000000000", fxPriceAgeSeconds: 40 };
 const sample = [

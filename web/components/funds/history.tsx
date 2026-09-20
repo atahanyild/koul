@@ -5,7 +5,7 @@ import * as React from "react";
 import Link from "next/link";
 import { ArrowDownLeft, ArrowUpRight, ArrowRightLeft, Landmark, type LucideIcon } from "lucide-react";
 import type { ActivityItem, ActivityKind } from "@/lib/data/types";
-import { DemoChip, EmptyState, ErrorState, Money, Sk, TxLink } from "@/components/koul/primitives";
+import { EmptyState, ErrorState, Money, Sk, TxLink } from "@/components/koul/primitives";
 import { Button } from "@/components/ui/button";
 import { useActivity } from "@/hooks/use-activity";
 import { fmtRelative, fmtTry } from "@/lib/format";
@@ -27,10 +27,9 @@ export function useTransferHistory() {
   return { ...a, items };
 }
 
-export function HistoryAside({ source, loading }: { source: "live" | "mock"; loading: boolean }) {
+export function HistoryAside() {
   return (
     <div className="flex items-center gap-3">
-      {source === "mock" && !loading && <DemoChip />}
       <Link href="/activity" className="text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 rounded-sm">All activity</Link>
     </div>
   );

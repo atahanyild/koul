@@ -14,15 +14,6 @@ import { cn } from "@/lib/utils";
 import { CopyButton } from "./copy-button";
 import { useElapsed, fmtElapsed } from "./use-funds";
 
-/** Marks a flow the browser simulates today; the detail says exactly what is and is not real. */
-export function SimulationChip({ className }: { className?: string }) {
-  return (
-    <Term detail="The anchor flow runs in keeper scripts today; this timeline is a faithful simulation of its steps." className={cn("no-underline", className)}>
-      <Pill tone="outline">Simulated</Pill>
-    </Term>
-  );
-}
-
 export function TransferProgress({ transfer, className }: { transfer: Transfer; className?: string }) {
   const total = transfer.steps.length;
   const done = transfer.steps.filter((s) => s.state === "done").length;
@@ -88,20 +79,34 @@ function StepRow({ step, last, extra }: { step: TransferStep; last: boolean; ext
 
 // ---------------------------------------------------------------- the bank card on the deposit's waiting step
 
+/** A sandbox IBAN for the withdrawal form; the anchor sandbox accepts any well-formed Turkish IBAN. */
 export const SAMPLE_IBAN = "TR33 0006 1005 1978 6457 8413 26";
-export const SAMPLE_IBAN_RAW = SAMPLE_IBAN.replace(/\s/g, "");
 
-export function BankInstructions({ amountTry, reference }: { amountTry: number; reference: string | null }) {
+export type Instructions = Record<string, { value: string; description?: string }>;
+
+const pick = (ins: Instructions | null, keys: string[]): string | null => {
+  if (!ins) return null;
+  for (const k of keys) { const v = ins[k]?.value; if (v) return v; }
+  return null;
+};
+const groupIban = (v: string) => v.replace(/\s/g, "").replace(/(.{4})/g, "$1 ").trim();
+
+/** The FAST instructions exactly as the anchor returned them for this transfer. */
+export function BankInstructions({ amountTry, reference, instructions }: { amountTry: number; reference: string | null; instructions: Instructions | null }) {
+  const iban = pick(instructions, ["bank_account_number", "iban", "account_number"]);
+  const name = pick(instructions, ["bank_account_name", "account_holder", "beneficiary", "bank_name"]) ?? "TR Mock Anchor";
+  const shown = Object.entries(instructions ?? {}).filter(([k]) => !["bank_account_number", "iban", "account_number", "bank_account_name", "account_holder", "beneficiary", "bank_name", "reference", "memo", "payment_reference", "description"].includes(k));
   return (
     <div className="rounded-xl border border-border bg-surface-2/60 p-4">
       <div className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">FAST transfer from your bank</div>
       <dl className="mt-1 divide-y divide-border/70">
-        <InstructionRow label="Send to"><span className="num text-[13px]">{SAMPLE_IBAN}</span><CopyButton text={SAMPLE_IBAN_RAW} label="IBAN" /></InstructionRow>
-        <InstructionRow label="Recipient"><span className="text-[13px]">TR Mock Anchor</span></InstructionRow>
+        <InstructionRow label="Send to">{iban ? <><span className="num text-[13px]">{groupIban(iban)}</span><CopyButton text={iban} label="IBAN" /></> : <span className="skeleton h-5 w-40" aria-busy />}</InstructionRow>
+        <InstructionRow label="Recipient"><span className="text-[13px]">{name}</span></InstructionRow>
         <InstructionRow label="Amount"><span className="num text-[13px]">{fmtTry(amountTry)}</span></InstructionRow>
         <InstructionRow label="Reference">
           {reference ? <><span className="num text-base font-medium text-saffron">{reference}</span><CopyButton text={reference} label="reference" /></> : <span className="skeleton h-5 w-24" aria-busy />}
         </InstructionRow>
+        {shown.map(([k, v]) => <InstructionRow key={k} label={v.description ?? k.replace(/_/g, " ")}><span className="num text-[13px]">{v.value}</span></InstructionRow>)}
       </dl>
       <p className="mt-3 text-xs leading-relaxed text-muted-foreground">Put the reference in the description field. The bank partner matches it on its own; there is nothing else to do.</p>
     </div>

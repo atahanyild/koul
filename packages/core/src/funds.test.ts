@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatAssetAmount, parseAssetAmount, publicFundsRecord, type FundsRecord } from "./funds.js";
+import { formatAssetAmount, parseAssetAmount, publicFundsRecord, type FundsRecord } from "./funds";
 
 describe("Funds public boundary", () => {
   it("parses 7-decimal USDC exactly and rejects rounding", () => {

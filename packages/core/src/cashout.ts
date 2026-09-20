@@ -1,4 +1,4 @@
-import { KoulReader, type FiredEvent } from "./read.js";
+import { KoulReader, type FiredEvent } from "./read";
 
 export interface CashOutReady { ready: boolean; idleUsdc: bigint; trigger: FiredEvent | null }
 

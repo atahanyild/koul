@@ -1,7 +1,5 @@
-/** Shapes every data hook returns. Mock and live implementations both produce these. */
+/** Shapes every data hook returns, all read from testnet. */
 import type { PoolId } from "@/lib/model/autopilot";
-
-export type Source = "live" | "mock";
 
 export interface Pool {
   id: PoolId;
@@ -61,10 +59,16 @@ export interface ActivityItem {
 export interface Transfer {
   id: string;
   direction: "in" | "out";
+  /** Server transfer id from the funds routes, once created. */
+  transferId: string | null;
   amountTry: number;
   amountUsdc: number;
   rate: number;
   reference: string | null;
+  /** FAST instructions from the anchor (deposit): IBAN, recipient name, reference. */
+  instructions: Record<string, { value: string; description?: string }> | null;
+  /** Unsigned USDC transfer the user signs (withdrawal), as AssembledTransaction JSON. */
+  unsignedTransfer: string | null;
   startedAt: number;
   steps: TransferStep[];
   status: "running" | "done" | "failed";

@@ -2,15 +2,15 @@
 
 /**
  * Withdraw lira: USDC amount, IBAN, quote, then the timeline. Step two waits on the user: a passkey button inside
- * the step. The landing-account flow lives in keeper scripts today, so the confirmation is simulated with the
- * same phases the real one shows (prompt → sending → done) and the chip says so.
+ * the step signs the USDC transfer the funds route prepared; the server forwards to the anchor and the timeline
+ * follows its status.
  */
 import * as React from "react";
 import { ArrowRight, ScanFace } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PasskeyButton, PasskeyHint } from "@/components/koul/passkey-button";
-import type { ActionPhase } from "@/hooks/use-passkey-action";
+import type { ActionState } from "@/hooks/use-passkey-action";
 import { useFx } from "@/hooks/use-market";
 import { useTransferRunner } from "@/hooks/use-transfer-runner";
 import { useWallet } from "@/hooks/use-wallet";
@@ -21,7 +21,6 @@ import { DoneCard, QuoteLine, RunningHeader, StoppedCard } from "./lira-bits";
 import { SAMPLE_IBAN, TransferTimeline } from "./timeline";
 import { parseAmount } from "./use-funds";
 
-const SAMPLE_USDC = 30;
 const isIban = (v: string) => /^TR\d{24}$/.test(v.replace(/\s/g, "").toUpperCase());
 /** "TR33 0006 …" as the user types. */
 const groupIban = (v: string) => v.replace(/\s/g, "").toUpperCase().slice(0, 26).replace(/(.{4})/g, "$1 ").trim();
@@ -30,7 +29,7 @@ export function WithdrawFlow({ onLockedChange, onClose }: FlowProps) {
   const w = useWallet();
   const fx = useFx();
   const runner = useTransferRunner();
-  const balance = w.isConnected ? w.usdc : SAMPLE_USDC;
+  const balance = w.isConnected ? w.usdc : null;
   const [raw, setRaw] = React.useState("");
   const [iban, setIban] = React.useState(SAMPLE_IBAN);
   const amountUsdc = parseAmount(raw);
@@ -40,8 +39,6 @@ export function WithdrawFlow({ onLockedChange, onClose }: FlowProps) {
   const ibanOk = isIban(iban);
   const t = runner.transfer;
   const running = t?.status === "running";
-  const cont = React.useRef(runner.continueFrom);
-  cont.current = runner.continueFrom;
 
   React.useEffect(() => { onLockedChange(!!running); return () => onLockedChange(false); }, [running, onLockedChange]);
 
@@ -50,8 +47,8 @@ export function WithdrawFlow({ onLockedChange, onClose }: FlowProps) {
     { label: "50", value: "50" },
     ...(balance !== null && balance > 0 ? [{ label: `All · ${fmtUsdc(balance)}`, value: String(balance) }] : []),
   ];
-  const canStart = amountUsdc > 0 && !overBalance && ibanOk && rate > 0 && !fx.loading;
-  const start = () => { if (canStart) runner.start("out", amountTry, amountUsdc, rate); };
+  const canStart = amountUsdc > 0 && !overBalance && ibanOk && rate > 0 && !fx.loading && !runner.busy;
+  const start = () => { if (canStart) void runner.start("out", { amountTry, amountUsdc, rate, iban }); };
   const ibanShort = shortAddress(iban.replace(/\s/g, ""), 4, 4);
 
   if (t && t.status === "done") {
@@ -76,8 +73,9 @@ export function WithdrawFlow({ onLockedChange, onClose }: FlowProps) {
           transfer={t}
           renderExtra={(s, i) => {
             if (s.id !== "approve") return null;
-            if (s.state === "active") return <ApproveStep amountUsdc={t.amountUsdc} onApproved={() => cont.current(i + 1)} />;
+            if (s.state === "active") return <ApproveStep amountUsdc={t.amountUsdc} ready={!!t.unsignedTransfer} action={runner.approveAction} onApprove={() => void runner.approve()} />;
             if (s.state === "done") return <div className="text-xs text-muted-foreground">Signed with Face ID · {fmtUsdc(t.amountUsdc)} USDC left your wallet</div>;
+            void i;
             return null;
           }}
         />
@@ -125,25 +123,15 @@ export function WithdrawFlow({ onLockedChange, onClose }: FlowProps) {
   );
 }
 
-/** The one thing the user does: a passkey prompt, simulated with the real phases and timings. */
-function ApproveStep({ amountUsdc, onApproved }: { amountUsdc: number; onApproved: () => void }) {
-  const [phase, setPhase] = React.useState<ActionPhase>("idle");
-  const timers = React.useRef<ReturnType<typeof setTimeout>[]>([]);
-  React.useEffect(() => () => timers.current.forEach(clearTimeout), []);
-  const run = () => {
-    if (phase !== "idle" && phase !== "cancelled") return;
-    setPhase("prompt");
-    timers.current.push(setTimeout(() => {
-      setPhase("submitting");
-      timers.current.push(setTimeout(() => { setPhase("success"); onApproved(); }, 1000));
-    }, 1400));
-  };
+/** The one thing the user does: sign the USDC transfer to the receiving account with the passkey. */
+function ApproveStep({ amountUsdc, ready, action, onApprove }: { amountUsdc: number; ready: boolean; action: ActionState; onApprove: () => void }) {
+  const phase = action.phase;
   return (
     <div className="flex flex-col gap-2">
-      <PasskeyButton phase={phase} onClick={run} className="w-full sm:w-auto">
+      <PasskeyButton phase={phase} onClick={onApprove} disabled={!ready} className="w-full sm:w-auto">
         <span className="inline-flex items-center gap-2"><ScanFace className="size-4" aria-hidden /> Approve with Face ID</span>
       </PasskeyButton>
-      <PasskeyHint phase={phase} onRetry={run} />
+      <PasskeyHint phase={phase} onRetry={onApprove} />
       {phase === "idle" && <p className="text-xs text-muted-foreground">Sends <span className="num text-foreground">{fmtUsdc(amountUsdc)} USDC</span> to the receiving account. Nothing else is signed.</p>}
     </div>
   );

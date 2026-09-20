@@ -1,7 +1,7 @@
 import { expect, it } from "vitest";
-import { permissionsFor } from "./permissions.js";
-import { healthGuard, liraShield, yieldOnly } from "./templates.js";
-import { validateAutopilot } from "./validate.js";
+import { permissionsFor } from "./permissions";
+import { healthGuard, liraShield, yieldOnly } from "./templates";
+import { validateAutopilot } from "./validate";
 
 const contracts = { router: "router", controller: "controller", pool: "pool", usdc: "usdc" };
 it("templates validate and request only their action permissions", () => {

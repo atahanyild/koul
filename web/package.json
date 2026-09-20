@@ -9,7 +9,7 @@
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",
-    "@koul/core": "file:../packages/core",
+    "@koul/core": "link:../packages/core",
     "@sembol/passkey-react": "0.4.0",
     "@stellar/stellar-sdk": "16.0.1",
     "@tailwindcss/postcss": "^4.3.3",

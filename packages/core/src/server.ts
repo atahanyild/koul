@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
-import { autopilotSchema } from "./schema.js";
-import { validateAutopilot } from "./validate.js";
+import { autopilotSchema } from "./schema";
+import { validateAutopilot } from "./validate";
 
 export const parseResultSchema = z.object({
   autopilot: autopilotSchema.nullable(),

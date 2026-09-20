@@ -1,31 +1,35 @@
 "use client";
 
-/** Market reads: pool rates and the USD/TRY price. Live with a fallback to the sample story. */
+/** Market reads: pool rates and the USD/TRY price, polled from testnet. */
 import { usePoll } from "@/lib/data/store";
 import { readFx, readPools } from "@/lib/data/live";
-import { MOCK_POOLS, mockFx } from "@/lib/data/mock";
-import type { FxPrice, Pool, Source } from "@/lib/data/types";
+import type { FxPrice, Pool } from "@/lib/data/types";
+import { MAX_PRICE_AGE_SECS } from "@/lib/koul";
 
-export interface PoolsState { pools: Pool[]; source: Source; loading: boolean; error: Error | null; updatedAt: number; refresh: () => Promise<void> }
+export interface PoolsState { pools: Pool[]; loading: boolean; error: Error | null; updatedAt: number; refresh: () => Promise<void> }
 
 export function usePools(): PoolsState {
   const p = usePoll<Pool[]>("pools", readPools, { intervalMs: 45_000 });
-  if (p.data) return { pools: p.data, source: "live", loading: false, error: null, updatedAt: p.updatedAt, refresh: p.refresh };
-  // While the first live read is in flight, report loading so pages show skeletons; after a failure, show the story.
-  if (p.loading || (!p.error && p.updatedAt === 0)) return { pools: MOCK_POOLS, source: "mock", loading: true, error: null, updatedAt: 0, refresh: p.refresh };
-  return { pools: MOCK_POOLS, source: "mock", loading: false, error: p.error, updatedAt: p.updatedAt, refresh: p.refresh };
+  const loading = p.data === undefined && (p.loading || (!p.error && p.updatedAt === 0));
+  return { pools: p.data ?? [], loading, error: p.error, updatedAt: p.updatedAt, refresh: p.refresh };
 }
 
-export interface FxState { fx: FxPrice; source: Source; loading: boolean; error: Error | null; refresh: () => Promise<void> }
+/** What the fx hook reports before the first read lands: no rate, marked stale so nothing quotes against it. */
+export const NO_FX: FxPrice = { tryPerUsd: 0, timestamp: 0, ageSec: 0, stale: true, maxAgeSec: MAX_PRICE_AGE_SECS };
+
+export interface FxState { fx: FxPrice; loading: boolean; error: Error | null; refresh: () => Promise<void> }
 
 /** USD/TRY, polled every 10 s so the oracle admin's changes show on stage within seconds. */
 export function useFx(): FxState {
   const p = usePoll<FxPrice>("fx", readFx, { intervalMs: 10_000 });
-  if (p.data) return { fx: p.data, source: "live", loading: false, error: null, refresh: p.refresh };
-  if (p.loading || (!p.error && p.updatedAt === 0)) return { fx: mockFx(), source: "mock", loading: true, error: null, refresh: p.refresh };
-  return { fx: mockFx(), source: "mock", loading: false, error: p.error, refresh: p.refresh };
+  const loading = p.data === undefined && (p.loading || (!p.error && p.updatedAt === 0));
+  return { fx: p.data ?? NO_FX, loading, error: p.error, refresh: p.refresh };
 }
 
-export const poolById = (pools: Pool[], id: "A" | "B") => pools.find((p) => p.id === id) ?? MOCK_POOLS[id === "A" ? 0 : 1];
-export const bestPool = (pools: Pool[]) => pools.reduce((a, b) => (b.supplyApy > a.supplyApy ? b : a));
-export const rateGap = (pools: Pool[]) => Math.abs(poolById(pools, "B").supplyApy - poolById(pools, "A").supplyApy);
+export const poolById = (pools: Pool[], id: "A" | "B") => pools.find((p) => p.id === id) ?? null;
+export const bestPool = (pools: Pool[]): Pool | null => (pools.length ? pools.reduce((a, b) => (b.supplyApy > a.supplyApy ? b : a)) : null);
+export const rateGap = (pools: Pool[]) => {
+  const a = poolById(pools, "A");
+  const b = poolById(pools, "B");
+  return a && b ? Math.abs(b.supplyApy - a.supplyApy) : 0;
+};

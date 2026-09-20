@@ -7,12 +7,10 @@
 import * as React from "react";
 import { useTheme } from "next-themes";
 import { toast } from "sonner";
-import { Copy, Check, ExternalLink, Droplets, Sun, Moon, LogOut, ChevronDown, ScanFace, FlaskConical } from "lucide-react";
+import { Copy, Check, ExternalLink, Droplets, Sun, Moon, LogOut, ChevronDown, ScanFace } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
 import { useWallet } from "@/hooks/use-wallet";
-import { useDemoMode } from "@/hooks/use-demo-mode";
 import { explorerContract } from "@/lib/koul";
 import { fmtUsdc } from "@/lib/format";
 import { Sk } from "@/components/koul/primitives";
@@ -82,7 +80,6 @@ export function Avatar({ address, size = "md", className }: { address: string; s
 function WalletMenu({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
   const w = useWallet();
   const { resolvedTheme, setTheme } = useTheme();
-  const [demo, setDemo] = useDemoMode();
   const [funding, setFunding] = React.useState(false);
   const fund = async () => {
     setFunding(true);
@@ -112,11 +109,6 @@ function WalletMenu({ open, onOpenChange }: { open: boolean; onOpenChange: (o: b
         <Item icon={ExternalLink} href={explorerContract(w.address!)}>View on stellar.expert</Item>
         <Item icon={Droplets} onClick={() => void fund()}>{funding ? "Asking friendbot…" : "Add test XLM"}</Item>
         <Item icon={resolvedTheme === "dark" ? Sun : Moon} onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}>{resolvedTheme === "dark" ? "Light mode" : "Dark mode"}</Item>
-        <label className="flex min-h-12 w-full cursor-pointer items-center gap-3 rounded-lg px-3 text-sm transition-colors hover:bg-surface-2">
-          <FlaskConical className="size-4 text-muted-foreground" aria-hidden />
-          <span className="flex-1">Show sample data<span className="block text-xs text-muted-foreground">Until the chain has data for this wallet</span></span>
-          <Switch checked={demo} onCheckedChange={(v) => setDemo(!!v)} aria-label="Show sample data" />
-        </label>
         <Item icon={LogOut} danger onClick={() => { void w.disconnect(); onOpenChange(false); }}>Disconnect</Item>
       </div>
     </ResponsiveSheet>

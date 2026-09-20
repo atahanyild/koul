@@ -5,7 +5,7 @@
  * rate and the best pool's rate, and the arithmetic is printed underneath so nobody has to take it on trust.
  */
 import * as React from "react";
-import { Card, Money, AnimatedNumber, Sk, DemoChip, Term } from "@/components/koul/primitives";
+import { Card, Money, AnimatedNumber, Sk, Term } from "@/components/koul/primitives";
 import { useFx, usePools, bestPool } from "@/hooks/use-market";
 import { fmtFx, fmtPct, fmtUsdc, fmtTry, fmtTryWhole } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -23,10 +23,10 @@ export function EarningsCalculator({ className }: { className?: string }) {
 
   const rate = fx.fx.tryPerUsd;
   const usdc = rate > 0 ? amount / rate : 0;
-  const yearlyUsdc = (usdc * best.supplyApy) / 100;
+  const bestApy = best?.supplyApy ?? 0;
+  const yearlyUsdc = (usdc * bestApy) / 100;
   const yearlyTry = yearlyUsdc * rate;
-  const loading = fx.loading || pools.loading;
-  const sample = !loading && (fx.source === "mock" || pools.source === "mock");
+  const loading = fx.loading || pools.loading || best === null || rate <= 0;
 
   const setFromDigits = (digits: string) => {
     const n = digits ? Number(digits) : 0;
@@ -39,7 +39,6 @@ export function EarningsCalculator({ className }: { className?: string }) {
     <Card className={cn("p-5 sm:p-6", className)}>
       <div className="flex items-center justify-between gap-3">
         <label htmlFor="calc-amount" className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">If you deposit</label>
-        {sample && <DemoChip />}
       </div>
 
       <div className="mt-2 flex items-baseline gap-2 border-b border-border pb-2 transition-colors focus-within:border-foreground/40">
@@ -91,11 +90,11 @@ export function EarningsCalculator({ className }: { className?: string }) {
             </div>
             <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
               earns about <Money value={yearlyTry} currency="TRY" size="lg" className="text-foreground" /> a year at{" "}
-              <Term detail={`${best.technical} · deposit rate ${fmtPct(best.supplyApy)}, annualised`}>{best.name}&rsquo;s rate</Term> of{" "}
-              <AnimatedNumber value={best.supplyApy} format={fmtPct} className="text-foreground" />
+              <Term detail={`${best?.technical ?? ""} · deposit rate ${fmtPct(bestApy)}, annualised`}>{best?.name ?? "the best pool"}&rsquo;s rate</Term> of{" "}
+              <AnimatedNumber value={bestApy} format={fmtPct} className="text-foreground" />
             </p>
             <p className="num mt-3 text-[11px] leading-relaxed text-muted-foreground">
-              {fmtTryWhole(amount)} ÷ {fmtFx(rate)} = {fmtUsdc(usdc)} USDC · × {fmtPct(best.supplyApy)} = {fmtUsdc(yearlyUsdc)} USDC a year · × {fmtFx(rate)} = {fmtTry(yearlyTry)}
+              {fmtTryWhole(amount)} ÷ {fmtFx(rate)} = {fmtUsdc(usdc)} USDC · × {fmtPct(bestApy)} = {fmtUsdc(yearlyUsdc)} USDC a year · × {fmtFx(rate)} = {fmtTry(yearlyTry)}
             </p>
             <p className="mt-2 text-xs text-muted-foreground">Today&rsquo;s rate, not a promise. Pool rates move as the pool is used.</p>
           </>

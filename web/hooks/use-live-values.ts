@@ -6,20 +6,20 @@ import type { LiveValues } from "@/lib/model/autopilot";
 import { useFx, usePools, poolById } from "./use-market";
 import { usePortfolio } from "./use-portfolio";
 
-export function useLiveValues(): { live: LiveValues; loading: boolean; anyMock: boolean; fxUpdatedAt: number } {
+export function useLiveValues(): { live: LiveValues; loading: boolean; fxUpdatedAt: number } {
   const pools = usePools();
   const fx = useFx();
   const pf = usePortfolio();
   const live = useMemo<LiveValues>(() => ({
-    rateA: poolById(pools.pools, "A").supplyApy,
-    rateB: poolById(pools.pools, "B").supplyApy,
+    rateA: poolById(pools.pools, "A")?.supplyApy ?? null,
+    rateB: poolById(pools.pools, "B")?.supplyApy ?? null,
     healthFactor: pf.health.factor,
     hasLoan: pf.health.hasLoan,
-    fx: fx.fx.tryPerUsd,
+    fx: fx.loading ? null : fx.fx.tryPerUsd,
     fxStale: fx.fx.stale,
-    idleUsdc: pf.positions.idleUsdc,
-    suppliedA: pf.positions.supplied.A,
-    suppliedB: pf.positions.supplied.B,
-  }), [pools.pools, pf.health, pf.positions, fx.fx]);
-  return { live, loading: pools.loading || fx.loading || pf.loading, anyMock: pools.source === "mock" || fx.source === "mock" || pf.source === "mock", fxUpdatedAt: fx.fx.timestamp * 1000 };
+    idleUsdc: pf.positions ? pf.positions.idleUsdc : null,
+    suppliedA: pf.positions ? pf.positions.supplied.A : null,
+    suppliedB: pf.positions ? pf.positions.supplied.B : null,
+  }), [pools.pools, pf.health, pf.positions, fx.fx, fx.loading]);
+  return { live, loading: pools.loading || fx.loading || pf.loading, fxUpdatedAt: fx.fx.timestamp * 1000 };
 }

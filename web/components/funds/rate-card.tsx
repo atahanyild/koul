@@ -5,7 +5,7 @@
  * the strip sits between actions and history on phones.
  */
 import * as React from "react";
-import { AnimatedNumber, Card, DemoChip, LiveDot, Pill, Term } from "@/components/koul/primitives";
+import { AnimatedNumber, Card, LiveDot, Pill, Term } from "@/components/koul/primitives";
 import { useFx } from "@/hooks/use-market";
 import { fmtDuration, fmtFx } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -14,8 +14,8 @@ const ORACLE_DETAIL = "Reflector-shaped mock oracle lastprice(TRY), USD per TRY 
 
 function Status({ fx }: { fx: ReturnType<typeof useFx> }) {
   if (fx.loading) return <span className="skeleton inline-block h-6 w-16 rounded-full" aria-busy />;
+  if (fx.error) return <Pill tone="warning" dot>Unavailable</Pill>;
   if (fx.fx.stale) return <Pill tone="warning" dot>Stale</Pill>;
-  if (fx.source === "mock") return <DemoChip />;
   return <Pill tone="positive" dot pulse>Live</Pill>;
 }
 

@@ -1,4 +1,4 @@
-import { autopilotSchema, type Autopilot } from "./schema.js";
+import { autopilotSchema, type Autopilot } from "./schema";
 
 const I128_MAX = (1n << 127n) - 1n;
 const U64_MAX = (1n << 64n) - 1n;

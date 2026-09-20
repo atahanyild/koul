@@ -1,9 +1,10 @@
 /**
  * The autopilot model the UI is built on: an ordered list of rules, each with conditions (all or any),
- * exactly one action and a cooldown. The router is becoming this rule engine; until it does, `toRouterRules`
- * maps the three-rule "Lira shield" shape onto the current fixed `set_rules` struct and `fromRouterRules` maps back.
+ * exactly one action and a cooldown. `toCoreAutopilot` maps it onto the router's `Autopilot` type from `@koul/core`
+ * and `fromCoreAutopilot` maps back.
  */
-import { tryPerUsdToUsdPerTry, usdPerTryToTryPerUsd } from "@/lib/koul";
+import type { Action as CoreAction, Amount as CoreAmount, Autopilot as CoreAutopilot, Condition as CoreCondition, Rule as CoreRule } from "@koul/core";
+import { LEDGER_SECONDS, MAX_PRICE_AGE_SECS, tryPerUsdToUsdPerTry, usdPerTryToTryPerUsd } from "@/lib/koul";
 
 // ---------------------------------------------------------------- pools
 
@@ -277,73 +278,102 @@ export const TEMPLATES: Template[] = [
   },
 ];
 
-// ---------------------------------------------------------------- adapter to the current router
-
-/** The `Rules` struct the deployed router stores today. */
-export interface RouterRules {
-  account_id: bigint;
-  hub_a: number;
-  hub_b: number;
-  rebalance_threshold_bps: number;
-  min_health_factor_wad: bigint;
-  fx_enabled: boolean;
-  fx_asset: string;
-  fx_level: bigint;
-  fx_above: boolean;
-  max_price_age_secs: bigint;
-}
-
-export const MAX_PRICE_AGE_SECS = 900n;
+// ---------------------------------------------------------------- adapter to the router's Autopilot
 
 /**
- * Map the UI rules onto the fixed three-branch router. Rules the router cannot express are returned in `unsupported`
- * so the UI can say so before the passkey prompt. Order is imposed by the router (health > rebalance > fx exit).
+ * The UI keeps rules as people say them: "the better pool pays more", "repay from the wallet", "withdraw everything".
+ * The router keeps rules per hub. One UI rule can become two contract rules (one per hub or per direction); the
+ * router walks them in order and skips the one with nothing to do, so the pair behaves as the sentence reads.
  */
-export function toRouterRules(ap: Pick<Autopilot, "rules">, accountId: bigint): { rules: RouterRules; unsupported: Rule[] } {
-  const rules: RouterRules = {
-    account_id: accountId,
-    hub_a: 1,
-    hub_b: 2,
-    rebalance_threshold_bps: 0,
-    min_health_factor_wad: 0n,
-    fx_enabled: false,
-    fx_asset: "TRY",
-    fx_level: tryPerUsdToUsdPerTry(50),
-    fx_above: false,
-    max_price_age_secs: MAX_PRICE_AGE_SECS,
-  };
+const HUBS = [POOLS.A.hub, POOLS.B.hub] as const;
+const WAD = 1e18;
+
+const toLedgers = (sec: number) => Math.max(1, Math.round(sec / LEDGER_SECONDS));
+const toUnits = (usdc: number) => BigInt(Math.round(usdc * 1e7)).toString();
+const toAmount = (a: Action["amount"]): CoreAmount => (a === "all" ? { type: "All" } : { type: "Fixed", value: toUnits(a) });
+const fromAmount = (a: CoreAmount): Action["amount"] => (a.type === "All" ? "all" : a.type === "Fixed" ? Number(a.value) / 1e7 : 0);
+
+/** A UI condition as contract conditions. Rate gap is direction-less in the UI, so it yields one variant per direction. */
+function toCoreConditions(c: Condition): { variants: CoreCondition[][]; unsupported: boolean } {
+  switch (c.kind) {
+    case "health_factor":
+      return { variants: [[{ type: "HealthFactor", cmp: c.comparator === "lte" ? "Below" : "AtOrAbove", level_wad: BigInt(Math.round(c.value * 1e6)).toString() + "000000000000" }]], unsupported: false };
+    case "fx_price": {
+      // The oracle quotes USD per TRY, so "TRY per USD >= level" is "USD per TRY < 1/level".
+      const level = tryPerUsdToUsdPerTry(c.value).toString();
+      return { variants: [[{ type: "FxPrice", asset: "TRY", cmp: c.comparator === "gte" ? "Below" : "AtOrAbove", level, max_age_secs: String(MAX_PRICE_AGE_SECS) }]], unsupported: false };
+    }
+    case "idle_usdc":
+      return { variants: [[{ type: "IdleBalance", cmp: c.comparator === "gte" ? "AtOrAbove" : "Below", amount: toUnits(c.value) }]], unsupported: false };
+    case "rate_gap": {
+      if (c.comparator !== "gte") return { variants: [], unsupported: true };
+      const bps = Math.max(1, Math.round(c.value * 100));
+      return { variants: [[{ type: "SupplyRateGap", hub_over: HUBS[1], hub_under: HUBS[0], min_bps: bps }], [{ type: "SupplyRateGap", hub_over: HUBS[0], hub_under: HUBS[1], min_bps: bps }]], unsupported: false };
+    }
+  }
+}
+
+export interface CoreMapping { autopilot: CoreAutopilot; unsupported: Rule[]; /** contract rule index -> UI rule id */ ruleIds: string[] }
+
+/** Map the UI rules onto the router's autopilot. Rules the router cannot express are returned in `unsupported`. */
+export function toCoreAutopilot(ap: Pick<Autopilot, "rules">, accountId: bigint): CoreMapping {
+  const rules: CoreRule[] = [];
+  const ruleIds: string[] = [];
   const unsupported: Rule[] = [];
   for (const r of ap.rules) {
     if (!r.enabled) continue;
-    const single = r.conditions.length === 1 ? r.conditions[0] : null;
-    if (r.action.kind === "repay_from_wallet" && single?.kind === "health_factor" && single.comparator === "lte" && rules.min_health_factor_wad === 0n) {
-      rules.min_health_factor_wad = BigInt(Math.round(single.value * 1e6)) * 10n ** 12n;
-    } else if (r.action.kind === "move_to_best_pool" && single?.kind === "rate_gap" && single.comparator === "gte" && rules.rebalance_threshold_bps === 0) {
-      rules.rebalance_threshold_bps = Math.round(single.value * 100);
-    } else if (r.action.kind === "withdraw_to_wallet" && single?.kind === "fx_price" && single.comparator === "gte" && !rules.fx_enabled) {
-      rules.fx_enabled = true;
-      // The oracle quotes USD per TRY, so "TRY per USD >= level" is "USD per TRY <= 1/level".
-      rules.fx_level = tryPerUsdToUsdPerTry(single.value);
-      rules.fx_above = false;
-    } else {
-      unsupported.push(r);
+    const mapped = r.conditions.map(toCoreConditions);
+    if (mapped.some((m) => m.unsupported) || mapped.length === 0) { unsupported.push(r); continue; }
+    const gapIndex = r.conditions.findIndex((c) => c.kind === "rate_gap");
+    const cooldown_ledgers = toLedgers(r.cooldownSec);
+    const amount = toAmount(r.action.amount);
+    const push = (conditions: CoreCondition[], action: CoreAction) => { rules.push({ conditions, match_all: r.match === "all", action, cooldown_ledgers }); ruleIds.push(r.id); };
+    const conditionsFor = (direction: 0 | 1) => mapped.map((m, i) => (i === gapIndex ? m.variants[direction]! : m.variants[0]!)).flat();
+    switch (r.action.kind) {
+      case "move_to_best_pool":
+        if (gapIndex < 0) { unsupported.push(r); continue; }
+        // Direction 0: B pays more, move A -> B. Direction 1: A pays more, move B -> A.
+        push(conditionsFor(0), { type: "MoveSupply", from_hub: HUBS[0], to_hub: HUBS[1], amount });
+        push(conditionsFor(1), { type: "MoveSupply", from_hub: HUBS[1], to_hub: HUBS[0], amount });
+        break;
+      case "repay_from_wallet":
+        if (gapIndex >= 0) { unsupported.push(r); continue; }
+        for (const hub of HUBS) push(conditionsFor(0), { type: "RepayFromWallet", hub, amount });
+        break;
+      case "withdraw_to_wallet":
+        if (gapIndex >= 0) { unsupported.push(r); continue; }
+        for (const hub of HUBS) push(conditionsFor(0), { type: "WithdrawToWallet", hub, amount });
+        break;
     }
   }
-  return { rules, unsupported };
+  return { autopilot: { account_id: accountId.toString(), rules }, unsupported, ruleIds };
 }
 
-/** Read the router's fixed struct back into rule cards, in the order the router evaluates them. */
-export function fromRouterRules(r: RouterRules): Rule[] {
+function fromCoreCondition(c: CoreCondition): Condition {
+  switch (c.type) {
+    case "HealthFactor": return { kind: "health_factor", comparator: c.cmp === "Below" ? "lte" : "gte", value: Number((Number(c.level_wad) / WAD).toFixed(2)) };
+    case "FxPrice": return { kind: "fx_price", comparator: c.cmp === "Below" ? "gte" : "lte", value: Number(usdPerTryToTryPerUsd(BigInt(c.level)).toFixed(2)) };
+    case "IdleBalance": return { kind: "idle_usdc", comparator: c.cmp === "AtOrAbove" ? "gte" : "lte", value: Number(c.amount) / 1e7 };
+    case "SupplyRateGap": return { kind: "rate_gap", comparator: "gte", value: c.min_bps / 100 };
+  }
+}
+
+const RULE_NAMES: Record<ActionKind, string> = { move_to_best_pool: "Best rate", repay_from_wallet: "Stay safe", withdraw_to_wallet: "Lira exit" };
+
+/** Read the router's autopilot back into rule cards, folding the per-hub pairs back into one rule each. */
+export function fromCoreAutopilot(core: CoreAutopilot): Rule[] {
   const out: Rule[] = [];
-  if (r.min_health_factor_wad > 0n) {
-    out.push(makeRule({ id: "health", name: "Stay safe", conditions: [{ kind: "health_factor", comparator: "lte", value: Number(r.min_health_factor_wad) / 1e18 }], action: { kind: "repay_from_wallet", amount: "all" }, cooldownSec: 3600 }));
-  }
-  if (r.rebalance_threshold_bps > 0) {
-    out.push(makeRule({ id: "rebalance", name: "Best rate", conditions: [{ kind: "rate_gap", comparator: "gte", value: r.rebalance_threshold_bps / 100 }], action: { kind: "move_to_best_pool", amount: "all" }, cooldownSec: 6 * 3600 }));
-  }
-  if (r.fx_enabled) {
-    out.push(makeRule({ id: "fx", name: "Lira exit", conditions: [{ kind: "fx_price", comparator: r.fx_above ? "lte" : "gte", value: Number(usdPerTryToTryPerUsd(r.fx_level).toFixed(2)) }], action: { kind: "withdraw_to_wallet", amount: "all" }, cooldownSec: 86400 }));
-  }
+  const shapes: string[] = [];
+  core.rules.forEach((r, index) => {
+    const kind: ActionKind = r.action.type === "MoveSupply" ? "move_to_best_pool" : r.action.type === "WithdrawToWallet" ? "withdraw_to_wallet" : "repay_from_wallet";
+    const conditions = r.conditions.map(fromCoreCondition);
+    const amount = fromAmount(r.action.amount);
+    const shape = JSON.stringify([kind, conditions, amount, r.match_all, r.cooldown_ledgers]);
+    const prev = shapes.length ? shapes[shapes.length - 1] : null;
+    if (prev === shape) return;
+    shapes.push(shape);
+    out.push(makeRule({ id: `chain_${index}`, name: RULE_NAMES[kind], conditions, match: r.match_all ? "all" : "any", action: { kind, amount }, cooldownSec: r.cooldown_ledgers * LEDGER_SECONDS }));
+  });
   return out;
 }
 
@@ -353,7 +383,7 @@ export function permissionsFor(ap: Pick<Autopilot, "rules">): { can: string[]; t
   const can: string[] = [];
   const technical: string[] = ["router.tick"];
   if (kinds.has("move_to_best_pool")) { can.push("Move your USDC between Pool A and Pool B"); technical.push("controller.withdraw", "controller.supply", "usdc.transfer → XOXNO pool only"); }
-  if (kinds.has("repay_from_wallet")) { can.push("Repay your loan with USDC from this wallet"); technical.push("controller.repay"); }
+  if (kinds.has("repay_from_wallet")) { can.push("Repay your loan with USDC from this wallet"); technical.push("controller.repay", "usdc.transfer → XOXNO pool only"); }
   if (kinds.has("withdraw_to_wallet")) { can.push("Withdraw your USDC from the pools back into this wallet"); technical.push("controller.withdraw"); }
   return { can, technical: [...new Set(technical)] };
 }
