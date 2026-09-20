@@ -54,3 +54,8 @@ export function usdPerTryToTryPerUsd(price: bigint): number {
 export function tryPerUsdToUsdPerTry(tryPerUsd: number): bigint {
   return BigInt(Math.round((10 ** ORACLE_DECIMALS) / tryPerUsd));
 }
+
+/** The keeper's G-account: public, funded, used only as a simulation source for read-only contract calls. */
+export const SIM_SOURCE = "GAFHZTSL63YZYU35SCHDOGOMXQ25266DBQYG7KETG6HC2AHBIZMGXP6U";
+export const explorerContract = (id: string) => `https://stellar.expert/explorer/testnet/contract/${id}`;
+export const explorerAccount = (id: string) => `https://stellar.expert/explorer/testnet/account/${id}`;
