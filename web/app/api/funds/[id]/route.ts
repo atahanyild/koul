@@ -1,5 +1,9 @@
 import { fundsEnabled, fundsService } from "@/lib/funds-server";
 
+/** Advancing a transfer can submit the forward and the cleanup, which wait for ledgers to close. The default function limit is too short for it. */
+export const maxDuration = 60;
+export const dynamic = "force-dynamic";
+
 /**
  * Advance a transfer. The sealed state from the previous answer travels in the `x-koul-transfer-state` header, so
  * any instance can carry the transfer on; without it the server falls back to its own record, which only works when

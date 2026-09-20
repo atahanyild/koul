@@ -37,10 +37,17 @@ const POLL_MS = 4000;
 
 const stateHeader = (state: string | null | undefined): Record<string, string> => (state ? { "x-koul-transfer-state": state } : {});
 
-async function call<T>(url: string, init?: RequestInit): Promise<T> {
+/**
+ * Opening a transfer creates an account and runs four SEP calls, which can take half a minute. A gateway that gives
+ * up in the middle is worth one retry; anything the server itself refused is not, so only 502, 503 and 504 repeat.
+ */
+async function call<T>(url: string, init?: RequestInit, attempt = 0): Promise<T> {
   const res = await fetch(url, { ...init, headers: { "content-type": "application/json", ...(init?.headers ?? {}) } });
   const body = (await res.json().catch(() => ({}))) as T & { error?: string };
-  if (!res.ok) throw new Error(body.error ?? `${res.status} ${res.statusText}`);
+  if (!res.ok) {
+    if (attempt === 0 && [502, 503, 504].includes(res.status)) return call<T>(url, init, 1);
+    throw new Error(body.error ?? `The server answered ${res.status}. ${res.status >= 500 ? "Nothing was signed; try again." : ""}`.trim());
+  }
   return body;
 }
 
