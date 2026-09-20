@@ -1,0 +1,9 @@
+# One install for the whole repo. The web app, the keeper and the SDK must share a single copy of
+# @stellar/stellar-sdk and smart-account-kit: values built by one package are passed to the other, and the
+# wallet kit checks them by identity. Two copies made every grant and every supply fail with
+# "cannot interpret ChildUnion value as ScVal".
+packages:
+  - "web"
+  - "keeper"
+  - "packages/*"
+  - "oracle-admin"

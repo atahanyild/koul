@@ -30,7 +30,13 @@ export function toastTx(title: string, hash: string, description?: string) {
 export function toastError(title: string, err: unknown) {
   const e = toSembolError(err);
   if (e.code === "user_cancelled") { toast("Cancelled", { description: "No passkey was used. Nothing changed." }); return; }
-  toast.error(title, { description: e.userMessage || e.message });
+  // Sembol's userMessage is deliberately vague ("Something went wrong"). Prefer whatever the chain actually said.
+  const raw = err instanceof Error ? err.message : typeof err === "string" ? err : "";
+  const detail = describeFailure(err);
+  const generic = /something went wrong/i;
+  const description = detail && !generic.test(detail) ? detail : raw && !generic.test(raw) ? raw.slice(0, 220) : e.userMessage || e.message;
+  console.error(`[koul] ${title}`, err);
+  toast.error(title, { description });
 }
 
 /**
@@ -71,18 +77,30 @@ export function usePasskeyAction() {
   return { run, phase, error, hash, busy, reset } as ActionState & { run: typeof run };
 }
 
-function describeFailure(err: unknown): string {
-  const s = JSON.stringify(err);
-  const code = s.match(/Error\(Contract, #(\d+)\)/)?.[1];
+/** Turn whatever failed into one sentence, naming the contract error when there is one. */
+export function describeFailure(err: unknown): string {
+  const text = `${err instanceof Error ? err.message : ""} ${(() => { try { return JSON.stringify(err); } catch { return String(err); } })()}`;
+  const code = text.match(/Error\(Contract, #(\d+)\)/)?.[1];
   const known: Record<string, string> = {
+    "7100": "Koul's policy is not installed on this key",
+    "7103": "The policy does not allow that call",
+    "7104": "The policy does not allow sending USDC there",
+    "7106": "Koul's key hit its rate limit for this window",
+    "7107": "The policy parameters were rejected",
+    "7108": "That XOXNO account is not the one this key is pinned to",
+    "7109": "The policy only lets funds come back to your own wallet",
     "7200": "No rules saved for this wallet yet",
     "7201": "The router rejected these rules",
-    "7202": "No idle USDC in the wallet",
-    "7203": "The oracle has no price",
-    "7204": "The oracle price is stale",
+    "7206": "Nothing moved, so the rule was not applied",
+    "112": "The pool does not have enough liquid USDC right now",
+    "127": "The pool is at its utilisation ceiling right now",
   };
-  if (code && known[code]) return known[code];
-  return s.slice(0, 200);
+  if (code && known[code]) return `${known[code]} (contract error ${code})`;
+  if (code) return `The contract refused the call with error ${code}`;
+  const m = text.match(/"?message"?\s*[:=]\s*"([^"]{4,200})"/);
+  if (m) return m[1]!;
+  const first = (err instanceof Error ? err.message : "").trim();
+  return first ? first.replace(/\s+/g, " ").slice(0, 220) : "";
 }
 
 export { KOUL };

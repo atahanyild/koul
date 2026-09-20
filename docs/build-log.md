@@ -255,3 +255,22 @@ the call with a plain `{ code: -32600, message: "startLedger must be within the 
 reached the UI as "[object Object]" on Activity and on the Funds history. The reader now clamps the window to
 `getHealth().oldestLedger` and wraps RPC rejections in an `Error` carrying the node's own sentence (`rpcMessage`),
 which the web store also uses for anything else that throws a bare object.
+
+## The bug behind every failed signature (2026-09-20)
+
+Arming failed with Sembol's generic "Something went wrong": the key grant, and the supply that opens a position,
+both died before reaching the chain. The cause was two copies of the same library. `packages/core` had its own
+install of `@stellar/stellar-sdk` and `smart-account-kit`, so an `xdr.ScVal` built inside `@koul/core` was not an
+instance of the `xdr.ScVal` class the wallet kit checks against. The kit then tried to convert it as if it were a
+plain object and threw `TypeError: cannot interpret ChildUnion value as ScVal`. Reproduced headlessly with
+`KoulWriter.buildGrantAgent` against the software-passkey wallet.
+
+Fixed with a `pnpm-workspace.yaml` covering `web`, `keeper`, `packages/*` and `oracle-admin`. All four now resolve
+`@stellar/stellar-sdk@16.0.1` and `smart-account-kit@0.6.2` to one physical copy in the store, and `@koul/core` is a
+`workspace:*` dependency instead of `link:`. After the change the same call went through: `rules.add` tx
+`408c9dbc329b3f2ecf3499e226ee3b487b9fa800e800040515411ce14b9ac9c7`, probe rule removed again in
+`3f5189ce313e083f57b6d1c8381679367f437d8cd621ab84d5f90bacb380a3cd`, and `buildSupply` with account id 0 simulates.
+
+Also: failures now say what the chain said. `toastError` prefers the contract error over Sembol's generic sentence
+and logs the raw error, and `describeFailure` names the policy codes (7103, 7104, 7106, 7108, 7109), the router
+codes (7200, 7201, 7206) and XOXNO's liquidity codes (112, 127).
