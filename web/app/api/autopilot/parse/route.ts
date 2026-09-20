@@ -14,6 +14,10 @@ export async function POST(request: Request): Promise<Response> {
     const message = error instanceof Error ? error.message : "Parsing failed";
     if (message.includes("parser API key")) return Response.json({ error: "Parser is not configured" }, { status: 503 });
     if (message.startsWith("Request must") || message.startsWith("A valid account")) return Response.json({ error: message }, { status: 400 });
-    return Response.json({ error: "Could not produce a valid autopilot" }, { status: 502 });
+    // Keep production responses deliberately vague, but expose the provider/schema
+    // reason in development so a failed tool call can be fixed instead of silently
+    // looking like a keyword-parser success.
+    console.error("Autopilot parser failed:", message);
+    return Response.json({ error: process.env.NODE_ENV === "development" ? message : "Could not produce a valid autopilot" }, { status: 502 });
   }
 }
