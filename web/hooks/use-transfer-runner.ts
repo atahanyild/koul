@@ -39,7 +39,7 @@ const stateHeader = (state: string | null | undefined): Record<string, string> =
 
 /**
  * Opening a transfer creates an account and runs four SEP calls, which can take half a minute. A gateway that gives
- * up in the middle is worth one retry; anything the server itself refused is not, so only 502, 503 and 504 repeat.
+ * up in the middle is worth one retry; anything the server itself refused is not, so only 502 and 504 repeat.
  */
 async function call<T>(url: string, init?: RequestInit, attempt = 0): Promise<T> {
   const res = await fetch(url, { ...init, headers: { "content-type": "application/json", ...(init?.headers ?? {}) } });
