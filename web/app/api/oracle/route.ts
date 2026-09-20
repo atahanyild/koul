@@ -7,7 +7,7 @@ import { NextResponse } from "next/server";
 
 const RPC = process.env.RPC_URL ?? "https://soroban-testnet.stellar.org";
 const PASSPHRASE = process.env.NETWORK_PASSPHRASE ?? "Test SDF Network ; September 2015";
-const ORACLE = process.env.NIET_ORACLE ?? "CB6VNXADXR3XHCS4EKV5ZR5UJUZYQ5BZTPRHCNQE3XMKQMB4LJG6MKW2";
+const ORACLE = process.env.KOUL_ORACLE ?? "CB6VNXADXR3XHCS4EKV5ZR5UJUZYQ5BZTPRHCNQE3XMKQMB4LJG6MKW2";
 
 const asset = (code: string) => xdr.ScVal.scvVec([xdr.ScVal.scvSymbol("Other"), xdr.ScVal.scvSymbol(code)]);
 

@@ -4,13 +4,13 @@ import { useCallback, useEffect, useState } from "react";
 import { Keypair } from "@stellar/stellar-sdk";
 import { createDefaultContext, createEd25519Signer, type ContextRule } from "smart-account-kit";
 import { usePasskeyWallet } from "@sembol/passkey-react";
-import { AGENT_ALLOWED_CALLS, AGENT_TRANSFER_RECIPIENTS, LEDGERS_PER_DAY, NIET, agentPolicyParams, explorerTx, short } from "@/lib/niet";
+import { AGENT_ALLOWED_CALLS, AGENT_TRANSFER_RECIPIENTS, LEDGERS_PER_DAY, KOUL, agentPolicyParams, explorerTx, short } from "@/lib/koul";
 
-const RULE_PREFIX = "niet-agent";
+const RULE_PREFIX = "koul-agent";
 
 
 /**
- * Grant / revoke the Niet agent on the connected smart account. This is the flow the Sembol PR packages as
+ * Grant / revoke the Koul agent on the connected smart account. This is the flow the Sembol PR packages as
  * `useAgentPermission` + `<GrantAgentAccess/>` + `<AgentPermissions/>`; here it is inlined against the kit.
  */
 export function AgentAccess() {
@@ -38,10 +38,10 @@ export function AgentAccess() {
     setBusy("grant"); setMsg({});
     try {
       const latest = (await kit.rpc.getLatestLedger()).sequence;
-      const pub = Keypair.fromPublicKey(NIET.agentPublicKey).rawPublicKey();
+      const pub = Keypair.fromPublicKey(KOUL.agentPublicKey).rawPublicKey();
       const signer = createEd25519Signer(config.ed25519VerifierAddress!, pub);
-      const name = `${RULE_PREFIX}-${NIET.router.slice(1, 7).toLowerCase()}`;
-      const tx = await kit.rules.add(createDefaultContext(), name, [signer], new Map([[NIET.policy, agentPolicyParams()]]), latest + days * LEDGERS_PER_DAY);
+      const name = `${RULE_PREFIX}-${KOUL.router.slice(1, 7).toLowerCase()}`;
+      const tx = await kit.rules.add(createDefaultContext(), name, [signer], new Map([[KOUL.policy, agentPolicyParams()]]), latest + days * LEDGERS_PER_DAY);
       const res = await kit.signAndSubmit(tx);
       if (!res.success) throw new Error(JSON.stringify(res.error).slice(0, 300));
       setMsg({ ok: `Agent granted for ${days} day(s). Tx ${res.hash}` });
@@ -64,13 +64,13 @@ export function AgentAccess() {
   return (
     <section className="card">
       <h2>Agent access</h2>
-      <p className="sub">One passkey confirmation adds the keeper&apos;s key as a signer, bound to the Niet policy. The key can only call what is listed below, and only send USDC to the XOXNO pool.</p>
+      <p className="sub">One passkey confirmation adds the keeper&apos;s key as a signer, bound to the Koul policy. The key can only call what is listed below, and only send USDC to the XOXNO pool.</p>
       <table>
         <tbody>
           <tr><th>May call</th><td className="mono">{AGENT_ALLOWED_CALLS.map(([c, f]) => `${short(c)}.${f}`).join("  ·  ")}</td></tr>
           <tr><th>May transfer to</th><td className="mono">{AGENT_TRANSFER_RECIPIENTS.map(short).join(", ")} (XOXNO pool only)</td></tr>
           <tr><th>Rate limit</th><td>40 policy checks per ~2000 ledgers (about 10 ticks)</td></tr>
-          <tr><th>Agent key</th><td className="mono">{NIET.agentPublicKey}</td></tr>
+          <tr><th>Agent key</th><td className="mono">{KOUL.agentPublicKey}</td></tr>
         </tbody>
       </table>
       <div className="row" style={{ marginTop: 12 }}>

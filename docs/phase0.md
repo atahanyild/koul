@@ -20,7 +20,7 @@ Go/no-go gates from the project brief, section 7. Every tx hash and address goes
 
 Live testnet contracts: router probe `CA53BZYXAIUHPFLG5R6PUFOEQBXLEJJ465XHP6NOLRBB4XXXF6VMFLJ3`, policy
 `CCEYSMIWTRJL7GE6G4MVKEC4NONUCTYVMZKMQH7D3PTQ7DPBLU5V3X4O`, noop probe `CA4TJH2W...`, deny probe `CB2N5CHX...`.
-Wallet state after phase 0: rules `0:multisig`, `3:niet-agent-v1` (agent + real policy, expires ledger 4783557);
+Wallet state after phase 0: rules `0:multisig`, `3:koul-agent-v1` (agent + real policy, expires ledger 4783557);
 XOXNO account 12 on spoke 3 with ~32 USDC in hub 1 and 18 USDC in hub 2, ~1 USDC idle in the wallet.
 Scripts: `keeper/scripts/phase0/{t1-t3,t3-deny,t4,t5,t6,t7,revoke}.ts` (state in `keeper/.phase0-state.json`).
 
@@ -32,7 +32,7 @@ Scripts: `keeper/scripts/phase0/{t1-t3,t3-deny,t4,t5,t6,t7,revoke}.ts` (state in
 | soroban-sdk | 26.1.0 | `Cargo.toml` workspace dep |
 | stellar-accounts | OpenZeppelin/stellar-contracts @ `1e513890ecf79833c9d6e7ef38a9358001c0b111` (git dep, resolves to crate v0.7.1) | `Cargo.toml` |
 | stellar CLI | 27.0.0 prebuilt, `~/.local/bin/stellar-27/stellar` (`source scripts/env.sh`) | Homebrew CLI is 26.1.0, do not use for builds |
-| CLI identity | `niet-testnet` = `GAFHZTSL63YZYU35SCHDOGOMXQ25266DBQYG7KETG6HC2AHBIZMGXP6U` (funded, ~9975 XLM) | `stellar keys` |
+| CLI identity | `koul-testnet` = `GAFHZTSL63YZYU35SCHDOGOMXQ25266DBQYG7KETG6HC2AHBIZMGXP6U` (funded, ~9975 XLM) | `stellar keys` |
 | smart-account-kit | 0.6.2 on npm (latest 0.8.0). Deps: `@stellar/stellar-sdk >=16.0.0`, `smart-account-kit-bindings 0.4.0`; peer `@creit-tech/stellar-wallets-kit >=2.1.0` | verified 2026-09-19 |
 | @sembol/passkey-react | 0.4.0 on npm. Deps: `smart-account-kit ^0.6.0`, `@stellar/stellar-sdk ^16.0.1` | verified 2026-09-19 |
 | @stellar/stellar-sdk | pin 16.0.1 (latest 17.1.0) | |
@@ -83,13 +83,13 @@ later step; the headless wallet is enough to validate the auth stack.
 | Deploy tx | `bb8fcedb7adb09e885ed07f56695b1f75658530420e360f6261d2923c9fd4270` |
 | CLI alias | `noop_policy` (`.stellar/contract-ids/`) |
 
-`kit.rules.add(createDefaultContext(), "niet-agent", [createEd25519Signer(ED25519_VERIFIER, agentPub32)],
+`kit.rules.add(createDefaultContext(), "koul-agent", [createEd25519Signer(ED25519_VERIFIER, agentPub32)],
 new Map([[NOOP_POLICY, xdr.ScVal.scvVoid()]]), ledger + 17280)` + `kit.signAndSubmit(tx, { forceMethod: "rpc" })`.
 
 | Item | Value |
 |---|---|
 | rules.add tx | `a5eb4db3eb67c442e7da274855f47886f0484dbb31f98de9a0b82fb9dba2e27c` |
-| Rule | id **1**, name `niet-agent`, `Default`, signer `External(CAAVTMCB..., agent pubkey)`, policies `[CA4TJH2W...]` |
+| Rule | id **1**, name `koul-agent`, `Default`, signer `External(CAAVTMCB..., agent pubkey)`, policies `[CA4TJH2W...]` |
 
 Custom policy with `AccountParams = ()` installs with `scvVoid` as expected. The kit's `policies: Map<string, unknown>`
 passes an `xdr.ScVal` straight through for unknown policy addresses.
@@ -102,8 +102,8 @@ Keeper G-account is the tx source and pays the fee.
 
 | Case | Result | Tx |
 |---|---|---|
-| Pinned to rule 1 (`niet-agent`, noop policy) | **SUCCESS**, 1 auth context, `NoopEnforced` event emitted | `f2df3a82ea16959142549302cc24df1b77be9cd42c0dd99effa989d28ccf9902` |
-| Pinned to rule 2 (`niet-agent-deny`, deny policy `CB2N5CHX...`, rule add tx `a34ebdbe...`) | **FAILS at simulation** (`SimulationError` 5001, no fee spent) | none |
+| Pinned to rule 1 (`koul-agent`, noop policy) | **SUCCESS**, 1 auth context, `NoopEnforced` event emitted | `f2df3a82ea16959142549302cc24df1b77be9cd42c0dd99effa989d28ccf9902` |
+| Pinned to rule 2 (`koul-agent-deny`, deny policy `CB2N5CHX...`, rule add tx `a34ebdbe...`) | **FAILS at simulation** (`SimulationError` 5001, no fee spent) | none |
 | Control, pinned to rule 1 again | SUCCESS | `58e3fe455c2e196143cd4e2fed550c9f471746aae474fd5fd0f71a422d520b6e` |
 
 Event decoded: topics `noop_enforced`, smart account; data `context_rule_id: 1, contract: XLM SAC, fn_name: transfer,
@@ -154,12 +154,12 @@ must have exactly that length. The kit's `resolveContextRuleIds(entry, index)` m
 `Array(1 + subInvocations).fill(ruleId)`, not `[ruleId]`. The keeper's helper is `countContexts()` in `t5.ts`.
 The diagnostic event shows exactly what the policy will see: `[[Contract, {contract: controller, fn_name: supply,
 args: [...]}], [Contract, {contract: usdc, fn_name: transfer, args: [wallet, pool, amount]}]]`, which is what
-`niet_agent_policy` allowlists and, for `transfer`, checks `args[1] == pool`.
+`koul_agent_policy` allowlists and, for `transfer`, checks `args[1] == pool`.
 
 **Go/no-go: T3 and T5 green -> Plan B (session-key design) confirmed.**
 ## T6 - Nested via router: PASS (2026-09-20, `keeper/scripts/phase0/t6.ts`)
 
-`contracts/niet_router` probe: `tick_force(user, account_id, from_hub, to_hub, spoke_id, amount)` does
+`contracts/koul_router` probe: `tick_force(user, account_id, from_hub, to_hub, spoke_id, amount)` does
 `user.require_auth()`, then `controller.withdraw(user, id, [(from, amount)], Some(user))` and
 `controller.supply(user, id, spoke, [(to, received)])`, emits `Fired`.
 
@@ -177,20 +177,20 @@ will see all four contexts, so the allowlist must include `(router, tick)`, `(co
 
 Note: the anchor became unreliable during the night of 19/20 Sep (user report). T4's deposit already completed, so
 T5-T7 do not touch it. Withdraw/FX-exit legs through the anchor stay as a later or recorded step.
-## T7 - Real `niet_agent_policy`, positive + negatives: PASS (2026-09-20, `keeper/scripts/phase0/t7.ts`)
+## T7 - Real `koul_agent_policy`, positive + negatives: PASS (2026-09-20, `keeper/scripts/phase0/t7.ts`)
 
-`contracts/niet_agent_policy` (wasm `bff1d465f05f694aaa416d06b616f1b31522566a85b30c7c7bf702919829d237`, 11.8 KB) deployed at
-**`CCEYSMIWTRJL7GE6G4MVKEC4NONUCTYVMZKMQH7D3PTQ7DPBLU5V3X4O`**. Install params (`NietAgentParams`, passed as a
+`contracts/koul_agent_policy` (wasm `bff1d465f05f694aaa416d06b616f1b31522566a85b30c7c7bf702919829d237`, 11.8 KB) deployed at
+**`CCEYSMIWTRJL7GE6G4MVKEC4NONUCTYVMZKMQH7D3PTQ7DPBLU5V3X4O`**. Install params (`KoulAgentParams`, passed as a
 hand-built `ScVal` map): `allowed_calls = [(router, tick_force), (controller, withdraw), (controller, supply),
 (usdc, transfer)]`, `allowed_transfer_recipients = [pool]`, `max_calls_per_window = 5`, `window_ledgers = 2000`.
 `enforce` runs once per auth context (a 4-context tick counts 4), rejects non-`Contract` contexts, then allowlist,
-then recipient for `transfer` (`args.len() == 3`, `args[1]`), then the rolling window counter; emits `NietEnforced`
+then recipient for `transfer` (`args.len() == 3`, `args[1]`), then the rolling window counter; emits `KoulEnforced`
 (account topic, rule id, contract, fn_name, calls_in_window). Errors 7100-7107.
 
 | Rule | id | Tx |
 |---|---|---|
-| `niet-agent-v1` (agent signer + niet policy, 1 day) | 3 | `d11fda88b9f686bf90f69d56764f86efd7d4308f33147d0cb0d71ac15e8613f7` |
-| `niet-agent-expiring` (same, `valid_until` = ledger + 4) | 4 | `a74f3b20e914abff1b4353499d0f782a82f06f58abca22c241f640bbc8126530` |
+| `koul-agent-v1` (agent signer + koul policy, 1 day) | 3 | `d11fda88b9f686bf90f69d56764f86efd7d4308f33147d0cb0d71ac15e8613f7` |
+| `koul-agent-expiring` (same, `valid_until` = ledger + 4) | 4 | `a74f3b20e914abff1b4353499d0f782a82f06f58abca22c241f640bbc8126530` |
 
 | Case | Pinned rule | Result | Evidence |
 |---|---|---|---|
@@ -278,7 +278,7 @@ Ported verbatim into `keeper/src/anchor/`:
 | `discovery.ts` | `lib/anchor.server.ts` | dropped `server-only`, Next data cache and KV anchor switch; env vars `ANCHOR_HOME_DOMAINS`, `ANCHOR_ASSET_CODE`, `NETWORK_PASSPHRASE` |
 | `LICENSE-KUMBARA` | `LICENSE` | attribution |
 
-Still to wire for Niet: a `RelaySubmitter` (`sendXdr`) that fee-bumps with the keeper G-account instead of Kumbara's
+Still to wire for Koul: a `RelaySubmitter` (`sendXdr`) that fee-bumps with the keeper G-account instead of Kumbara's
 OpenZeppelin Channels relay, and the `KEEPER_SECRET` doubling as the landing sponsor. For the FX-exit branch the keeper
 takes the SEP-38 firm quote at trigger time, then builds the reverse landing account and the pre-auth payment with the
 anchor's memo, exactly Kumbara's withdrawal pipeline (`lib/withdraw.server.ts`, not ported yet).
@@ -295,7 +295,7 @@ anchor's memo, exactly Kumbara's withdrawal pipeline (`lib/withdraw.server.ts`, 
   `createEd25519Signer(verifier, pubkey32)` are exported from the kit.
 - Ed25519 signing path: `kit.externalSigners.addEd25519FromSecret(secret)` then `kit.multiSigners.operation(tx,
   selected, { resolveContextRuleIds: (entry, i) => [ruleId] })`. `kit.transfer` / `kit.signAndSubmit` are passkey-only.
-  `resolveContextRuleIds` is how we pin the `niet-agent` rule id per auth context (T3, T5).
+  `resolveContextRuleIds` is how we pin the `koul-agent` rule id per auth context (T3, T5).
 - `kit.signAuthEntry(entry, { contextRuleIds })` is public for hand-built transactions (T5/T6 with a keeper G-source).
 
 ## Revoke: PASS (2026-09-20, `keeper/scripts/phase0/revoke.ts`)
@@ -304,16 +304,16 @@ Passkey-signed `kit.rules.remove(id)` for the three probe rules, then an agent t
 
 | Removed | Tx |
 |---|---|
-| 4 `niet-agent-expiring` | `ac8eca9c8107419a625e6b08f0ed1b94a8230a8b787cb18492467c6dac1870f2` |
-| 2 `niet-agent-deny` | `e410ffe673046f677c8839e10970b0cca2a0cebf6fd79e5e3b122f47c412c406` |
-| 1 `niet-agent` (noop) | `aa3b9c7e1cd4739cde4d89e62bc49d98095d51c5548cc4f2350168bf164fa88e` |
+| 4 `koul-agent-expiring` | `ac8eca9c8107419a625e6b08f0ed1b94a8230a8b787cb18492467c6dac1870f2` |
+| 2 `koul-agent-deny` | `e410ffe673046f677c8839e10970b0cca2a0cebf6fd79e5e3b122f47c412c406` |
+| 1 `koul-agent` (noop) | `aa3b9c7e1cd4739cde4d89e62bc49d98095d51c5548cc4f2350168bf164fa88e` |
 
 Agent `tick_force` pinned to rule 1 afterwards: **REJECTED**, `Error(Contract, #3000)` ContextRuleNotFound on all
 four contexts, at simulation. One button, immediate loss of access, no on-chain footprint for the failed attempt.
 
 ## T8 addendum (2026-09-20): utilisation can be created, the 0% problem is gone
 
-Borrower `niet-borrower` = `GBRXD5JOT5YV6U3VFZ4ESR6MPCLJ3MSP55SUQNKSK23465U34M6H5EZJ` (friendbot), XOXNO account **23**:
+Borrower `koul-borrower` = `GBRXD5JOT5YV6U3VFZ4ESR6MPCLJ3MSP55SUQNKSK23465U34M6H5EZJ` (friendbot), XOXNO account **23**:
 `supply(2000 XLM @ hub 1, spoke 3)` then USDC trustline (`e1a17c72...`) then `borrow(12 USDC @ hub 2, to = self)`.
 The borrower needs a classic USDC trustline because the pool pays out with a SAC transfer to a G-account.
 

@@ -1,5 +1,5 @@
 /**
- * Phase-0 T7: real niet_agent_policy, positive tick + negatives (a) bad recipient (b) bad contract (c) expired rule (d) rate limit.
+ * Phase-0 T7: real koul_agent_policy, positive tick + negatives (a) bad recipient (b) bad contract (c) expired rule (d) rate limit.
  *   (1) controller.withdraw(wallet, id, [(hub1 USDC, x)], Some(wallet))   agent key, rule 1 pinned per context
  *   (2) controller.supply(wallet, id, 3, [(hub2 USDC, x)])                agent key, rule 1 pinned per context
  * Soroban allows one InvokeHostFunction per tx, so these are two transactions; T6 makes them atomic via the router.
@@ -25,8 +25,8 @@ const XOXNO = {
   usdc: "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA",
   spoke: 3,
 } as const;
-const RP_ID = "niet.local";
-const ORIGIN = "https://niet.local";
+const RP_ID = "koul.local";
+const ORIGIN = "https://koul.local";
 const STATE_PATH = fileURLToPath(new URL("../../.phase0-state.json", import.meta.url));
 
 interface State { contractId?: string; passkey?: AuthenticatorState; ruleId?: number; t4?: { accountId?: string }; t7?: Record<string, unknown>; t5?: { amount?: string; withdrawHash?: string; supplyHash?: string; withdrawEntries?: string[]; supplyEntries?: string[] } }
@@ -58,7 +58,7 @@ class ForbiddenAuthenticator extends SoftwareAuthenticator {
 const kit = new SmartAccountKit({
   rpcUrl: TESTNET.rpcUrl, networkPassphrase: TESTNET.networkPassphrase, accountWasmHash: TESTNET.accountWasmHash,
   webauthnVerifierAddress: TESTNET.webauthnVerifierAddress, ed25519VerifierAddress: TESTNET.ed25519VerifierAddress,
-  storage: new MemoryStorage(), rpId: RP_ID, rpName: "Niet",
+  storage: new MemoryStorage(), rpId: RP_ID, rpName: "Koul",
   webAuthn: new ForbiddenAuthenticator(RP_ID, ORIGIN, state.passkey) as unknown as NonNullable<ConstructorParameters<typeof SmartAccountKit>[0]["webAuthn"]>,
   deployerSecret: env.KEEPER_SECRET!, timeoutInSeconds: 60,
 });
@@ -139,7 +139,7 @@ async function positions() {
 
 
 const ROUTER = env.ROUTER!;
-const NIET_POLICY = env.NIET_POLICY!;
+const KOUL_POLICY = env.KOUL_POLICY!;
 const XLM_SAC = "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC";
 const sym = (s: string) => xdr.ScVal.scvSymbol(s);
 const addr = (a: string) => new Address(a).toScVal();
@@ -158,7 +158,7 @@ const pk = new SoftwareAuthenticator(RP_ID, ORIGIN, state.passkey);
 const pkKit = new SmartAccountKit({
   rpcUrl: TESTNET.rpcUrl, networkPassphrase: TESTNET.networkPassphrase, accountWasmHash: TESTNET.accountWasmHash,
   webauthnVerifierAddress: TESTNET.webauthnVerifierAddress, ed25519VerifierAddress: TESTNET.ed25519VerifierAddress,
-  storage: new MemoryStorage(), rpId: RP_ID, rpName: "Niet",
+  storage: new MemoryStorage(), rpId: RP_ID, rpName: "Koul",
   webAuthn: pk as unknown as NonNullable<ConstructorParameters<typeof SmartAccountKit>[0]["webAuthn"]>,
   deployerSecret: env.KEEPER_SECRET!, timeoutInSeconds: 60,
 });
@@ -168,7 +168,7 @@ async function ensureRule(name: string, params: xdr.ScVal, validUntil: number): 
   const rules = await pkKit.rules.list();
   const found = rules.find((r) => r.name === name);
   if (found) { console.log(`rule ${name} exists: id ${found.id}`); return Number(found.id); }
-  const tx = await pkKit.rules.add(createDefaultContext(), name, [agentSigner], new Map([[NIET_POLICY, params]]), validUntil);
+  const tx = await pkKit.rules.add(createDefaultContext(), name, [agentSigner], new Map([[KOUL_POLICY, params]]), validUntil);
   const res = await pkKit.signAndSubmit(tx, { forceMethod: "rpc" });
   state.passkey = pk.toState(); save();
   if (!res.success) throw new Error(`rules.add ${name} failed: ${json(("error" in res ? res.error : undefined)).slice(0, 600)}`);
@@ -180,9 +180,9 @@ async function ensureRule(name: string, params: xdr.ScVal, validUntil: number): 
 }
 
 const ledger = (await server.getLatestLedger()).sequence;
-step("install niet-agent-v1 (real policy, 1 day) and niet-agent-expiring (valid 4 ledgers)");
-const mainRule = await ensureRule("niet-agent-v1", paramsScVal(PARAMS), ledger + 17280);
-const expRule = await ensureRule("niet-agent-expiring", paramsScVal(PARAMS), ledger + 4);
+step("install koul-agent-v1 (real policy, 1 day) and koul-agent-expiring (valid 4 ledgers)");
+const mainRule = await ensureRule("koul-agent-v1", paramsScVal(PARAMS), ledger + 17280);
+const expRule = await ensureRule("koul-agent-expiring", paramsScVal(PARAMS), ledger + 4);
 t7.mainRule = mainRule; t7.expRule = expRule; save();
 console.log((await pkKit.rules.list()).map((r) => `${r.id}:${r.name}:until=${r.valid_until ?? "-"}`).join(", "));
 
@@ -199,7 +199,7 @@ function tokenTransfer(token: string, from: string, to: string, amount: bigint):
 
 step("positions before"); console.log(json(await positions()));
 
-step("POSITIVE: tick_force hub1 -> hub2, 3 USDC, pinned to niet-agent-v1 (4 contexts, 4 enforce calls)");
+step("POSITIVE: tick_force hub1 -> hub2, 3 USDC, pinned to koul-agent-v1 (4 contexts, 4 enforce calls)");
 let tx: contract.AssembledTransaction<unknown>;
 if (typeof t7.positive === "string" && /^[0-9a-f]{64}$/.test(t7.positive)) console.log(`already passed: ${t7.positive}`);
 else { tx = await tick(1, 2, 3_0000000n); console.log(describeEntries(tx).join("\n")); const pos = await agentSubmit(tx, "tick", mainRule); t7.positive = pos.success ? pos.hash : `FAILED ${json(("error" in pos ? pos.error : undefined)).slice(0, 300)}`; save(); }
@@ -215,7 +215,7 @@ step("(a) prep: make sure the wallet holds idle USDC (withdraw 1 USDC hub1 -> wa
     if (!r.success) throw new Error("prep withdraw failed");
   }
 }
-step("(a) NEGATIVE: usdc.transfer wallet -> random G, pinned to niet-agent-v1");
+step("(a) NEGATIVE: usdc.transfer wallet -> random G, pinned to koul-agent-v1");
 const randomG = keeper.publicKey(); // an existing account with a USDC trustline that is NOT an allowed recipient
 tx = await tokenTransfer(XOXNO.usdc, wallet, randomG, 1_0000000n); console.log(describeEntries(tx).join("\n"));
 const a = await agentSubmit(tx, "transfer->random", mainRule); t7.neg_a = a.success ? `UNEXPECTED SUCCESS ${a.hash}` : "rejected"; save();
@@ -224,17 +224,17 @@ step("(b) NEGATIVE: xlm.transfer wallet -> pool (contract not allowlisted)");
 tx = await tokenTransfer(XLM_SAC, wallet, XOXNO.pool, 1_0000000n); console.log(describeEntries(tx).join("\n"));
 const b = await agentSubmit(tx, "xlm->pool", mainRule); t7.neg_b = b.success ? `UNEXPECTED SUCCESS ${b.hash}` : "rejected"; save();
 
-step("(c) NEGATIVE: tick pinned to niet-agent-expiring after valid_until");
+step("(c) NEGATIVE: tick pinned to koul-agent-expiring after valid_until");
 for (;;) { const now = (await server.getLatestLedger()).sequence; if (now > ledger + 4) break; console.log(`  waiting for ledger > ${ledger + 4} (now ${now})`); await new Promise((r) => setTimeout(r, 6000)); }
 tx = await tick(1, 2, 1_0000000n);
 const c = await agentSubmit(tx, "tick-expired", expRule); t7.neg_c = c.success ? `UNEXPECTED SUCCESS ${c.hash}` : "rejected"; save();
 
-step("(d) NEGATIVE: second tick in the window (4 + 4 > max 5) pinned to niet-agent-v1");
+step("(d) NEGATIVE: second tick in the window (4 + 4 > max 5) pinned to koul-agent-v1");
 tx = await tick(2, 1, 1_0000000n);
 const d = await agentSubmit(tx, "tick-ratelimit", mainRule); t7.neg_d = d.success ? `UNEXPECTED SUCCESS ${d.hash}` : "rejected"; save();
 
 step("positions after"); console.log(json(await positions()));
-const pc = await contract.Client.from({ contractId: NIET_POLICY, networkPassphrase: TESTNET.networkPassphrase, rpcUrl: TESTNET.rpcUrl, publicKey: keeper.publicKey() });
+const pc = await contract.Client.from({ contractId: KOUL_POLICY, networkPassphrase: TESTNET.networkPassphrase, rpcUrl: TESTNET.rpcUrl, publicKey: keeper.publicKey() });
 const win = await (pc as unknown as { get_window: (a: Record<string, unknown>) => Promise<contract.AssembledTransaction<unknown>> }).get_window({ smart_account: wallet, context_rule_id: mainRule });
 console.log(`policy window state for rule ${mainRule}: ${json(win.result)}`);
 console.log(`\nT7 state: ${json(t7)}`);

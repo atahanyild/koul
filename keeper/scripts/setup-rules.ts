@@ -1,7 +1,7 @@
 /**
  * Passkey-signed setup for one user (the headless wallet):
- *   1. add the RULE_NAME Default rule: agent Ed25519 signer + niet_agent_policy allowlisting the real router;
- *   2. remove the phase-0 "niet-agent-v1" rule (old router probe);
+ *   1. add the RULE_NAME Default rule: agent Ed25519 signer + koul_agent_policy allowlisting the real router;
+ *   2. remove the phase-0 "koul-agent-v1" rule (old router probe);
  *   3. router.set_rules(wallet, ...) with the strategy parameters.
  *   pnpm tsx scripts/setup-rules.ts
  */
@@ -15,9 +15,9 @@ const state = loadState();
 if (!state.contractId || !state.passkey || !state.t4?.accountId) throw new Error("phase-0 state missing");
 const wallet = state.contractId;
 const ROUTER = env.ROUTER_V1!;
-const NIET_POLICY = env.NIET_POLICY!;
-const RULE_NAME = `niet-agent-${ROUTER.slice(1, 7).toLowerCase()}`; // one rule per router address
-const pk = new SoftwareAuthenticator("niet.local", "https://niet.local", state.passkey);
+const KOUL_POLICY = env.KOUL_POLICY!;
+const RULE_NAME = `koul-agent-${ROUTER.slice(1, 7).toLowerCase()}`; // one rule per router address
+const pk = new SoftwareAuthenticator("koul.local", "https://koul.local", state.passkey);
 const kit = makeKit(env, pk);
 await kit.connectWallet({ credentialId: state.passkey.credentialId, contractId: wallet });
 const save = () => { state.passkey = pk.toState(); saveState(state); };
@@ -33,7 +33,7 @@ let v2 = rules.find((r) => r.name === RULE_NAME);
 if (!v2) {
   const ledger = (await kit.rpc.getLatestLedger()).sequence;
   const signer = createEd25519Signer(TESTNET.ed25519VerifierAddress, agentKeypair(env).rawPublicKey());
-  const tx = await kit.rules.add(createDefaultContext(), RULE_NAME, [signer], new Map([[NIET_POLICY, params]]), ledger + LEDGERS_PER_DAY);
+  const tx = await kit.rules.add(createDefaultContext(), RULE_NAME, [signer], new Map([[KOUL_POLICY, params]]), ledger + LEDGERS_PER_DAY);
   const res = await kit.signAndSubmit(tx, { forceMethod: "rpc" }); save();
   if (!res.success) throw new Error(`rules.add failed: ${json(res.error).slice(0, 500)}`);
   console.log(`added, tx ${res.hash}`);
@@ -47,8 +47,8 @@ if (!v2) {
 state.agentRuleId = Number(v2.id); saveState(state);
 console.log(`agent rule id: ${state.agentRuleId}`);
 
-step("2. remove stale niet-agent-* rules");
-for (const old of rules.filter((r) => r.name.startsWith("niet-agent") && r.name !== RULE_NAME)) {
+step("2. remove stale koul-agent-* rules");
+for (const old of rules.filter((r) => (r.name.startsWith("koul-agent") || r.name.startsWith("niet-agent")) && r.name !== RULE_NAME)) {
   const res = await kit.signAndSubmit(await kit.rules.remove(Number(old.id)), { forceMethod: "rpc" }); save();
   console.log(`removed rule ${old.id} ${old.name}: ${res.success ? res.hash : json(res.error).slice(0, 300)}`);
 }

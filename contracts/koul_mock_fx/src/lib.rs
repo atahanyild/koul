@@ -26,10 +26,10 @@ pub enum DataKey {
 }
 
 #[contract]
-pub struct NietMockFx;
+pub struct KoulMockFx;
 
 #[contractimpl]
-impl NietMockFx {
+impl KoulMockFx {
     pub fn __constructor(e: Env, admin: Address) {
         e.storage().instance().set(&DataKey::Admin, &admin);
     }

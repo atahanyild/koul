@@ -1,8 +1,8 @@
 /**
- * Niet keeper: every INTERVAL seconds, for each registered user, simulate `router.tick(user)`.
+ * Koul keeper: every INTERVAL seconds, for each registered user, simulate `router.tick(user)`.
  * `Action::None` or a failed simulation -> skip (no fee). Otherwise sign the smart-account auth entry with the
  * agent Ed25519 key (one context_rule_id per auth context) and submit. The keeper never decides anything: the
- * router evaluates the rules on-chain, and niet_agent_policy confines what the agent key can authorise.
+ * router evaluates the rules on-chain, and koul_agent_policy confines what the agent key can authorise.
  *   pnpm tsx src/keeper.ts [--once] [--interval 30]
  */
 import { BASE_FEE, Contract, TransactionBuilder, contract, nativeToScVal, rpc, scValToNative, xdr } from "@stellar/stellar-sdk";

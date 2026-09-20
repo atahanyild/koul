@@ -4,7 +4,7 @@ import { PasskeyWalletProvider, SEMBOL_TESTNET_ARTIFACTS, type SembolConfig } fr
 
 const config: SembolConfig = {
   ...SEMBOL_TESTNET_ARTIFACTS,
-  appName: "Niet",
+  appName: "Koul",
   webAuthnHints: ["client-device", "hybrid"],
 };
 

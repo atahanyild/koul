@@ -6,21 +6,21 @@ Continues `docs/phase0.md`. Same testnet, same headless wallet `CBHMG4IG...` (XO
 
 | Contract | Address | Notes |
 |---|---|---|
-| `niet_router` (real) | `CBHRTWXARGZCUDBE7IX4SZV7GDFA6PRQICZQPUSOUPN3YDCVPXQBMT2P` | admin = keeper G-account, upgradeable in place (`upgrade`, `set_oracle`); wasm `b1d72bd1...` |
-| `niet_agent_policy` | `CCEYSMIWTRJL7GE6G4MVKEC4NONUCTYVMZKMQH7D3PTQ7DPBLU5V3X4O` | unchanged since T7 |
-| `niet_mock_fx` | `CB6VNXADXR3XHCS4EKV5ZR5UJUZYQ5BZTPRHCNQE3XMKQMB4LJG6MKW2` | Reflector read interface + `set_price`, admin = keeper; TRY quoted as USD per TRY, 14 decimals |
+| `koul_router` (real) | `CBHRTWXARGZCUDBE7IX4SZV7GDFA6PRQICZQPUSOUPN3YDCVPXQBMT2P` | admin = keeper G-account, upgradeable in place (`upgrade`, `set_oracle`); wasm `b1d72bd1...` |
+| `koul_agent_policy` | `CCEYSMIWTRJL7GE6G4MVKEC4NONUCTYVMZKMQH7D3PTQ7DPBLU5V3X4O` | unchanged since T7 |
+| `koul_mock_fx` | `CB6VNXADXR3XHCS4EKV5ZR5UJUZYQ5BZTPRHCNQE3XMKQMB4LJG6MKW2` | Reflector read interface + `set_price`, admin = keeper; TRY quoted as USD per TRY, 14 decimals |
 | router probe (phase 0) | `CA53BZYX...` | retired |
 
-Wallet rules: `0:multisig` (passkey), `6:niet-agent-bhrtwx` (agent Ed25519 + policy allowlisting the real router's
+Wallet rules: `0:multisig` (passkey), `6:koul-agent-bhrtwx` (agent Ed25519 + policy allowlisting the real router's
 `tick`, controller `withdraw`/`supply`/`repay`, USDC `transfer` -> pool only; 40 enforce calls per 2000 ledgers).
 
-## Router (`contracts/niet_router`)
+## Router (`contracts/koul_router`)
 
 `set_rules(user, Rules)` passkey-signed; `tick(user) -> Action` agent-signed. Priority: health guard > rebalance >
 FX exit > `None`. Reads: controller `get_health_factor` / `get_collateral_amount` / `get_borrow_amount`, pool
 `get_deposit_rate` / `get_sync_data` / `get_supplied_amount` / `get_borrowed_amount`, oracle `lastprice` (Reflector
 interface, staleness checked against `max_price_age_secs`). Emits `Fired { user, account_id, branch, amount,
-from_hub, to_hub, observed, observed_2 }`. Pure decision helpers are unit-tested (`cargo test -p niet_router`).
+from_hub, to_hub, observed, observed_2 }`. Pure decision helpers are unit-tested (`cargo test -p koul_router`).
 
 Two protocol constraints learned the hard way, both now handled inside the router:
 
@@ -40,11 +40,11 @@ Every N seconds, per user: build `router.tick(user)` with the keeper G-account a
 simulation error or `Action::None` (no fee), otherwise sign the smart-account auth entry with the agent key,
 `context_rule_ids = [rule] * contexts`, submit, log the on-chain result. `pnpm tsx src/keeper.ts --once` for one
 pass, `--interval 30` for the loop. Setup for a user: `pnpm tsx scripts/setup-rules.ts` (passkey: grant rule, remove
-stale niet-agent rules, `set_rules`).
+stale koul-agent rules, `set_rules`).
 
 Cron: there is no protocol-native scheduler on Soroban. SoroCron (testnet registry
 `CDOAY46V2REWSINTZINUKTYELO5FYVEOCFWEKVMGH4BUJPSTRZTRGQ5W`) runs jobs through its own executor contract as the
-invoker, so it cannot carry a user's smart-account authorization; Niet's keeper is required. SoroCron could poke a
+invoker, so it cannot carry a user's smart-account authorization; Koul's keeper is required. SoroCron could poke a
 permissionless entry point later (roadmap).
 
 ## Live runs (2026-09-20)
@@ -94,7 +94,7 @@ keeper names, allowlisted per tick; not done.
 
 **`web/`** (Next.js 16, `@sembol/passkey-react` 0.4.0 with the testnet preset and its public SDF relayer, so wallet
 creation and every passkey-signed call are fee-sponsored): `/` = create/connect passkey wallet, XLM + USDC balances,
-**Agent access** (grant the keeper key under `niet_agent_policy` with a 1/7/30-day expiry, list, revoke),
+**Agent access** (grant the keeper key under `koul_agent_policy` with a 1/7/30-day expiry, list, revoke),
 **Strategy** (router `set_rules` with a passkey), **Activity** (router `Fired` events for this wallet, decoded into
 sentences). `/oracle` = mock FX admin: current USD/TRY, age, `Set price`, presets (48.79 calm, 50.25 shock,
 publish stale). The price write goes through `POST /api/oracle`, the only server-side secret (`ORACLE_ADMIN_SECRET`
@@ -107,7 +107,7 @@ staleness guard never trips outside a deliberate "publish stale" demo.
 **Sembol PR:** https://github.com/keyboord01/sembol/pull/3, from fork `atahanyild/sembol`, branch
 `feat/agent-permissions`. Adds `useAgentPermission()`, `<GrantAgentAccess />`, `<AgentPermissions />`,
 `agentKeyBytes`, `findAgentRules`; 7 tests (suite 120/120), Storybook stories, README, CHANGELOG. Contract-free.
-The Niet web app inlines the same logic against the published 0.4.0 until the PR is released.
+The Koul web app inlines the same logic against the published 0.4.0 until the PR is released.
 
 **Not yet exercised: a real Face ID passkey in a browser.** Everything else in the chain (this wallet wasm, the
 WebAuthn verifier, `rules.add` with a custom policy, agent signing, revoke) ran on-chain with a software passkey.

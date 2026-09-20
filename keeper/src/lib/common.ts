@@ -19,8 +19,8 @@ export const XOXNO = {
   usdc: "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA",
   spoke: 3,
 } as const;
-export const RP_ID = "niet.local";
-export const ORIGIN = "https://niet.local";
+export const RP_ID = "koul.local";
+export const ORIGIN = "https://koul.local";
 export const LEDGERS_PER_DAY = 17280;
 
 const ROOT = fileURLToPath(new URL("../../", import.meta.url));
@@ -64,7 +64,7 @@ export function makeKit(env: Record<string, string>, authenticator: SoftwareAuth
   return new SmartAccountKit({
     rpcUrl: TESTNET.rpcUrl, networkPassphrase: TESTNET.networkPassphrase, accountWasmHash: TESTNET.accountWasmHash,
     webauthnVerifierAddress: TESTNET.webauthnVerifierAddress, ed25519VerifierAddress: TESTNET.ed25519VerifierAddress,
-    storage: new MemoryStorage(), rpId: RP_ID, rpName: "Niet",
+    storage: new MemoryStorage(), rpId: RP_ID, rpName: "Koul",
     webAuthn: authenticator as unknown as NonNullable<ConstructorParameters<typeof SmartAccountKit>[0]["webAuthn"]>,
     deployerSecret: env.KEEPER_SECRET!, timeoutInSeconds: 60,
   });
@@ -90,7 +90,7 @@ export function describeEntries(entries: xdr.SorobanAuthorizationEntry[]): strin
   });
 }
 
-/** `NietAgentParams` as the kit expects it for a custom policy: a hand-built ScVal map, keys in sorted order. */
+/** `KoulAgentParams` as the kit expects it for a custom policy: a hand-built ScVal map, keys in sorted order. */
 export function policyParams(p: { allowedCalls: [string, string][]; recipients: string[]; maxCalls: number; windowLedgers: number }): xdr.ScVal {
   return xdr.ScVal.scvMap([
     new xdr.ScMapEntry({ key: sym("allowed_calls"), val: xdr.ScVal.scvVec(p.allowedCalls.map(([c, f]) => xdr.ScVal.scvVec([addr(c), sym(f)]))) }),

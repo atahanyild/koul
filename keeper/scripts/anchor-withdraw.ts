@@ -43,7 +43,7 @@ const plan = await createLandingAccount(deps, {
   usdcContract: anchor.usdc.contractId,
   beforeLock: async (bridge) => {
     const auth = await sep10Authenticate(anchor, bridge.publicKey, bridge.sign);
-    await sep12Register(anchor, auth.token, { first_name: "Niet", last_name: wallet.slice(-6), bank_account_number: SANDBOX_TEST_IBAN });
+    await sep12Register(anchor, auth.token, { first_name: "Koul", last_name: wallet.slice(-6), bank_account_number: SANDBOX_TEST_IBAN });
     const quote = await sep38Quote(anchor, auth.token, { sellAsset: stellarAsset(anchor.usdc.code, anchor.usdc.issuer), buyAsset: fiat, sellAmount: amountUsdc, deliveryMethod: quoteMethod, side: "sell" });
     const wd = await sep6WithdrawExchange(anchor, auth.token, { sourceAssetCode: anchor.usdc.code, destinationAsset: fiat, amount: amountUsdc, quoteId: quote.id, account: bridge.publicKey, type: method, dest: SANDBOX_TEST_IBAN });
     if (wd.memoType !== "id") throw new Error(`anchor wants a ${wd.memoType} memo`);

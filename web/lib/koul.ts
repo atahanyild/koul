@@ -1,12 +1,12 @@
-/** Niet testnet deployment and helpers shared by the experimental frontend. */
+/** Koul testnet deployment and helpers shared by the experimental frontend. */
 import { Address, xdr } from "@stellar/stellar-sdk";
 
-export const NIET = {
-  router: process.env.NEXT_PUBLIC_NIET_ROUTER ?? "CBHRTWXARGZCUDBE7IX4SZV7GDFA6PRQICZQPUSOUPN3YDCVPXQBMT2P",
-  policy: process.env.NEXT_PUBLIC_NIET_POLICY ?? "CCEYSMIWTRJL7GE6G4MVKEC4NONUCTYVMZKMQH7D3PTQ7DPBLU5V3X4O",
-  oracle: process.env.NEXT_PUBLIC_NIET_ORACLE ?? "CB6VNXADXR3XHCS4EKV5ZR5UJUZYQ5BZTPRHCNQE3XMKQMB4LJG6MKW2",
+export const KOUL = {
+  router: process.env.NEXT_PUBLIC_KOUL_ROUTER ?? "CBHRTWXARGZCUDBE7IX4SZV7GDFA6PRQICZQPUSOUPN3YDCVPXQBMT2P",
+  policy: process.env.NEXT_PUBLIC_KOUL_POLICY ?? "CCEYSMIWTRJL7GE6G4MVKEC4NONUCTYVMZKMQH7D3PTQ7DPBLU5V3X4O",
+  oracle: process.env.NEXT_PUBLIC_KOUL_ORACLE ?? "CB6VNXADXR3XHCS4EKV5ZR5UJUZYQ5BZTPRHCNQE3XMKQMB4LJG6MKW2",
   /** The keeper's agent Ed25519 public key (G-address form). Only ever a public key in the browser. */
-  agentPublicKey: process.env.NEXT_PUBLIC_NIET_AGENT_PUBLIC_KEY ?? "GBVD753EJMRQYI6WQCWC4OMDCNMGQMHXRT7IOAHTT3FD7ON6OQXTSAK3",
+  agentPublicKey: process.env.NEXT_PUBLIC_KOUL_AGENT_PUBLIC_KEY ?? "GBVD753EJMRQYI6WQCWC4OMDCNMGQMHXRT7IOAHTT3FD7ON6OQXTSAK3",
   rpcUrl: "https://soroban-testnet.stellar.org",
   networkPassphrase: "Test SDF Network ; September 2015",
 } as const;
@@ -24,9 +24,9 @@ export const ORACLE_DECIMALS = 14;
 const sym = (s: string) => xdr.ScVal.scvSymbol(s);
 const addr = (a: string) => new Address(a).toScVal();
 
-/** What the agent may do with this wallet. Everything else is rejected on-chain by niet_agent_policy. */
+/** What the agent may do with this wallet. Everything else is rejected on-chain by koul_agent_policy. */
 export const AGENT_ALLOWED_CALLS: [string, string][] = [
-  [NIET.router, "tick"],
+  [KOUL.router, "tick"],
   [XOXNO.controller, "withdraw"],
   [XOXNO.controller, "supply"],
   [XOXNO.controller, "repay"],
@@ -34,7 +34,7 @@ export const AGENT_ALLOWED_CALLS: [string, string][] = [
 ];
 export const AGENT_TRANSFER_RECIPIENTS = [XOXNO.pool];
 
-/** `NietAgentParams` for the policy install, keys in the order the contract type sorts them. */
+/** `KoulAgentParams` for the policy install, keys in the order the contract type sorts them. */
 export function agentPolicyParams(maxCalls = 40, windowLedgers = 2000): xdr.ScVal {
   return xdr.ScVal.scvMap([
     new xdr.ScMapEntry({ key: sym("allowed_calls"), val: xdr.ScVal.scvVec(AGENT_ALLOWED_CALLS.map(([c, f]) => xdr.ScVal.scvVec([addr(c), sym(f)]))) }),

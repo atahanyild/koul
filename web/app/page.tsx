@@ -4,7 +4,7 @@ import { ConnectWalletButton, CreateWalletButton, WalletBalance, usePasskeyWalle
 import { AgentAccess } from "@/components/AgentAccess";
 import { Strategy } from "@/components/Strategy";
 import { ActivityFeed } from "@/components/ActivityFeed";
-import { XOXNO } from "@/lib/niet";
+import { XOXNO } from "@/lib/koul";
 
 export default function Home() {
   const { isConnected, address, status, error, fund, disconnect } = usePasskeyWallet();

@@ -1,7 +1,7 @@
-//! niet_router: the on-chain decision tree for one user's XOXNO position.
+//! koul_router: the on-chain decision tree for one user's XOXNO position.
 //!
 //! `set_rules(user, rules)` is passkey-signed. `tick(user)` is what the keeper pokes; it needs `user.require_auth()`,
-//! which the agent key satisfies through the smart account's `niet-agent` rule and `niet_agent_policy`. The router
+//! which the agent key satisfies through the smart account's `koul-agent` rule and `koul_agent_policy`. The router
 //! reads pool rates, the controller's health factor and collateral, and an FX oracle (Reflector interface), then
 //! executes at most one branch in priority order: health guard > rebalance > FX exit > none. It holds no funds and
 //! keeps no state beyond the rules.
@@ -245,10 +245,10 @@ fn key(cfg: &Config, hub: u32) -> HubAssetKey {
 }
 
 #[contract]
-pub struct NietRouter;
+pub struct KoulRouter;
 
 #[contractimpl]
-impl NietRouter {
+impl KoulRouter {
     pub fn __constructor(e: Env, admin: Address, controller: Address, pool: Address, usdc: Address, oracle: Address, spoke_id: u32) {
         e.storage().instance().set(&DataKey::Admin, &admin);
         e.storage().instance().set(&DataKey::Config, &Config { controller, pool, usdc, oracle, spoke_id });
@@ -386,7 +386,7 @@ impl NietRouter {
     }
 }
 
-impl NietRouter {
+impl KoulRouter {
     fn move_collateral(e: &Env, cfg: &Config, controller: &ControllerClient, user: &Address, id: u64, from: u32, to: u32, amount: i128) -> i128 {
         let mut w = Vec::new(e);
         w.push_back((key(cfg, from), amount));

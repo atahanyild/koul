@@ -1,5 +1,5 @@
 [package]
-name = "niet_agent_policy"
+name = "koul_router"
 edition.workspace = true
 version.workspace = true
 license.workspace = true
@@ -11,7 +11,6 @@ doctest = false
 
 [dependencies]
 soroban-sdk = { workspace = true }
-stellar-accounts = { workspace = true }
 
 [dev-dependencies]
 soroban-sdk = { workspace = true, features = ["testutils"] }

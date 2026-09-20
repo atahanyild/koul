@@ -3,12 +3,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { contract } from "@stellar/stellar-sdk";
 import { usePasskeyWallet } from "@sembol/passkey-react";
-import { NIET, XOXNO, explorerTx, tryPerUsdToUsdPerTry, usdPerTryToTryPerUsd } from "@/lib/niet";
+import { KOUL, XOXNO, explorerTx, tryPerUsdToUsdPerTry, usdPerTryToTryPerUsd } from "@/lib/koul";
 
 interface Rules { account_id: bigint; hub_a: number; hub_b: number; rebalance_threshold_bps: number; min_health_factor_wad: bigint; fx_enabled: boolean; fx_asset: string; fx_level: bigint; fx_above: boolean; max_price_age_secs: bigint }
 type RouterClient = { get_rules: (a: { user: string }) => Promise<contract.AssembledTransaction<Rules | undefined>>; set_rules: (a: { user: string; rules: Rules }) => Promise<contract.AssembledTransaction<null>> };
 
-/** The user's rule set on the Niet router: written once with the passkey, evaluated by the router on every tick. */
+/** The user's rule set on the Koul router: written once with the passkey, evaluated by the router on every tick. */
 export function Strategy() {
   const { kit, isConnected, address, txEpoch } = usePasskeyWallet();
   const [router, setRouter] = useState<RouterClient | null>(null);
@@ -23,7 +23,7 @@ export function Strategy() {
 
   useEffect(() => {
     if (!kit) return;
-    void contract.Client.from({ contractId: NIET.router, networkPassphrase: NIET.networkPassphrase, rpcUrl: NIET.rpcUrl, publicKey: kit.deployerPublicKey }).then((c) => setRouter(c as unknown as RouterClient));
+    void contract.Client.from({ contractId: KOUL.router, networkPassphrase: KOUL.networkPassphrase, rpcUrl: KOUL.rpcUrl, publicKey: kit.deployerPublicKey }).then((c) => setRouter(c as unknown as RouterClient));
   }, [kit]);
 
   const refresh = useCallback(async () => {

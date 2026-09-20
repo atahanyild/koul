@@ -25,8 +25,8 @@ const XOXNO = {
   usdc: "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA",
   spoke: 3,
 } as const;
-const RP_ID = "niet.local";
-const ORIGIN = "https://niet.local";
+const RP_ID = "koul.local";
+const ORIGIN = "https://koul.local";
 const STATE_PATH = fileURLToPath(new URL("../../.phase0-state.json", import.meta.url));
 
 interface State { contractId?: string; passkey?: AuthenticatorState; ruleId?: number; t4?: { accountId?: string }; t7?: Record<string, unknown>; revoke?: Record<string, unknown>; t5?: { amount?: string; withdrawHash?: string; supplyHash?: string; withdrawEntries?: string[]; supplyEntries?: string[] } }
@@ -58,7 +58,7 @@ class ForbiddenAuthenticator extends SoftwareAuthenticator {
 const kit = new SmartAccountKit({
   rpcUrl: TESTNET.rpcUrl, networkPassphrase: TESTNET.networkPassphrase, accountWasmHash: TESTNET.accountWasmHash,
   webauthnVerifierAddress: TESTNET.webauthnVerifierAddress, ed25519VerifierAddress: TESTNET.ed25519VerifierAddress,
-  storage: new MemoryStorage(), rpId: RP_ID, rpName: "Niet",
+  storage: new MemoryStorage(), rpId: RP_ID, rpName: "Koul",
   webAuthn: new ForbiddenAuthenticator(RP_ID, ORIGIN, state.passkey) as unknown as NonNullable<ConstructorParameters<typeof SmartAccountKit>[0]["webAuthn"]>,
   deployerSecret: env.KEEPER_SECRET!, timeoutInSeconds: 60,
 });
@@ -144,14 +144,14 @@ const pk = new SoftwareAuthenticator(RP_ID, ORIGIN, state.passkey);
 const pkKit = new SmartAccountKit({
   rpcUrl: TESTNET.rpcUrl, networkPassphrase: TESTNET.networkPassphrase, accountWasmHash: TESTNET.accountWasmHash,
   webauthnVerifierAddress: TESTNET.webauthnVerifierAddress, ed25519VerifierAddress: TESTNET.ed25519VerifierAddress,
-  storage: new MemoryStorage(), rpId: RP_ID, rpName: "Niet",
+  storage: new MemoryStorage(), rpId: RP_ID, rpName: "Koul",
   webAuthn: pk as unknown as NonNullable<ConstructorParameters<typeof SmartAccountKit>[0]["webAuthn"]>,
   deployerSecret: env.KEEPER_SECRET!, timeoutInSeconds: 60,
 });
 await pkKit.connectWallet({ credentialId: state.passkey.credentialId, contractId: wallet });
 step("rules before");
 console.log((await pkKit.rules.list()).map((r) => `${r.id}:${r.name}`).join(", "));
-for (const name of ["niet-agent-expiring", "niet-agent-deny", "niet-agent"]) {
+for (const name of ["koul-agent-expiring", "koul-agent-deny", "koul-agent"]) {
   const r = (await pkKit.rules.list()).find((x) => x.name === name);
   if (!r) { console.log(`${name}: already gone`); continue; }
   const tx = await pkKit.rules.remove(Number(r.id));

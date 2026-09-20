@@ -25,8 +25,8 @@ const XOXNO = {
   usdc: "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA",
   spoke: 3,
 } as const;
-const RP_ID = "niet.local";
-const ORIGIN = "https://niet.local";
+const RP_ID = "koul.local";
+const ORIGIN = "https://koul.local";
 const STATE_PATH = fileURLToPath(new URL("../../.phase0-state.json", import.meta.url));
 
 interface State { contractId?: string; passkey?: AuthenticatorState; ruleId?: number; t4?: { accountId?: string }; t5?: { amount?: string; withdrawHash?: string; supplyHash?: string; withdrawEntries?: string[]; supplyEntries?: string[] } }
@@ -58,7 +58,7 @@ class ForbiddenAuthenticator extends SoftwareAuthenticator {
 const kit = new SmartAccountKit({
   rpcUrl: TESTNET.rpcUrl, networkPassphrase: TESTNET.networkPassphrase, accountWasmHash: TESTNET.accountWasmHash,
   webauthnVerifierAddress: TESTNET.webauthnVerifierAddress, ed25519VerifierAddress: TESTNET.ed25519VerifierAddress,
-  storage: new MemoryStorage(), rpId: RP_ID, rpName: "Niet",
+  storage: new MemoryStorage(), rpId: RP_ID, rpName: "Koul",
   webAuthn: new ForbiddenAuthenticator(RP_ID, ORIGIN, state.passkey) as unknown as NonNullable<ConstructorParameters<typeof SmartAccountKit>[0]["webAuthn"]>,
   deployerSecret: env.KEEPER_SECRET!, timeoutInSeconds: 60,
 });

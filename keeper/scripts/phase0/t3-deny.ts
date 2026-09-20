@@ -1,6 +1,6 @@
 /**
  * Phase-0 T3 negative: same agent key, same transfer, but pinned to a rule whose policy denies everything.
- * Adds a second Default rule "niet-agent-deny" (agent signer + deny_policy), then:
+ * Adds a second Default rule "koul-agent-deny" (agent signer + deny_policy), then:
  *   (1) transfer pinned to the deny rule  -> must FAIL
  *   (2) transfer pinned to the noop rule  -> must SUCCEED (control)
  *   pnpm tsx scripts/phase0/t3-deny.ts
@@ -19,8 +19,8 @@ const TESTNET = {
   ed25519VerifierAddress: "CAAVTMCBXEIBPR64EAASKFXERVPYFZA2JYP5A3BG6PESWEFUJX5IHKN4",
   xlmSac: "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
 } as const;
-const RP_ID = "niet.local";
-const ORIGIN = "https://niet.local";
+const RP_ID = "koul.local";
+const ORIGIN = "https://koul.local";
 const STATE_PATH = fileURLToPath(new URL("../../.phase0-state.json", import.meta.url));
 
 interface State { contractId?: string; passkey?: AuthenticatorState; ruleId?: number; denyRuleId?: number; denyRuleHash?: string; t3DenyError?: string; t3ControlHash?: string }
@@ -46,7 +46,7 @@ function makeKit(authenticator: SoftwareAuthenticator): SmartAccountKit {
   return new SmartAccountKit({
     rpcUrl: TESTNET.rpcUrl, networkPassphrase: TESTNET.networkPassphrase, accountWasmHash: TESTNET.accountWasmHash,
     webauthnVerifierAddress: TESTNET.webauthnVerifierAddress, ed25519VerifierAddress: TESTNET.ed25519VerifierAddress,
-    storage: new MemoryStorage(), rpId: RP_ID, rpName: "Niet",
+    storage: new MemoryStorage(), rpId: RP_ID, rpName: "Koul",
     webAuthn: authenticator as unknown as NonNullable<ConstructorParameters<typeof SmartAccountKit>[0]["webAuthn"]>,
     deployerSecret: env.KEEPER_SECRET!, timeoutInSeconds: 60,
   });
@@ -55,22 +55,22 @@ class ForbiddenAuthenticator extends SoftwareAuthenticator {
   override async startAuthentication(): Promise<never> { throw new Error("PASSKEY WAS TOUCHED"); }
 }
 
-step("install niet-agent-deny rule with the passkey");
+step("install koul-agent-deny rule with the passkey");
 const authenticator = new SoftwareAuthenticator(RP_ID, ORIGIN, state.passkey);
 const kit = makeKit(authenticator);
 await kit.connectWallet({ credentialId: state.passkey.credentialId, contractId: state.contractId });
 let rules = await kit.rules.list();
-let deny = rules.find((r) => r.name === "niet-agent-deny");
+let deny = rules.find((r) => r.name === "koul-agent-deny");
 if (!deny) {
   const ledger = (await kit.rpc.getLatestLedger()).sequence;
   const signer = createEd25519Signer(TESTNET.ed25519VerifierAddress, agent.rawPublicKey());
-  const tx = await kit.rules.add(createDefaultContext(), "niet-agent-deny", [signer], new Map([[env.DENY_POLICY!, xdr.ScVal.scvVoid()]]), ledger + 17280);
+  const tx = await kit.rules.add(createDefaultContext(), "koul-agent-deny", [signer], new Map([[env.DENY_POLICY!, xdr.ScVal.scvVoid()]]), ledger + 17280);
   const res = await kit.signAndSubmit(tx, { forceMethod: "rpc" });
   state.passkey = authenticator.toState(); save();
   if (!res.success) throw new Error(`rules.add failed: ${json(res)}`);
   state.denyRuleHash = res.hash;
   rules = await kit.rules.list();
-  deny = rules.find((r) => r.name === "niet-agent-deny");
+  deny = rules.find((r) => r.name === "koul-agent-deny");
   if (!deny) throw new Error("deny rule missing after add");
   console.log(`deny rule added, tx ${res.hash}`);
 }

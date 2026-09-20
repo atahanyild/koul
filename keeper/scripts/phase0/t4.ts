@@ -28,8 +28,8 @@ const XOXNO = {
   usdc: "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA",
   spoke: 3,
 } as const;
-const RP_ID = "niet.local";
-const ORIGIN = "https://niet.local";
+const RP_ID = "koul.local";
+const ORIGIN = "https://koul.local";
 const STATE_PATH = fileURLToPath(new URL("../../.phase0-state.json", import.meta.url));
 
 interface State {
@@ -102,7 +102,7 @@ if (!t4.anchorPayHash) {
   step("a. SEP-10 / SEP-12 / SEP-38 / SEP-6 as the keeper G-account");
   const auth = await sep10Authenticate(anchor, keeper.publicKey(), (tx) => tx.sign(keeper));
   console.log(`sep10 token ok (exp ${auth.expiresAt})`);
-  const kyc = await sep12Register(anchor, auth.token, { first_name: "Niet", last_name: "Keeper", email_address: "keeper@niet.local" });
+  const kyc = await sep12Register(anchor, auth.token, { first_name: "Koul", last_name: "Keeper", email_address: "keeper@koul.local" });
   console.log(`sep12: ${json(kyc)}`);
   const deliveryMethod = anchor.sep38?.sellDeliveryMethods[0] ?? "bank_account";
   const quote = await sep38Quote(anchor, auth.token, { sellAsset: fiatAsset(anchor.fiatCode ?? "TRY"), buyAsset: stellarAsset(anchor.usdc.code, anchor.usdc.issuer), sellAmount: tryAmount, deliveryMethod, side: "sell" });
@@ -156,7 +156,7 @@ if (!t4.supplyHash) {
   const kit = new SmartAccountKit({
     rpcUrl: TESTNET.rpcUrl, networkPassphrase: TESTNET.networkPassphrase, accountWasmHash: TESTNET.accountWasmHash,
     webauthnVerifierAddress: TESTNET.webauthnVerifierAddress, ed25519VerifierAddress: TESTNET.ed25519VerifierAddress,
-    storage: new MemoryStorage(), rpId: RP_ID, rpName: "Niet",
+    storage: new MemoryStorage(), rpId: RP_ID, rpName: "Koul",
     webAuthn: authenticator as unknown as NonNullable<ConstructorParameters<typeof SmartAccountKit>[0]["webAuthn"]>,
     deployerSecret: env.KEEPER_SECRET!, timeoutInSeconds: 60,
   });

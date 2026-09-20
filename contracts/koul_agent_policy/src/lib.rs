@@ -1,4 +1,4 @@
-//! niet_agent_policy: what an agent session key may do with a user's smart account.
+//! koul_agent_policy: what an agent session key may do with a user's smart account.
 //!
 //! Implements `stellar_accounts::policies::Policy` at OpenZeppelin/stellar-contracts @ 1e513890.
 //! Attached to a `Default` context rule whose only signer is the agent's Ed25519 key, it is invoked once per
@@ -22,7 +22,7 @@ use stellar_accounts::{
 
 #[contracttype]
 #[derive(Clone, Debug)]
-pub struct NietAgentParams {
+pub struct KoulAgentParams {
     pub allowed_calls: Vec<(Address, Symbol)>,
     pub allowed_transfer_recipients: Vec<Address>,
     pub max_calls_per_window: u32,
@@ -46,7 +46,7 @@ pub enum StorageKey {
 #[contracterror]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 #[repr(u32)]
-pub enum NietPolicyError {
+pub enum KoulPolicyError {
     NotInstalled = 7100,
     NoSigners = 7101,
     NotContractContext = 7102,
@@ -59,7 +59,7 @@ pub enum NietPolicyError {
 
 #[contractevent]
 #[derive(Clone)]
-pub struct NietEnforced {
+pub struct KoulEnforced {
     #[topic]
     pub smart_account: Address,
     pub context_rule_id: u32,
@@ -70,7 +70,7 @@ pub struct NietEnforced {
 
 #[contractevent]
 #[derive(Clone)]
-pub struct NietInstalled {
+pub struct KoulInstalled {
     #[topic]
     pub smart_account: Address,
     pub context_rule_id: u32,
@@ -82,41 +82,41 @@ pub struct NietInstalled {
 const TTL_THRESHOLD: u32 = 17280 * 7;
 const TTL_EXTEND: u32 = 17280 * 30;
 
-fn params(e: &Env, smart_account: &Address, rule_id: u32) -> NietAgentParams {
+fn params(e: &Env, smart_account: &Address, rule_id: u32) -> KoulAgentParams {
     let key = StorageKey::Params(smart_account.clone(), rule_id);
-    let p: NietAgentParams = e.storage().persistent().get(&key).unwrap_or_else(|| panic_with_error!(e, NietPolicyError::NotInstalled));
+    let p: KoulAgentParams = e.storage().persistent().get(&key).unwrap_or_else(|| panic_with_error!(e, KoulPolicyError::NotInstalled));
     e.storage().persistent().extend_ttl(&key, TTL_THRESHOLD, TTL_EXTEND);
     p
 }
 
 #[contract]
-pub struct NietAgentPolicy;
+pub struct KoulAgentPolicy;
 
 #[contractimpl]
-impl Policy for NietAgentPolicy {
-    type AccountParams = NietAgentParams;
+impl Policy for KoulAgentPolicy {
+    type AccountParams = KoulAgentParams;
 
     fn enforce(e: &Env, context: Context, authenticated_signers: Vec<Signer>, context_rule: ContextRule, smart_account: Address) {
         smart_account.require_auth();
         if authenticated_signers.is_empty() {
-            panic_with_error!(e, NietPolicyError::NoSigners);
+            panic_with_error!(e, KoulPolicyError::NoSigners);
         }
         let p = params(e, &smart_account, context_rule.id);
         let (contract, fn_name, args) = match context {
             Context::Contract(ContractContext { contract, fn_name, args }) => (contract, fn_name, args),
-            _ => panic_with_error!(e, NietPolicyError::NotContractContext),
+            _ => panic_with_error!(e, KoulPolicyError::NotContractContext),
         };
         let allowed = p.allowed_calls.iter().any(|(c, f)| c == contract && f == fn_name);
         if !allowed {
-            panic_with_error!(e, NietPolicyError::CallNotAllowed);
+            panic_with_error!(e, KoulPolicyError::CallNotAllowed);
         }
         if fn_name == symbol_short!("transfer") {
             if args.len() != 3 {
-                panic_with_error!(e, NietPolicyError::TransferArity);
+                panic_with_error!(e, KoulPolicyError::TransferArity);
             }
-            let to = Address::try_from_val(e, &args.get(1).unwrap()).unwrap_or_else(|_| panic_with_error!(e, NietPolicyError::TransferArity));
+            let to = Address::try_from_val(e, &args.get(1).unwrap()).unwrap_or_else(|_| panic_with_error!(e, KoulPolicyError::TransferArity));
             if !p.allowed_transfer_recipients.iter().any(|r| r == to) {
-                panic_with_error!(e, NietPolicyError::TransferRecipientNotAllowed);
+                panic_with_error!(e, KoulPolicyError::TransferRecipientNotAllowed);
             }
         }
         let now = e.ledger().sequence();
@@ -127,22 +127,22 @@ impl Policy for NietAgentPolicy {
         }
         w.calls += 1;
         if w.calls > p.max_calls_per_window {
-            panic_with_error!(e, NietPolicyError::RateLimited);
+            panic_with_error!(e, KoulPolicyError::RateLimited);
         }
         e.storage().persistent().set(&wkey, &w);
         e.storage().persistent().extend_ttl(&wkey, TTL_THRESHOLD, TTL_EXTEND);
-        NietEnforced { smart_account, context_rule_id: context_rule.id, contract, fn_name, calls_in_window: w.calls }.publish(e);
+        KoulEnforced { smart_account, context_rule_id: context_rule.id, contract, fn_name, calls_in_window: w.calls }.publish(e);
     }
 
-    fn install(e: &Env, install_params: NietAgentParams, context_rule: ContextRule, smart_account: Address) {
+    fn install(e: &Env, install_params: KoulAgentParams, context_rule: ContextRule, smart_account: Address) {
         smart_account.require_auth();
         if install_params.allowed_calls.is_empty() || install_params.max_calls_per_window == 0 || install_params.window_ledgers == 0 {
-            panic_with_error!(e, NietPolicyError::BadParams);
+            panic_with_error!(e, KoulPolicyError::BadParams);
         }
         let key = StorageKey::Params(smart_account.clone(), context_rule.id);
         e.storage().persistent().set(&key, &install_params);
         e.storage().persistent().extend_ttl(&key, TTL_THRESHOLD, TTL_EXTEND);
-        NietInstalled {
+        KoulInstalled {
             smart_account,
             context_rule_id: context_rule.id,
             allowed_calls: install_params.allowed_calls.len(),
@@ -160,8 +160,8 @@ impl Policy for NietAgentPolicy {
 }
 
 #[contractimpl]
-impl NietAgentPolicy {
-    pub fn get_params(e: Env, smart_account: Address, context_rule_id: u32) -> Option<NietAgentParams> {
+impl KoulAgentPolicy {
+    pub fn get_params(e: Env, smart_account: Address, context_rule_id: u32) -> Option<KoulAgentParams> {
         e.storage().persistent().get(&StorageKey::Params(smart_account, context_rule_id))
     }
 

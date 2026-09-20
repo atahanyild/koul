@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Address, rpc, scValToNative, xdr } from "@stellar/stellar-sdk";
 import { usePasskeyWallet } from "@sembol/passkey-react";
-import { NIET, explorerTx } from "@/lib/niet";
+import { KOUL, explorerTx } from "@/lib/koul";
 
 interface Fired { ledger: number; tx: string; branch: string; amount: bigint; from_hub: number; to_hub: number; observed: bigint; observed_2: bigint }
 
@@ -21,12 +21,12 @@ export function ActivityFeed() {
   const [items, setItems] = useState<Fired[]>([]);
   useEffect(() => {
     if (!isConnected || !address) return;
-    const server = new rpc.Server(NIET.rpcUrl);
+    const server = new rpc.Server(KOUL.rpcUrl);
     (async () => {
       const latest = (await server.getLatestLedger()).sequence;
       const res = await server.getEvents({
         startLedger: Math.max(1, latest - 17280 * 6),
-        filters: [{ type: "contract", contractIds: [NIET.router], topics: [[xdr.ScVal.scvSymbol("fired").toXDR("base64"), new Address(address).toScVal().toXDR("base64")]] }],
+        filters: [{ type: "contract", contractIds: [KOUL.router], topics: [[xdr.ScVal.scvSymbol("fired").toXDR("base64"), new Address(address).toScVal().toXDR("base64")]] }],
         limit: 50,
       });
       setItems(res.events.map((e) => {

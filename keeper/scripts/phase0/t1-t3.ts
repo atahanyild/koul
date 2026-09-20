@@ -2,9 +2,9 @@
  * Phase-0 T1-T3, headless.
  *
  * T1: create a smart account (software passkey, keeper pays the deploy), fund it, dump its rules.
- * T2: add the "niet-agent" Default rule: one Ed25519 external signer (the agent key) + noop policy, 1-day expiry.
+ * T2: add the "koul-agent" Default rule: one Ed25519 external signer (the agent key) + noop policy, 1-day expiry.
  * T3: with ONLY the agent key (the passkey authenticator throws if touched), transfer 1 XLM from the
- *     smart account to the keeper G-address, pinning the niet-agent rule id per auth context.
+ *     smart account to the keeper G-address, pinning the koul-agent rule id per auth context.
  *
  * State is kept in keeper/.phase0-state.json (gitignored) so the same wallet is reused on re-runs.
  *   pnpm tsx scripts/phase0/t1-t3.ts
@@ -23,8 +23,8 @@ const TESTNET = {
   ed25519VerifierAddress: "CAAVTMCBXEIBPR64EAASKFXERVPYFZA2JYP5A3BG6PESWEFUJX5IHKN4",
   xlmSac: "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
 } as const;
-const RP_ID = "niet.local";
-const ORIGIN = "https://niet.local";
+const RP_ID = "koul.local";
+const ORIGIN = "https://koul.local";
 const STATE_PATH = fileURLToPath(new URL("../../.phase0-state.json", import.meta.url));
 const LEDGERS_PER_DAY = 17280;
 
@@ -67,7 +67,7 @@ function makeKit(authenticator: SoftwareAuthenticator): SmartAccountKit {
     ed25519VerifierAddress: TESTNET.ed25519VerifierAddress,
     storage: new MemoryStorage(),
     rpId: RP_ID,
-    rpName: "Niet",
+    rpName: "Koul",
     webAuthn: authenticator as unknown as NonNullable<ConstructorParameters<typeof SmartAccountKit>[0]["webAuthn"]>,
     deployerSecret: env.KEEPER_SECRET!,
     timeoutInSeconds: 60,
@@ -98,7 +98,7 @@ async function t1(): Promise<{ kit: SmartAccountKit; authenticator: SoftwareAuth
   }
   const authenticator = new SoftwareAuthenticator(RP_ID, ORIGIN);
   const kit = makeKit(authenticator);
-  const created = await kit.createWallet("Niet", `phase0-${Date.now()}`, { autoSubmit: true, forceMethod: "rpc" });
+  const created = await kit.createWallet("Koul", `phase0-${Date.now()}`, { autoSubmit: true, forceMethod: "rpc" });
   if (!created.submitResult?.success) throw new Error(`deploy failed: ${json(created.submitResult)}`);
   state.contractId = created.contractId;
   state.deployHash = created.submitResult.hash;
@@ -123,18 +123,18 @@ async function dumpRules(kit: SmartAccountKit, label: string) {
 }
 
 async function t2(kit: SmartAccountKit, authenticator: SoftwareAuthenticator): Promise<number> {
-  step("T2 add niet-agent rule (Ed25519 external signer + noop policy)");
+  step("T2 add koul-agent rule (Ed25519 external signer + noop policy)");
   const before = await dumpRules(kit, "rules before");
-  const existing = before.find((r) => r.name === "niet-agent");
+  const existing = before.find((r) => r.name === "koul-agent");
   if (existing) {
-    console.log(`niet-agent already installed as rule ${existing.id}`);
+    console.log(`koul-agent already installed as rule ${existing.id}`);
     state.ruleId = Number(existing.id);
     save();
     return state.ruleId;
   }
   const ledger = (await kit.rpc.getLatestLedger()).sequence;
   const signer = createEd25519Signer(TESTNET.ed25519VerifierAddress, agent.rawPublicKey());
-  const tx = await kit.rules.add(createDefaultContext(), "niet-agent", [signer], new Map([[NOOP_POLICY, xdr.ScVal.scvVoid()]]), ledger + LEDGERS_PER_DAY);
+  const tx = await kit.rules.add(createDefaultContext(), "koul-agent", [signer], new Map([[NOOP_POLICY, xdr.ScVal.scvVoid()]]), ledger + LEDGERS_PER_DAY);
   const res = await kit.signAndSubmit(tx, { forceMethod: "rpc" });
   state.passkey = authenticator.toState();
   save();
@@ -142,8 +142,8 @@ async function t2(kit: SmartAccountKit, authenticator: SoftwareAuthenticator): P
   console.log(`rules.add tx ${res.hash}`);
   state.ruleHash = res.hash;
   const after = await dumpRules(kit, "rules after");
-  const rule = after.find((r) => r.name === "niet-agent");
-  if (!rule) throw new Error("niet-agent rule not found after add");
+  const rule = after.find((r) => r.name === "koul-agent");
+  if (!rule) throw new Error("koul-agent rule not found after add");
   state.ruleId = Number(rule.id);
   save();
   return state.ruleId;

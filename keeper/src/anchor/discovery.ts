@@ -10,7 +10,7 @@ import { Asset } from "@stellar/stellar-sdk";
 /**
  * Ported from Kumbara (github.com/keyboord01/kumbara, MIT, Sembol 2026) with
  * the Next.js data cache and the presenter's KV-backed anchor switch removed.
- * Niet configures the anchor with two environment variables only.
+ * Koul configures the anchor with two environment variables only.
  */
 const networkPassphrase = (): string => process.env.NETWORK_PASSPHRASE?.trim() || "Test SDF Network ; September 2015";
 const serverEnv = {

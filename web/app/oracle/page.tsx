@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { NIET, explorerTx, tryPerUsdToUsdPerTry, usdPerTryToTryPerUsd } from "@/lib/niet";
+import { KOUL, explorerTx, tryPerUsdToUsdPerTry, usdPerTryToTryPerUsd } from "@/lib/koul";
 
 interface Reading { oracle: string; admin: string | null; price: string | null; timestamp: number | null; now: number }
 
@@ -39,7 +39,7 @@ export default function OracleAdmin() {
       <h2>Mock FX oracle</h2>
       <p className="sub">Testnet stand-in for Reflector (same read interface). The router reads it on every tick and rejects prices older than the user&apos;s limit.</p>
       <table><tbody>
-        <tr><th>Contract</th><td className="mono">{NIET.oracle}</td></tr>
+        <tr><th>Contract</th><td className="mono">{KOUL.oracle}</td></tr>
         <tr><th>USD/TRY now</th><td style={{ fontSize: 22, fontWeight: 700 }}>{current ? current.toFixed(4) : "…"} <span className="muted" style={{ fontSize: 13 }}>({reading?.price} USD per TRY, 14 decimals)</span></td></tr>
         <tr><th>Price age</th><td className={age !== null && age > 900 ? "err" : "ok"}>{age === null ? "…" : `${age} s${age > 900 ? " (stale for a 900 s rule)" : ""}`}</td></tr>
         <tr><th>Admin</th><td className="mono">{reading?.admin ?? <span className="err">ORACLE_ADMIN_SECRET not set</span>}</td></tr>
