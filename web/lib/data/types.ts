@@ -65,6 +65,8 @@ export interface Transfer {
   direction: "in" | "out";
   /** Server transfer id from the funds routes, once created. */
   transferId: string | null;
+  /** The sealed server record for this transfer, carried between requests so any instance can continue it. */
+  serverState: string | null;
   amountTry: number;
   amountUsdc: number;
   rate: number;

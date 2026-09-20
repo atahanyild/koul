@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createCipheriv, createDecipheriv, createHash, randomBytes, randomUUID } from "node:crypto";
 import { Address, Asset, BASE_FEE, Contract, TransactionBuilder, contract, nativeToScVal, rpc, scValToNative } from "@stellar/stellar-sdk";
 import { discoverAnchor, type AnchorDiscovery } from "./anchor/discovery";
 import { createLandingAccount, submitPreauthorized, type LandingDeps, type LandingPlan } from "./anchor/landing";
@@ -24,11 +24,40 @@ export interface FundsRecord {
   createdAt: number;
 }
 export interface FundsStore { get(id: string): Promise<FundsRecord | undefined>; put(record: FundsRecord): Promise<void> }
+
+/**
+ * A transfer in progress is a record the server must keep between requests. A serverless host has no shared disk and
+ * sends each request to whichever instance is free, so the record travels with the caller instead: sealed with
+ * AES-256-GCM under a key derived from the server's own secret, opaque to the browser holding it, useless anywhere
+ * else. It carries a SEP bearer token and pre-authorized XDR, which is exactly why it is never sent in the clear.
+ */
+export function sealRecord(record: FundsRecord, secret: string): string {
+  const key = createHash("sha256").update(`koul-funds:${secret}`).digest();
+  const iv = randomBytes(12);
+  const cipher = createCipheriv("aes-256-gcm", key, iv);
+  const body = Buffer.concat([cipher.update(JSON.stringify(record), "utf8"), cipher.final()]);
+  return Buffer.concat([iv, cipher.getAuthTag(), body]).toString("base64url");
+}
+
+export function openRecord(sealed: string, secret: string): FundsRecord {
+  const raw = Buffer.from(sealed, "base64url");
+  if (raw.length < 29) throw new Error("Unknown transfer ID");
+  const key = createHash("sha256").update(`koul-funds:${secret}`).digest();
+  const decipher = createDecipheriv("aes-256-gcm", key, raw.subarray(0, 12));
+  decipher.setAuthTag(raw.subarray(12, 28));
+  try {
+    return JSON.parse(Buffer.concat([decipher.update(raw.subarray(28)), decipher.final()]).toString("utf8")) as FundsRecord;
+  } catch {
+    throw new Error("Unknown transfer ID");
+  }
+}
 export interface FundsPublic {
   transferId: string; kind: FundsKind; status: FundsStage; wallet: string; landingAccount: string;
   amountUsdc: string; quotedFiat?: string; instructions?: Record<string, Sep6Instruction>;
   anchorStatus?: string; forwardHash?: string; cleanupHash?: string; error?: string;
   unsignedTransfer?: string; // AssembledTransaction.toJSON, only on withdrawal creation
+  /** The sealed record. Send it back on the next call so any instance can carry the transfer on. */
+  state?: string;
 }
 
 export const parseAssetAmount = (value: string): bigint => {
@@ -87,7 +116,7 @@ export class FundsService {
     const record: FundsRecord = { id: randomUUID(), kind: "deposit", stage: "awaiting_bank", wallet: input.wallet, anchorHomeDomain: anchor.homeDomain, sepToken: got.token, sep6Id: got.sep6Id, quoteId: got.quoteId, instructions: got.instructions, plan, createdAt: Date.now() };
     await this.store.put(record);
     if (input.simulateSandboxBankTransfer) await sep6SimulateBankTransfer(anchor, got.token, got.sep6Id);
-    return publicFundsRecord(record);
+    return this.publish(record);
   }
 
   async createWithdrawal(input: { wallet: string; amountUsdc: string; iban: string; customer: Record<string, string> }): Promise<FundsPublic> {
@@ -121,38 +150,44 @@ export class FundsService {
       contractId: anchor.usdc.contractId, networkPassphrase: this.deps.networkPassphrase,
       rpcUrl: this.deps.server.serverURL.toString(), publicKey: this.deps.sponsor.publicKey(), parseResultXdr: () => null,
     });
-    return publicFundsRecord(record, { unsignedTransfer: tx.toJSON() });
+    return this.publish(record, { unsignedTransfer: tx.toJSON() });
   }
 
   /** Sandbox only: ask the mock anchor to pretend the user's bank transfer for a deposit arrived. */
-  async simulateBankTransfer(id: string): Promise<FundsPublic> {
-    const record = await this.store.get(id);
+  async simulateBankTransfer(id: string, sealed?: string): Promise<FundsPublic> {
+    const record = sealed ? openRecord(sealed, this.deps.sponsor.secret()) : await this.store.get(id);
     if (!record) throw new Error("Unknown transfer ID");
     if (record.kind !== "deposit" || record.stage !== "awaiting_bank") throw new Error("Only a deposit waiting for the bank can be simulated");
     const anchor = await discoverAnchor(record.anchorHomeDomain);
     await sep6SimulateBankTransfer(anchor, record.sepToken, record.sep6Id);
-    return publicFundsRecord(record, { anchorStatus: "pending_anchor" });
+    return this.publish(record, { anchorStatus: "pending_anchor" });
   }
 
-  async getStatus(id: string): Promise<FundsPublic> {
+  /** Every answer carries the record forward, sealed. */
+  private publish(record: FundsRecord, extra: Partial<FundsPublic> = {}): FundsPublic {
+    return publicFundsRecord(record, { ...extra, state: sealRecord(record, this.deps.sponsor.secret()) });
+  }
+
+  async getStatus(id: string, sealed?: string): Promise<FundsPublic> {
+    if (sealed) return this.advance(id, openRecord(sealed, this.deps.sponsor.secret()));
     const ongoing = this.locks.get(id);
     if (ongoing) return ongoing;
     const operation = this.advance(id);
     this.locks.set(id, operation);
     try { return await operation; } finally { this.locks.delete(id); }
   }
-  private async advance(id: string): Promise<FundsPublic> {
-    const record = await this.store.get(id);
+  private async advance(id: string, carried?: FundsRecord): Promise<FundsPublic> {
+    const record = carried ?? await this.store.get(id);
     if (!record) throw new Error("Unknown transfer ID");
-    if (record.stage === "completed" || record.stage === "failed") return publicFundsRecord(record);
+    if (record.stage === "completed" || record.stage === "failed") return this.publish(record);
     const anchor = await discoverAnchor(record.anchorHomeDomain);
     const status = await sep6Transaction(anchor, record.sepToken, record.sep6Id);
-    if (/error|expired|refunded/.test(status.status)) { record.stage = "failed"; record.error = status.message ?? status.status; await this.store.put(record); return publicFundsRecord(record, { anchorStatus: status.status }); }
+    if (/error|expired|refunded/.test(status.status)) { record.stage = "failed"; record.error = status.message ?? status.status; await this.store.put(record); return this.publish(record, { anchorStatus: status.status }); }
     if (record.kind === "deposit") {
-      if (status.status !== "completed") return publicFundsRecord(record, { anchorStatus: status.status });
-      if (await this.balance(anchor.usdc.contractId, record.plan.publicKey) < BigInt(record.plan.amountStroops)) return publicFundsRecord(record, { anchorStatus: status.status });
+      if (status.status !== "completed") return this.publish(record, { anchorStatus: status.status });
+      if (await this.balance(anchor.usdc.contractId, record.plan.publicKey) < BigInt(record.plan.amountStroops)) return this.publish(record, { anchorStatus: status.status });
     } else if (record.stage === "awaiting_passkey") {
-      if (await this.balance(anchor.usdc.contractId, record.plan.publicKey) < BigInt(record.plan.amountStroops)) return publicFundsRecord(record, { anchorStatus: status.status });
+      if (await this.balance(anchor.usdc.contractId, record.plan.publicKey) < BigInt(record.plan.amountStroops)) return this.publish(record, { anchorStatus: status.status });
       record.stage = "forwarding"; await this.store.put(record);
     }
     if (!record.forwardHash) {
@@ -170,6 +205,6 @@ export class FundsService {
       record.stage = "completed";
       await this.store.put(record);
     }
-    return publicFundsRecord(record, { anchorStatus: status.status });
+    return this.publish(record, { anchorStatus: status.status });
   }
 }

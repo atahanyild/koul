@@ -29,9 +29,13 @@ export interface FundsPublic {
   cleanupHash?: string;
   error?: string;
   unsignedTransfer?: string;
+  /** The sealed server record. Sent back on every call so any instance can carry the transfer on. */
+  state?: string;
 }
 
 const POLL_MS = 4000;
+
+const stateHeader = (state: string | null | undefined): Record<string, string> => (state ? { "x-koul-transfer-state": state } : {});
 
 async function call<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, { ...init, headers: { "content-type": "application/json", ...(init?.headers ?? {}) } });
@@ -77,6 +81,7 @@ function applyStages(t: Transfer, f: FundsPublic, signedIndex: number | null): T
   return {
     ...t,
     transferId: f.transferId,
+    serverState: f.state ?? t.serverState,
     reference: referenceOf(f.instructions) ?? t.reference,
     instructions: f.instructions ?? t.instructions,
     unsignedTransfer: f.unsignedTransfer ?? t.unsignedTransfer,
@@ -101,7 +106,7 @@ export function useTransferRunner() {
     const t = current.current;
     if (!t || t.transferId !== id || t.status !== "running") return;
     try {
-      const f = await call<FundsPublic>(`/api/funds/${id}`);
+      const f = await call<FundsPublic>(`/api/funds/${id}`, { headers: stateHeader(t.serverState) });
       const next = applyStages(t, f, null);
       setTransfer(next);
       if (next.status === "done") invalidate("portfolio:");
@@ -119,6 +124,7 @@ export function useTransferRunner() {
       id: `${direction}-${Date.now()}`,
       direction,
       transferId: null,
+      serverState: null,
       amountTry: input.amountTry,
       amountUsdc: input.amountUsdc,
       rate: input.rate,
@@ -152,7 +158,7 @@ export function useTransferRunner() {
     if (!t?.transferId) return;
     setBusy(true);
     try {
-      await call<FundsPublic>(`/api/funds/${t.transferId}/simulate`, { method: "POST" });
+      await call<FundsPublic>(`/api/funds/${t.transferId}/simulate`, { method: "POST", headers: stateHeader(t.serverState) });
       clear();
       timer.current = setTimeout(() => void poll(t.transferId!), 1500);
     } catch (err) {
