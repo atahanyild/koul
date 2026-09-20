@@ -98,6 +98,10 @@ export const ACTION_LABELS: Record<ActionKind, { sentence: (amount: Action["amou
 };
 
 export const COOLDOWN_OPTIONS = [
+  { value: 5, label: "5 sec" },
+  { value: 30, label: "30 sec" },
+  { value: 60, label: "1 min" },
+  { value: 300, label: "5 min" },
   { value: 1800, label: "30 min" },
   { value: 3600, label: "1 h" },
   { value: 6 * 3600, label: "6 h" },
@@ -246,14 +250,14 @@ let counter = 0;
 export const newId = (prefix = "r") => `${prefix}_${Date.now().toString(36)}_${(counter++).toString(36)}`;
 
 export const RULE_DEFAULTS = {
-  idle_usdc: { value: 10, cooldownSec: 3600 },
-  health_factor: { value: 1.25, cooldownSec: 3600 },
-  rate_gap: { value: 1, cooldownSec: 6 * 3600 },
-  fx_price: { value: 50, cooldownSec: 86400 },
+  idle_usdc: { value: 10, cooldownSec: 5 },
+  health_factor: { value: 1.25, cooldownSec: 5 },
+  rate_gap: { value: 1, cooldownSec: 5 },
+  fx_price: { value: 50, cooldownSec: 5 },
 } as const;
 
 export function makeRule(partial: Partial<Rule> & Pick<Rule, "name" | "conditions" | "action">): Rule {
-  return { id: newId(), match: "all", cooldownSec: 3600, inferred: [], enabled: true, ...partial };
+  return { id: newId(), match: "all", cooldownSec: 5, inferred: [], enabled: true, ...partial };
 }
 
 export interface Template {
@@ -271,8 +275,8 @@ export const TEMPLATES: Template[] = [
     tagline: "Idle dollars never sit still.",
     description: "Whenever I have at least 10 USDC sitting in my wallet, put it into the pool that pays more.",
     rules: () => [
-      makeRule({ name: "Put it to work", conditions: [{ kind: "idle_usdc", comparator: "gte", value: 10 }], action: { kind: "supply_from_wallet", amount: "all", pool: "B" }, cooldownSec: 1800 }),
-      makeRule({ name: "Best rate", conditions: [{ kind: "rate_gap", comparator: "gte", value: 1 }], action: { kind: "move_to_best_pool", amount: "all" }, cooldownSec: 6 * 3600 }),
+      makeRule({ name: "Put it to work", conditions: [{ kind: "idle_usdc", comparator: "gte", value: 10 }], action: { kind: "supply_from_wallet", amount: "all", pool: "B" }, cooldownSec: 5 }),
+      makeRule({ name: "Best rate", conditions: [{ kind: "rate_gap", comparator: "gte", value: 1 }], action: { kind: "move_to_best_pool", amount: "all" }, cooldownSec: 5 }),
     ],
   },
   {
@@ -281,9 +285,9 @@ export const TEMPLATES: Template[] = [
     tagline: "Earn in dollars, protected from a lira shock.",
     description: "Keep my USDC in whichever pool pays more, never let my loan health drop under 1.25, and if the lira goes past 50 pull everything back to my wallet.",
     rules: () => [
-      makeRule({ name: "Stay safe", conditions: [{ kind: "health_factor", comparator: "lte", value: 1.25 }], action: { kind: "repay_from_wallet", amount: "all" }, cooldownSec: 3600 }),
-      makeRule({ name: "Best rate", conditions: [{ kind: "rate_gap", comparator: "gte", value: 1 }], action: { kind: "move_to_best_pool", amount: "all" }, cooldownSec: 6 * 3600 }),
-      makeRule({ name: "Lira exit", conditions: [{ kind: "fx_price", comparator: "gte", value: 50 }], action: { kind: "withdraw_to_wallet", amount: "all" }, cooldownSec: 86400 }),
+      makeRule({ name: "Stay safe", conditions: [{ kind: "health_factor", comparator: "lte", value: 1.25 }], action: { kind: "repay_from_wallet", amount: "all" }, cooldownSec: 5 }),
+      makeRule({ name: "Best rate", conditions: [{ kind: "rate_gap", comparator: "gte", value: 1 }], action: { kind: "move_to_best_pool", amount: "all" }, cooldownSec: 5 }),
+      makeRule({ name: "Lira exit", conditions: [{ kind: "fx_price", comparator: "gte", value: 50 }], action: { kind: "withdraw_to_wallet", amount: "all" }, cooldownSec: 5 }),
     ],
   },
   {
@@ -291,14 +295,14 @@ export const TEMPLATES: Template[] = [
     name: "Best rate",
     tagline: "Always in the pool that pays more.",
     description: "Move my USDC to whichever pool pays at least half a point more.",
-    rules: () => [makeRule({ name: "Best rate", conditions: [{ kind: "rate_gap", comparator: "gte", value: 0.5 }], action: { kind: "move_to_best_pool", amount: "all" }, cooldownSec: 12 * 3600 })],
+    rules: () => [makeRule({ name: "Best rate", conditions: [{ kind: "rate_gap", comparator: "gte", value: 0.5 }], action: { kind: "move_to_best_pool", amount: "all" }, cooldownSec: 5 })],
   },
   {
     id: "loan-guard",
     name: "Loan guard",
     tagline: "Repay before liquidation, automatically.",
     description: "If my loan health drops under 1.25, repay from the USDC in my wallet.",
-    rules: () => [makeRule({ name: "Stay safe", conditions: [{ kind: "health_factor", comparator: "lte", value: 1.25 }], action: { kind: "repay_from_wallet", amount: "all" }, cooldownSec: 3600 })],
+    rules: () => [makeRule({ name: "Stay safe", conditions: [{ kind: "health_factor", comparator: "lte", value: 1.25 }], action: { kind: "repay_from_wallet", amount: "all" }, cooldownSec: 5 })],
   },
 ];
 

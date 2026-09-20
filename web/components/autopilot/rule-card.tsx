@@ -5,7 +5,7 @@
  * condition holds. Anything Koul filled in without being told is marked, never hidden.
  */
 import * as React from "react";
-import { ArrowDown, ArrowUp, Pencil } from "lucide-react";
+import { ArrowDown, ArrowUp, Pencil, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Pill, Sk, Term } from "@/components/koul/primitives";
@@ -53,10 +53,11 @@ export interface RuleCardProps {
   readOnly?: boolean;
   onEdit?: (rule: Rule) => void;
   onMove?: (index: number, dir: -1 | 1) => void;
+  onDelete?: (ruleId: string) => void;
   className?: string;
 }
 
-export function RuleCard({ rule, ev, index, count, readOnly = false, onEdit, onMove, className }: RuleCardProps) {
+export function RuleCard({ rule, ev, index, count, readOnly = false, onEdit, onMove, onDelete, className }: RuleCardProps) {
   const editable = !readOnly && !!onEdit;
   const open = () => { if (editable) onEdit?.(rule); };
   const onCardClick = (e: React.MouseEvent<HTMLElement>) => {
@@ -142,6 +143,11 @@ export function RuleCard({ rule, ev, index, count, readOnly = false, onEdit, onM
               {editable && (
                 <Button variant="ghost" size="lg" className="min-h-11 text-muted-foreground" aria-label={`Edit rule ${index + 1}: ${rule.name}`} onClick={open}>
                   <Pencil className="size-4" /> Edit
+                </Button>
+              )}
+              {!readOnly && onDelete && (
+                <Button variant="ghost" size="icon-lg" className="size-11 text-muted-foreground hover:text-negative" aria-label={`Delete rule ${index + 1}: ${rule.name}`} onClick={() => onDelete(rule.id)}>
+                  <Trash2 className="size-4" />
                 </Button>
               )}
             </div>

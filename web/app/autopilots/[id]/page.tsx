@@ -213,6 +213,7 @@ export default function AutopilotPage({ params }: { params: Promise<{ id: string
                     readOnly={readOnly}
                     onEdit={readOnly ? undefined : openEditor}
                     onMove={readOnly ? undefined : (index, dir) => applyRules(moveItem(ap.rules, index, dir))}
+                    onDelete={readOnly ? undefined : (ruleId) => applyRules(ap.rules.filter((r) => r.id !== ruleId))}
                   />
                 ))}
               </ol>

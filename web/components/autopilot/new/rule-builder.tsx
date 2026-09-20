@@ -74,7 +74,7 @@ export function RuleBuilder({ name, onNameChange, rules, onRulesChange, onUseTem
             </div>
             <ol className="grid gap-3">
               {rules.map((rule, i) => (
-                <RuleCard key={rule.id} rule={rule} ev={evaluation.rules[i]!} index={i} count={rules.length} onEdit={openEditor} onMove={move} />
+                <RuleCard key={rule.id} rule={rule} ev={evaluation.rules[i]!} index={i} count={rules.length} onEdit={openEditor} onMove={move} onDelete={deleteRule} />
               ))}
             </ol>
           </section>

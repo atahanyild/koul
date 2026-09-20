@@ -49,7 +49,7 @@ const parseNum = (s: string): number | null => {
 };
 
 function freshRule(): Rule {
-  return makeRule({ name: "New rule", conditions: [{ kind: "fx_price", comparator: "gte", value: 50 }], action: { kind: "withdraw_to_wallet", amount: "all" }, cooldownSec: 86400 });
+  return makeRule({ name: "New rule", conditions: [{ kind: "fx_price", comparator: "gte", value: 50 }], action: { kind: "withdraw_to_wallet", amount: "all" }, cooldownSec: 5 });
 }
 
 export interface RuleEditorSheetProps {
