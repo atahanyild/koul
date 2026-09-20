@@ -248,6 +248,19 @@ await kit.signAndSubmit(tx);
 
 Other builders: `buildClearAutopilot`, `buildGrantAgent(kit, ap, agentRawPublicKey, days, name)`, `buildRevokeAgent(kit, ruleId)`, `buildSupply`, `buildWithdraw`, `buildBorrow`, and `buildTransfer`. `permissionsFor` returns the minimum router, controller and USDC call list plus transfer recipients and short descriptions for the arm sheet. Templates are `liraShield(accountId)`, `yieldOnly(accountId)`, and `healthGuard(accountId)`. The reference web route links the SDK as a local file dependency; the existing Strategy and Activity panels have not yet migrated to it.
 
+The parser works with either provider. Put one of these in `web/.env.local` (server side only, never a `NEXT_PUBLIC_` name):
+
+```sh
+ANTHROPIC_API_KEY=sk-ant-...            # or
+OPENAI_API_KEY=sk-...                   # any OpenAI-compatible endpoint
+OPENAI_MODEL=gpt-4o-mini                # a small model is enough; the output is validated anyway
+OPENAI_BASE_URL=http://localhost:11434/v1   # optional: a gateway, or Ollama on this machine
+```
+
+A ChatGPT or Claude subscription does not work here: both need an API key, billed separately. Without a key the app
+falls back to the keyword parser in `web/lib/sentence.ts` and says "matched by keywords" under the box. Check a live
+key with `cd packages/core && pnpm parse-test`, which parses four sentences, one of them deliberately impossible.
+
 The reference `POST /api/autopilot/parse` route accepts `{ text, context }` and calls the server-only `@koul/core/server` parser. `context` contains `accountId`, `hubIds`, `idleUsdc`, `healthFactorWad`, `depositRatesRay`, `fxAsset`, `fxPrice`, and `fxPriceAgeSeconds`; the frontend should populate it from live reads. The response is `{ autopilot, notes, defaulted_fields }`, with `autopilot: null` for wholly unsupported requests. The route reads `ANTHROPIC_API_KEY` from the server environment and optionally `ANTHROPIC_MODEL` (default `claude-sonnet-5`). The generated rules are validated again against contract limits and the supplied account and hub IDs. The route is a reference parser endpoint, not an authenticated write endpoint; users review and sign the resulting autopilot separately.
 
 `readReadyToCashOut(reader, wallet, startLedger, threshold, accountId?)` checks whether a `WithdrawToWallet` rule fired and the wallet now holds at least the chosen USDC threshold. It only reports readiness; the Funds withdrawal still needs a user passkey confirmation.

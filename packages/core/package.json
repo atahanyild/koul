@@ -17,7 +17,8 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "smoke": "tsx scripts/smoke.ts"
+    "smoke": "tsx scripts/smoke.ts",
+    "parse-test": "tsx scripts/parse-test.ts"
   },
   "dependencies": {
     "@stellar/stellar-sdk": "16.0.1",

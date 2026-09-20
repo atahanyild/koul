@@ -289,3 +289,13 @@ signal"; `usePasskeyAction` now holds a module-wide lock, refuses a second promp
 dismissed or timed-out prompt as a cancellation rather than a failure. Re-arming after a failed key grant also
 compares the stored autopilot with what it would write and skips the rules signature when they match, so recovering
 from a half-finished arm costs one prompt instead of two.
+
+## The parser takes any provider (2026-09-20)
+
+`parseAutopilot` now speaks to Anthropic or to any OpenAI-compatible chat-completions endpoint, chosen by whichever
+key is present and overridable with `KOUL_PARSER`. The tool schema is generated from the zod schema either way, so
+both providers get the same strict shape, and the result is validated against the contract's limits before it can
+reach a signature. This exists because a ChatGPT or Claude subscription cannot be used programmatically: both need
+an API key. A small model such as `gpt-4o-mini` is enough, and `OPENAI_BASE_URL` points at a gateway or a local
+Ollama. The prompt also learned the two new rule types, `SupplyRate` and `SupplyFromWallet`.
+`cd packages/core && pnpm parse-test` runs four sentences against whatever is configured.

@@ -12,7 +12,7 @@ export async function POST(request: Request): Promise<Response> {
     return Response.json(result);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Parsing failed";
-    if (message.includes("ANTHROPIC_API_KEY")) return Response.json({ error: "Parser is not configured" }, { status: 503 });
+    if (message.includes("parser API key")) return Response.json({ error: "Parser is not configured" }, { status: 503 });
     if (message.startsWith("Request must") || message.startsWith("A valid account")) return Response.json({ error: message }, { status: 400 });
     return Response.json({ error: "Could not produce a valid autopilot" }, { status: 502 });
   }
