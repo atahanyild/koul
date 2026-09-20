@@ -371,3 +371,11 @@ Five minutes is the shortest schedule GitHub offers, and scheduled runs can be d
 a longer gap: the router is idempotent, a rule that is still true simply fires on the next pass. For a demo where a
 rule should fire within seconds, run `pnpm keeper -- --interval 30` on a laptop as well; two keepers are safe, since
 the loser of a race simulates to `None`.
+
+## Funds on a serverless host (2026-09-20)
+
+The hosted Deposit lira flow stopped at the first step with `ENOENT: no such file or directory, mkdir
+'/var/task/web/.funds-state'`. On Vercel the working directory is read-only; the temp directory is the only writable
+place, and it is not shared between instances. `FileFundsStore` now defaults to `os.tmpdir()/koul-funds` and keeps a
+process-wide cache in front of the files, which is what carries a transfer through the polling that follows it on the
+same instance. Records hold SEP bearer tokens and pre-authorized XDR, so they never leave the server either way.

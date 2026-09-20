@@ -1,4 +1,5 @@
 import "server-only";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Keypair, rpc } from "@stellar/stellar-sdk";
 import { localFeeBumpRelay } from "@koul/core/anchor/local-relay";
@@ -13,7 +14,8 @@ export function fundsService(): FundsService {
   const networkPassphrase = process.env.NETWORK_PASSPHRASE ?? "Test SDF Network ; September 2015";
   const domain = (process.env.ANCHOR_HOME_DOMAINS ?? "tr-mock-anchor.fly.dev").split(",")[0]!.trim();
   const server = new rpc.Server(rpcUrl);
-  const store = new FileFundsStore(process.env.FUNDS_STATE_DIR ?? join(process.cwd(), ".funds-state"));
+  // The working directory is read-only on a serverless host; the temp directory is the only place a file can go.
+  const store = new FileFundsStore(process.env.FUNDS_STATE_DIR ?? join(tmpdir(), "koul-funds"));
   return new FundsService({ server, sponsor, networkPassphrase, relay: localFeeBumpRelay(server, sponsor, networkPassphrase) }, store, domain);
 }
 
