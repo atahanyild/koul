@@ -13,7 +13,6 @@ import { Section, AnimatedNumber, Term, Pill, LiveDot, ErrorState, Sk } from "@/
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
 import { useMarkets } from "@/hooks/use-market";
 import type { MarketReading } from "@/lib/data/live";
-import { XOXNO_APP } from "@/lib/data/markets";
 import { fmtPct, fmtUsdcLoose, fmtInt } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useNow } from "./hooks";
@@ -72,10 +71,6 @@ export function PoolCards() {
               ))}
         </CarouselContent>
 
-        <p className="mt-4 text-xs text-muted-foreground">
-          Testnet markets of <a href={`${XOXNO_APP}/defi/lending`} target="_blank" rel="noopener noreferrer" className="underline underline-offset-4 hover:text-foreground">XOXNO lending</a>, on{" "}
-          <Term detail="A spoke is a risk module: it sets the loan-to-value, caps and liquidation terms for the assets an account may use. Koul's wallets are created on spoke 3, which XOXNO writes as #3.">spoke 3</Term>. Rules move USDC between the two USDC hubs today.
-        </p>
       </Section>
     </Carousel>
   );
