@@ -320,3 +320,23 @@ Lira shield sentence became the health guard, the rate-gap move and `FxPrice(TRY
 secondary pool pays more than 60% a year" became `SupplyRate(hub 2, AtOrAbove, 4700 bps)`, the correct
 `ln(1.6)` conversion from compounded APY to the pool's simple rate; and "buy me gold when bitcoin dips" returned no
 autopilot with a note naming the five actions that exist. Verified again through `POST /api/autopilot/parse`.
+
+## Tuning the parser against live output (2026-09-20)
+
+The first live runs were correct but noisy: the model used `notes` to narrate every choice it made, so the page
+showed a wall of text under a "could not place" warning even when every rule was fine. Four changes:
+
+- Notes are now defined as gaps only: something the router cannot express, or a threshold too ambiguous to guess.
+  One sentence each, at most two, empty when the request fits. Explanations of choices and defaults are banned;
+  defaults already travel in `defaulted_fields`, which the rule cards mark on the exact value.
+- `notes` and `defaulted_fields` became optional with a default, because a model told to return an empty array
+  tends to drop the key instead, which failed schema validation.
+- `unwrap` now fires on any doubled result, not only when the inner object still carried `notes`.
+- The prompt pins two conversions that were being guessed: a percentage a user says about what a pool pays is a
+  compounded APY, so `bps = round(ln(1 + percent/100) * 10000)` with worked examples, and a ledger is five seconds,
+  so an hour is 720 ledgers and a day 17280.
+
+The page shows a note as "Worth knowing" when rules did come back, and keeps the warning only when nothing could be
+built. After the changes the four sample sentences return clean rules: "60% a year" is 4700 bps, "once an hour" is
+720 ledgers, "wait a day" is 17280, the lira exit is `FxPrice(TRY, Below, 2000000000000)`, and the impossible ask
+returns no autopilot with one sentence saying why. Tests: 14, including an OpenAI-compatible tool call.

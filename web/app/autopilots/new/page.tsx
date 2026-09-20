@@ -114,9 +114,12 @@ function NewAutopilot() {
         <SentenceBox value={sentence} onChange={setSentence} onSubmit={() => void turnIntoRules()} busy={busy} lastSource={last?.source ?? null} lastCount={last?.count ?? null} />
 
         {last && last.unplaced.length > 0 && (
-          <Notice tone="warning" onDismiss={() => setLast((l) => (l ? { ...l, unplaced: [] } : l))}>
-            <span className="font-medium">Koul could not place:</span> {last.unplaced.map((u, i) => <React.Fragment key={i}>{i > 0 && "; "}<q>{u}</q></React.Fragment>)}.
-            <span className="block text-xs text-muted-foreground">The router cannot check or do this, so nothing was invented for it. Add a rule by hand if it fits the vocabulary.</span>
+          <Notice tone={last.count === 0 ? "warning" : "neutral"} onDismiss={() => setLast((l) => (l ? { ...l, unplaced: [] } : l))}>
+            <span className="font-medium">{last.count === 0 ? "Koul could not place that:" : "Worth knowing:"}</span>
+            <ul className="mt-1 grid gap-1 text-sm">
+              {last.unplaced.slice(0, 2).map((u, i) => <li key={i}>{u.replace(/\s+/g, " ").slice(0, 180)}</li>)}
+            </ul>
+            {last.count === 0 && <span className="mt-1 block text-xs text-muted-foreground">Nothing was invented for it. Add a rule by hand if it fits the vocabulary.</span>}
           </Notice>
         )}
         {last && last.count === 0 && last.unplaced.length === 0 && (

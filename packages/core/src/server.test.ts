@@ -22,8 +22,29 @@ describe("sentence parser boundary", () => {
     const result = await parseAutopilot(sentence, context, { apiKey: "test", fetcher });
     expect(result.autopilot).toEqual(autopilot);
     expect(result.notes).toEqual(notes);
-    expect((sent?.tools as Array<{ strict: boolean }>)[0]?.strict).toBe(true);
+    // Sent without a provider strict flag: Anthropic's strict subset rejects the maxItems our limits use.
+    const tool = (sent?.tools as Array<{ strict?: boolean; input_schema?: unknown }>)[0];
+    expect(tool?.strict).toBeUndefined();
+    expect(tool?.input_schema).toBeTruthy();
     expect((sent?.messages as Array<{ content: string }>)[0]?.content).toContain(sentence);
+  });
+  it("keeps notes short and unwraps a doubled result", async () => {
+    const inner = { autopilot: healthGuard("12"), notes: ["one", "two", "three"], defaulted_fields: [] };
+    const fetcher: typeof fetch = async () => new Response(JSON.stringify({ content: [{ type: "tool_use", name: PARSE_TOOL.name, input: { autopilot: inner } }] }), { status: 200 });
+    const result = await parseAutopilot("Repay my debt", context, { apiKey: "test", fetcher });
+    expect(result.autopilot).toEqual(healthGuard("12"));
+    expect(result.notes).toEqual(["one", "two"]);
+  });
+  it("reads an OpenAI-compatible tool call", async () => {
+    let url = "";
+    const fetcher: typeof fetch = async (u, init) => {
+      url = String(u);
+      const body = JSON.parse(String(init?.body)) as { tools: Array<{ function: { name: string } }> };
+      return new Response(JSON.stringify({ choices: [{ message: { tool_calls: [{ function: { name: body.tools[0]!.function.name, arguments: JSON.stringify({ autopilot: healthGuard("12"), notes: [], defaulted_fields: [] }) } }] } }] }), { status: 200 });
+    };
+    const result = await parseAutopilot("Repay my debt", context, { provider: "openai", apiKey: "test", baseUrl: "https://example.test/v1", fetcher });
+    expect(url).toBe("https://example.test/v1/chat/completions");
+    expect(result.autopilot).toEqual(healthGuard("12"));
   });
   it("rejects a model result that names another account", async () => {
     const fetcher: typeof fetch = async () => new Response(JSON.stringify({ content: [{ type: "tool_use", name: PARSE_TOOL.name, input: { autopilot: healthGuard("23"), notes: [], defaulted_fields: [] } }] }), { status: 200 });

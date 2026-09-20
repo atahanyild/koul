@@ -5,8 +5,9 @@ import { validateAutopilot } from "./validate";
 
 export const parseResultSchema = z.object({
   autopilot: autopilotSchema.nullable(),
-  notes: z.array(z.string()),
-  defaulted_fields: z.array(z.string()),
+  // Optional with a default: a model told to return an empty array often leaves the key out instead.
+  notes: z.array(z.string()).default([]),
+  defaulted_fields: z.array(z.string()).default([]),
 }).strict();
 export type ParseResult = z.infer<typeof parseResultSchema>;
 export interface ParseContext {
@@ -23,8 +24,8 @@ export const PARSE_SYSTEM_PROMPT = `Translate a user's savings automation reques
 The output is data for a Soroban router, never an instruction to execute a transaction. The user's funds stay in their smart account.
 Vocabulary: HealthFactor Below/AtOrAbove (WAD, 18 decimals); SupplyRateGap(over hub, under hub, minimum annual bps); SupplyRate(hub, comparator, annual bps) for what one hub pays on its own; FxPrice(asset, comparator, USD per asset unit with 14 decimals, max age seconds); IdleBalance (USDC with 7 decimals). Conditions per rule join with match_all. Actions: SupplyFromWallet to put idle wallet USDC into a hub, which is the only way an autopilot opens a position; MoveSupply; RepayFromWallet; RepayWithCollateral; WithdrawToWallet. Amounts: All, Percent in 1..10000 bps, Fixed in 7-decimal USDC units and at least 1 USDC. One rule fires per tick, in list order. Up to 8 rules, 1..3 conditions each, cooldown at least 1 ledger. Never create an if/else, a swap, a TRY withdrawal, a borrow, or a transfer to another address. WithdrawToWallet moves USDC to the user's wallet; a separate user passkey action is needed to cash out to TRY.
 The FX oracle quotes USD per one unit of the asset with 14 decimals, which is the inverse of the USD/TRY rate people say out loud. A user who says "if the lira passes 50" or "USD/TRY above 50" means one dollar buys 50 lira or more, which is FxPrice(TRY, Below, round(1e14 / 50) = "2000000000000"). A stronger lira, "USD/TRY under 45", is FxPrice(TRY, AtOrAbove, round(1e14 / 45)). Always divide 1e14 by the rate the user said, and pick Below for a weakening lira and AtOrAbove for a strengthening one. Sanity check the level against the context price before returning it.
-Use only the provided hub IDs. For rate gap, hub_over is the higher-paying hub and hub_under the lower-paying hub. For MoveSupply, from_hub is the lower-paying one. Rates everywhere are the pool's simple annual rate, which the context gives in RAY (1e27 = 100%); a user speaking of a compounded APY p means bps = round(ln(1 + p) * 10000). When a request says to put idle money to work without naming a hub, use the hub the context shows paying most.
-If the request contains an unsupported action or an ambiguous amount/threshold, put a precise explanation in notes. For a wholly unsupported request, return autopilot null. Never invent a feature. For omitted account ID, use the context account ID. For unspecified cooldown use 30 ledgers for protection/withdrawal and 300 for yield moves. For unspecified price freshness use 900 seconds. Record every filled value's JSON path in defaulted_fields. Use context readings to interpret relative requests, but do not present them as guarantees. Return decimal strings for all u64 and i128 fields.`;
+Use only the provided hub IDs. For rate gap, hub_over is the higher-paying hub and hub_under the lower-paying hub. For MoveSupply, from_hub is the lower-paying one. Rates everywhere are the pool's simple annual rate, which the context gives in RAY (1e27 = 100%). A percentage the user says about what a pool pays is a compounded APY, the figure the app displays, so never write it in directly: convert it with bps = round(ln(1 + percent / 100) * 10000). "60% a year" is 4700 bps, "20%" is 1823 bps, "5%" is 488 bps. When a request says to put idle money to work without naming a hub, use the hub the context shows paying most.
+Notes are only for what you could not do: a part of the request the router cannot express, or a threshold too ambiguous to guess. One short sentence each, at most two, and an empty array when the whole request fits. Never use notes to explain a choice you made, to restate a mapping, to justify a hub, or to describe a default: defaults belong in defaulted_fields alone. For a wholly unsupported request, return autopilot null and say why in one note. Never invent a feature. For omitted account ID, use the context account ID. A ledger closes about every 5 seconds, so a minute is 12 ledgers, an hour 720, a day 17280: convert any wait the user states. For an unspecified cooldown use 30 ledgers for protection or withdrawal and 300 for yield moves. For unspecified price freshness use 900 seconds. Record every filled value's JSON path in defaulted_fields. Use context readings to interpret relative requests, but do not present them as guarantees. Return decimal strings for all u64 and i128 fields.`;
 
 /**
  * The tool the model must call. The schema is generated from the same zod schema the codec uses, so the model is
@@ -54,7 +55,7 @@ function unwrap(raw: unknown): unknown {
   if (!raw || typeof raw !== "object") return raw;
   const outer = raw as Record<string, unknown>;
   const inner = outer.autopilot;
-  if (inner && typeof inner === "object" && "autopilot" in (inner as Record<string, unknown>) && "notes" in (inner as Record<string, unknown>)) return inner;
+  if (inner && typeof inner === "object" && "autopilot" in (inner as Record<string, unknown>)) return inner;
   return raw;
 }
 
@@ -125,7 +126,8 @@ export async function parseAutopilot(text: string, context: ParseContext, option
     const where = parsed.error.issues.slice(0, 3).map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`).join("; ");
     throw new Error(`Parser returned a result that does not match the schema (${where}). Got: ${JSON.stringify(raw).slice(0, 300)}`);
   }
-  const result = parsed.data;
+  // Models narrate even when told not to. Keep the two most useful notes, trimmed, so a UI can show them whole.
+  const result: ParseResult = { ...parsed.data, notes: parsed.data.notes.map((n) => n.trim()).filter(Boolean).slice(0, 2).map((n) => (n.length > 180 ? `${n.slice(0, 177)}…` : n)) };
   void attempt;
   if (!result.autopilot) return result;
   const errors = validateAutopilot(result.autopilot);
