@@ -1,392 +1,439 @@
 # Koul
 
-Conditional portfolio autopilot on XOXNO lending, on Stellar testnet. Built for the Rise In x Stellar Pro Hackathon (Istanbul, 19 to 20 September 2026, Scale track).
+**Say what should happen to your money and when. Koul turns it into rules that live on Stellar and execute themselves.**
 
-A user creates a passkey smart wallet, brings Turkish lira in through an anchor, and writes rules such as "keep my USDC in whichever hub pays more, repay before liquidation, and pull everything back to the wallet if USD/TRY passes 50". The rules are stored in and evaluated by an on-chain router contract. An off-chain keeper only pokes the router with an agent key that the user's wallet has confined to a fixed list of contract calls. The user's funds never leave the user's own wallet or their XOXNO position.
+Live app: **https://koul-stellar.vercel.app** · Oracle admin (demo lever): **https://koul-oracle.vercel.app/oracle** ·
+Repo: **https://github.com/atahanyild/koul** · Pitch deck: _add link_ · Stellar **testnet** throughout.
 
-This document covers everything built so far and how to run it. Design work for the product UI is tracked separately and is not part of this document.
+---
 
-**Live app: https://koul-stellar.vercel.app** · **Oracle admin: https://koul-oracle.vercel.app/oracle** · Stellar
-testnet throughout. The keeper runs itself: a GitHub Actions schedule in this repo ticks every five minutes, so
-autopilots armed on the live app fire without anyone's laptop being open. Passkeys are bound to the origin, so a
-wallet created on `localhost` does not appear on the domain: press Create wallet there to make one.
+## Overview
 
-## Contents
+**What we are building.** Koul is a conditional execution engine on Stellar. A user writes a sentence, Koul turns it
+into an ordered list of rules, and those rules are stored in a contract. A keeper pokes that contract on a schedule;
+the contract itself re-reads the world, decides whether a rule is true, and executes the action in the same
+transaction. The user's funds never leave their own smart account, and the key that pokes the contract is confined
+by a policy contract that rejects anything the rules do not need.
 
-1. [What exists today](#what-exists-today)
-2. [Architecture](#architecture)
-3. [Live testnet deployment](#live-testnet-deployment)
-4. [Repository layout](#repository-layout)
-5. [Running the stack locally](#running-the-stack-locally)
-6. [Demo scenarios](#demo-scenarios)
-7. [Findings and constraints](#findings-and-constraints)
-8. [Phase 0 gates](#phase-0-gates)
-9. [Open items](#open-items)
+**The problem.** Someone in Turkey holding lira watches it lose value, moves savings into dollars, and then has to
+watch a screen: which pool pays more today, is my loan close to liquidation, has the exchange rate crossed the line
+where I want out. Doing that by hand means being awake at the right moment. Handing it to a bot means handing over
+the keys. Every "automation" in DeFi today is one of those two: a person watching charts, or custody given away.
 
-## What exists today
+**Who it is for.** People in high-inflation economies who save in dollars and want a floor under their downside,
+and any on-chain user who wants a strategy to run without surrendering custody. For the hackathon the first user is
+concrete: a lira saver who wants yield on XOXNO and an automatic exit if the lira breaks a level.
 
-Everything below runs on testnet and has transaction hashes recorded in `docs/phase0.md` and `docs/build-log.md`.
+**Why it is worth solving.** Conditional execution is the missing primitive between a wallet and a strategy. Limit
+orders exist on exchanges because nobody can watch a price all day. On-chain there is no neutral, custody-free way
+to say "if this, then that" across protocols. Without it, the honest options are to watch manually or to trust a
+custodian.
 
-- **Smart wallet with an agent session key.** OpenZeppelin smart account (the same wasm that Sembol and smart-account-kit deploy, reproduced byte for byte). Rule 0 is the user's passkey. A second rule holds the keeper's Ed25519 key and binds it to `koul_agent_policy`, which pins the user's XOXNO account, restricts withdrawals to the wallet and USDC transfers to the pool, rate limits, and expires. Grant, use, deny and revoke are all proven on-chain.
-- **Router contract (`koul_router`).** Stores ordered autopilots per user. `tick(user, id)` evaluates their conditions and executes at most one eligible action: move supply, repay debt or withdraw to the wallet. `check(user, id)` reports live condition and cooldown state. Rebalance, health guard and FX exit have executed live through the rule engine.
-- **Keeper (`keeper/`).** A TypeScript loop that lists users and autopilots from the router, simulates each tick, skips when no action applies, and otherwise signs the smart account auth entry with the agent key and submits. It never holds user funds. It also keeps the mock oracle fresh.
-- **Mock FX oracle (`koul_mock_fx`).** Reflector's read interface with an admin `set_price`, because no Reflector testnet feed lists TRY. Swappable for the real Reflector contract on mainnet through `set_oracle` on the router.
-- **Anchor integration, both directions.** The TR Mock Anchor rejects contract addresses, so Kumbara's ownerless landing account pattern lives in `packages/core/src/anchor/` and is reused by the keeper. TRY deposit into the smart wallet and USDC withdrawal to TRY from the smart wallet both completed on testnet through the original keeper scripts.
-- **Utilisation on the pool.** A second identity supplies XLM collateral and borrows USDC on hub 2, so hub rates differ and the rebalance branch fires on live data.
-- **Typed SDK and parser (`packages/core/`).** Autopilot types, validation, contract codec, reads, unsigned writes, permission lists and templates. The server-only parser turns a sentence into a strict draft autopilot. The reference route is linked into `web/`; live SDK and model calls have not yet been exercised.
-- **Web app (`web/`).** Next.js 16 with Sembol passkeys and the new page designs. The frontend teammate merged the new UI during this backend session; its integration with the v2 SDK still needs verification. The mock oracle admin now runs separately in `oracle-admin/`.
-- **Sembol contribution.** Pull request https://github.com/keyboord01/sembol/pull/3 adds `useAgentPermission`, `GrantAgentAccess` and `AgentPermissions` to `@sembol/passkey-react`, with tests, stories and docs.
+**Value proposition.** Koul is protocol-agnostic by design: the rule engine knows conditions and actions, not a
+particular protocol. Three properties make it different from a bot:
+
+1. **The rules are on-chain and readable.** They are contract state, not a config on someone's server. Anyone can
+   read what your autopilot will do, including you.
+2. **The decision is on-chain.** The keeper carries no logic: it simulates `tick` and submits only when the contract
+   itself says an action applies. A malicious or broken keeper cannot invent an action.
+3. **The key is scoped by a contract.** The agent key lives on the user's own smart account under a policy contract
+   that allowlists the exact calls, pins the user's own position, restricts transfer recipients, rate limits, and
+   expires. The user keeps the passkey; the agent gets a leash.
+
+XOXNO lending is the first integration. The same engine is meant to point at swaps, perpetual DEXs and anything
+else with a contract interface.
+
+---
 
 ## Architecture
 
-```
-                         passkey (Face ID / Touch ID)
-                                   |
-   +-------------------------------v-----------------------------------+
-   |  User smart account (OpenZeppelin, deployed by Sembol / kit)       |
-   |  rule 0: WebAuthn passkey                                          |
-   |  rule N: agent Ed25519 key + koul_agent_policy                     |
-   |          allowed: router.tick, controller.withdraw/supply/repay,   |
-   |                   usdc.transfer -> XOXNO pool only                 |
-   +---------+-------------------------------------------+-------------+
-             |  set_autopilot (passkey)                     |  tick (agent key, keeper submits)
-             v                                             v
-   +---------------------------+                +------------------------------+
-   |  koul_router              |  reads         |  XOXNO controller + pool     |
-   |  Ordered autopilots       +--------------->|  health factor, positions,   |
-   |  first eligible rule     |  calls         |  supply rates, cash          |
-   |  runs, at most one/tick  +--------------->|  withdraw / supply / repay   |
-   +-------------+-------------+                +------------------------------+
-                 |  reads
-                 v
-   +---------------------------+
-   |  koul_mock_fx (Reflector  |   <- keeper set_price (testnet only)
-   |  interface, USD per TRY)  |
-   +---------------------------+
+Two diagrams: who talks to whom, and what one autopilot run looks like end to end.
 
-   keeper (Node):  every N s: simulate tick -> if action, sign auth entry with agent key -> submit
-   anchor (Node):  landing account per transfer: SEP-10/12/38/6, pre-authorised forward and cleanup
-```
+```mermaid
+graph TD
+    subgraph User["The user"]
+        P["Passkey<br/>WebAuthn secp256r1"]
+        W["Smart account<br/>OpenZeppelin, wasm 1b5f4534…<br/>rule 0: passkey · rule N: agent key + policy"]
+    end
 
-Two signing paths exist and only two.
+    subgraph Koul["Koul contracts"]
+        R["koul_router<br/>CBHRTWXA…MT2P<br/>set_autopilot · tick · check"]
+        POL["koul_agent_policy<br/>CBDQPSGJ…5AR2<br/>enforce per auth context"]
+        FX["koul_mock_fx<br/>CB6VNXAD…MKW2<br/>Reflector read interface"]
+    end
 
-- **Passkey path.** The kit builds the transaction, simulates it, hashes the resulting auth entry, and uses that hash as the WebAuthn challenge. Face ID signs. The assertion is packed into the auth entry and the account's `__check_auth` verifies the P-256 signature against the stored credential through the WebAuthn verifier contract. Used for: wallet creation, agent grant and revoke, saving rules, the first supply, borrowing, and the one transfer to a landing account on withdrawal.
-- **Agent path.** Same transaction shape, but the keeper's Ed25519 key signs the auth digest with one `context_rule_id` per call in the authorization tree. `__check_auth` finds the agent rule, verifies the signature, and runs `koul_agent_policy.enforce` once per call. Used for every router tick. The user is never prompted.
+    subgraph XOXNO["XOXNO lending"]
+        C["Controller CCXRWJ6S…V3F3<br/>supply · withdraw · repay · borrow<br/>get_health_factor · get_collateral_amount"]
+        PL["Pool CBSGF6QO…ZB5A<br/>get_deposit_rate · get_sync_data"]
+        NFT["Position NFT CDVN5JU6…LPSY<br/>one token per account"]
+    end
 
-## Live testnet deployment
+    subgraph Off["Off-chain, holds nothing"]
+        K["Keeper<br/>GitHub Actions or a laptop<br/>simulate tick, submit if an action comes back"]
+        F["Web app<br/>Next.js, @koul/core"]
+        A["Anchor module<br/>landing accounts, SEP-1/10/12/38/6"]
+    end
 
-| Item | Address or value |
-|---|---|
-| Router `koul_router` | `CBHRTWXARGZCUDBE7IX4SZV7GDFA6PRQICZQPUSOUPN3YDCVPXQBMT2P` (admin is the keeper G-account, upgradeable in place with `upgrade`, keep this address) |
-| Agent policy `koul_agent_policy` | `CBDQPSGJDJUGLUIYTLAVH7C7FQE3ZN2HXOKYELNPEEUHFPV52QRI5AR2` |
-| Mock FX oracle `koul_mock_fx` | `CB6VNXADXR3XHCS4EKV5ZR5UJUZYQ5BZTPRHCNQE3XMKQMB4LJG6MKW2` |
-| Headless test wallet (software passkey) | `CBHMG4IGCLP36WJUMYR55N2TGDSZ4C5V6YQSBT4HWT6A77DCL3Y7UUFL`, XOXNO account 12, rules `0:multisig` and `7:koul-agent-bhrtwx` |
-| Keeper G-account (fees, sponsor, oracle admin, router admin) | `GAFHZTSL63YZYU35SCHDOGOMXQ25266DBQYG7KETG6HC2AHBIZMGXP6U` |
-| Agent Ed25519 public key | `GBVD753EJMRQYI6WQCWC4OMDCNMGQMHXRT7IOAHTT3FD7ON6OQXTSAK3` |
-| Borrower identity (creates utilisation) | `GBRXD5JOT5YV6U3VFZ4ESR6MPCLJ3MSP55SUQNKSK23465U34M6H5EZJ`, XOXNO account 23, 2000 XLM collateral, 12 USDC borrowed on hub 2 |
-| XOXNO controller | `CCXRWJ6SIU2WPFEGLFGJVITPL57QAYIMIO6OAM2NBGNDQSSCK2FFV3F3` |
-| XOXNO pool | `CBSGF6QOQAMPFBEVSYPEQHSZRIHJ6RCGUPCRDMUX36DEKRWFAO2PZB5A` |
-| USDC SAC (anchor's and XOXNO's, same contract) | `CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA` |
-| XOXNO spoke, hubs | spoke 3, hub 1 = USDC, hub 2 = USDC_HUB2 |
-| Anchor | `tr-mock-anchor.fly.dev`, asset USDC |
-| Retired phase 0 probes | router probe `CA53BZYX...`, noop policy `CA4TJH2W...`, deny policy `CB2N5CHX...` |
-
-The contract source was renamed from `niet_*` to `koul_*` after the initial deployments. The router was upgraded in place to the rule engine; its address stayed fixed. The policy was redeployed separately.
-
-## Repository layout
-
-```
-Cargo.toml, rust-toolchain.toml   workspace, Rust 1.91.1 pinned
-scripts/env.sh                    PATH and toolchain pins, source it before any build or deploy
-contracts/
-  koul_router/                    the rule engine: Autopilot, set_autopilot, tick, check, list_users, upgrade, set_oracle, tests
-  koul_agent_policy/              the policy the agent key is bound to
-  koul_mock_fx/                   Reflector-shaped mock oracle with set_price
-  noop_policy/, deny_policy/      phase 0 probes, kept for the record
-docs/
-  phase0.md                       every gate T0 to T9 with tx hashes
-  build-log.md                    router, keeper, anchor and web runs after phase 0
-  abi/                            XOXNO controller and pool interfaces as fetched from testnet
-  wireframe.html                  page designs (Home, Portfolio, Funds, Autopilots, Activity), open in a browser
-keeper/
-  src/keeper.ts                   the loop
-  src/lib/common.ts               constants, env, state, kit factory, policy params, helpers
-  src/anchor/                     Kumbara landing account port (MIT, see LICENSE-KUMBARA) plus local fee-bump relay
-  src/phase0/passkey.ts           software P-256 WebAuthn authenticator for headless wallets
-  scripts/setup-autopilot.ts      grant the agent and save Lira shield for the headless wallet
-packages/core/                    typed autopilot schema, validation and contract codec; SDK reads and writes in progress
-  scripts/demo-health.ts          passkey borrow to push the health factor under the minimum
-  scripts/anchor-withdraw.ts      USDC from the smart wallet to TRY through a reverse landing account
-  scripts/phase0/                 t1-t3, t3-deny, t4, t5, t6, t7, revoke
-  .env.example                    variables the keeper needs
-  .phase0-state.json              gitignored: wallet id, software passkey, rule ids, account id
-web/
-  app/                            Next.js 16 app router: product pages and reference API routes
-oracle-admin/                      separate testnet mock-oracle control app on port 3100
-  components/                     AgentAccess, Strategy, ActivityFeed, shadcn ui/
-  lib/koul.ts                     addresses, policy params, unit helpers
-  .env.example
+    P -->|signs| W
+    F -->|"set_autopilot, grant agent, supply, withdraw"| W
+    W -->|"root auth"| R
+    K -->|"tick(user, id), agent Ed25519 signature"| W
+    W -->|"every auth context"| POL
+    POL -->|allow or reject| W
+    R -->|reads| PL
+    R -->|reads| FX
+    R -->|"supply · withdraw · repay"| C
+    C --> NFT
+    F -->|reads| R
+    F -->|"TRY in and out"| A
+    A -->|"USDC"| W
 ```
 
-## Running the stack locally
+```mermaid
+sequenceDiagram
+    participant U as User + passkey
+    participant App as Web app
+    participant SA as Smart account
+    participant POL as koul_agent_policy
+    participant R as koul_router
+    participant X as XOXNO controller
+    participant K as Keeper
 
-### Prerequisites
+    Note over U,App: Once, to arm
+    U->>App: "Put my idle USDC to work, exit if the lira passes 50"
+    App->>App: POST /api/autopilot/parse, validated against the contract's limits
+    U->>SA: passkey: rules.add(agent key, koul_agent_policy, account id, expiry)
+    U->>SA: passkey: router.set_autopilot(user, id, Autopilot)
+    SA->>R: set_autopilot stores the ordered rules
 
-| Tool | Version | Notes |
+    Note over K,X: Every pass, no user present
+    K->>R: simulate tick(user, id)
+    R-->>K: Option<Executed> or None
+    alt None
+        K-->>K: skip, no fee spent
+    else An action applies
+        K->>SA: submit tick, signed by the agent Ed25519 key
+        SA->>POL: enforce(context) for the root call and every sub-invocation
+        POL-->>SA: allowlisted call, pinned account, allowed recipient, under the rate limit
+        SA->>R: tick(user, id)
+        R->>X: get_health_factor, get_collateral_amount, get_borrow_amount
+        R->>R: first rule that is true, off cooldown, and resolves to a real amount
+        R->>X: supply / withdraw / repay, amounts snapped to 0.01 USDC
+        R-->>SA: Fired event with the observed values
+        SA-->>K: transaction hash
+        App->>R: Activity reads the Fired events
+    end
+```
+
+---
+
+## Components
+
+| Component | Where | Responsibility |
 |---|---|---|
-| Rust | 1.91.1 | installed by rustup from `rust-toolchain.toml`; add target `wasm32v1-none` |
-| stellar CLI | 27.0.0 | prebuilt binary expected at `~/.local/bin/stellar-27/stellar`. The Homebrew CLI on the build machine is 26.1.0 and must not be used for builds. Adjust `scripts/env.sh` if your binary is elsewhere |
-| Node | 20 or newer | |
-| pnpm | 8 | `keeper/` and `web/` each have their own lockfile |
-| Chrome or Safari with a platform authenticator | | only for the web app |
+| **`koul_router`** | `contracts/koul_router` | The rule engine. Stores an ordered `Autopilot` per user and id, evaluates conditions against live reads, and executes at most one action per tick. `set_autopilot` and `clear_autopilot` need the user's auth; `tick` needs the user's auth, which the agent key satisfies through the policy; `check` is a read-only view the UI uses for live evaluation. Upgradeable by its admin so the address, and therefore every user's policy allowlist, stays stable. |
+| **`koul_agent_policy`** | `contracts/koul_agent_policy` | Implements OpenZeppelin's `Policy` trait. Attached to the agent's context rule, it runs on the root call and on every sub-invocation: the `(contract, function)` pair must be allowlisted, `transfer` recipients must be allowlisted, XOXNO calls must name the user's own pinned account id, `withdraw` must send to the smart account itself, and a rolling window rate limit caps how often the key may be used. |
+| **`koul_mock_fx`** | `contracts/koul_mock_fx` | Reflector's read interface (`lastprice`) plus an admin `set_price`, because no Reflector testnet feed carries TRY. One `set_oracle` call on the router swaps it for the real Reflector contract on mainnet. |
+| **User smart account** | deployed per user | OpenZeppelin smart account, the same wasm Sembol and smart-account-kit deploy (`1b5f4534…`). Rule 0 holds the user's WebAuthn passkey. A second context rule holds Koul's Ed25519 agent key bound to `koul_agent_policy` with an expiry. Revoking that rule stops everything instantly. |
+| **Keeper** | `keeper/` | The only off-chain moving part. Enumerates users with `list_users`, their autopilots with `list_ids`, simulates `tick`, and submits only when the contract returns an action, signing with the agent key and passing one context rule id per auth context. It also republishes the mock oracle price on testnet. It holds no user funds and makes no decisions. |
+| **Frontend** | `web/` | Next.js app. Reads everything through `@koul/core`; writes are unsigned transactions the user signs with their passkey. Sentence-to-rules calls a server route that talks to a model and validates the result against the contract's limits before it can reach a signature. |
+| **`@koul/core`** | `packages/core` | The typed SDK both the app and the keeper use: schemas that mirror the contract types, the ScVal codec, validation, reads, unsigned write builders, the permission derivation for the arm sheet, and the anchor module. |
+| **Anchor module** | `packages/core/src/anchor`, `packages/core/src/funds.ts` | The TRY on and off ramp. Creates an ownerless landing account per transfer, runs the SEP handshake, forwards to the smart account with a pre-authorized transaction and merges itself away. Ported from Kumbara (MIT, see `LICENSE-KUMBARA`). |
+| **Oracle admin** | `oracle-admin/` | A separate app on its own deployment that moves the mock USD/TRY price. Deliberately not part of the user app. |
 
-Every shell that builds or deploys starts with:
+---
+
+## Stellar integrations
+
+**XOXNO lending** (testnet). The router calls the controller for writes and both the controller and the pool for
+reads:
+
+- Controller writes, all with `caller = the user's smart account`: `supply(caller, account_id, spoke_id, assets)`,
+  `withdraw(caller, account_id, withdrawals, to)`, `repay(caller, account_id, payments)`. The app also builds
+  `borrow` for the user's own passkey, used to set up the health-guard demo.
+- Controller reads: `get_health_factor(account_id)`, `get_collateral_amount(account_id, hub_asset)`,
+  `get_borrow_amount(account_id, hub_asset)`.
+- Pool reads: `get_deposit_rate`, `get_borrow_rate`, `get_sync_data` (cash and `max_utilization`),
+  `get_supplied_amount`, `get_borrowed_amount`.
+- Position NFT: `balance(owner)`, `get_owner_token_id(owner, index)`, `owner_of(token_id)`, `token_uri(token_id)`.
+  The token id **is** the XOXNO account id, which is how the app finds a wallet's position without storing anything.
+- Markets are `HubAssetKey { asset, hub_id }` rows in one pool. Koul uses spoke 3, hubs 1 and 2 for USDC, and the
+  home page lists every testnet market XOXNO publishes.
+
+**TR anchor** (`tr-mock-anchor.fly.dev`), TRY to USDC and back:
+
+- **SEP-1** to discover the endpoints, **SEP-10** to authenticate as the landing account, **SEP-12** for the customer
+  record, **SEP-38** for a firm quote, **SEP-6** `deposit-exchange` and `withdraw-exchange` for the transfer itself.
+- The anchor refuses contract addresses, so each transfer gets an **ownerless landing account**: a classic G-account
+  whose signers are removed after its forward and cleanup transactions are pre-authorized. The keeper sponsors the
+  reserves and fee-bumps; nobody can redirect the funds, including us.
+- Deposit: lira in by FAST, anchor pays the landing account, the pre-authorized forward moves USDC to the smart
+  account, the account merges itself away. Withdrawal: one passkey-signed transfer to the landing account, then a
+  pre-authorized payment to the anchor treasury with the memo, then cleanup.
+
+**Reflector.** The router reads prices through Reflector's interface (`lastprice(asset) -> PriceData`) with a
+staleness limit per rule. No Reflector testnet feed carries TRY, so `koul_mock_fx` implements the same interface and
+`set_oracle` swaps it on mainnet. XOXNO itself prices collateral through Reflector, which is visible in a tick's
+diagnostics.
+
+**OpenZeppelin smart accounts.** `stellar-accounts` at rev `1e513890`, deployed wasm `1b5f4534…`, driven from
+TypeScript with **smart-account-kit 0.6.2** and, in the browser, **@sembol/passkey-react 0.4.0** on Sembol's testnet
+preset (wallet creation and passkey-signed calls are fee-sponsored through the public SDF relayer). Verifiers:
+WebAuthn `CC7EKIHQ…OM3F`, Ed25519 `CAAVTMCB…HKN4`. Contracts build with **soroban-sdk 26.1**, Rust **1.91.1**,
+stellar CLI **27.0.0**; the app uses **@stellar/stellar-sdk 16.0.1** and **Next.js 16**.
+
+**Sembol.** Used for the passkey wallet layer, and contributed back: a pull request adding agent-permission hooks and
+components to `@sembol/passkey-react` (`useAgentPermission`, `<GrantAgentAccess />`, `<AgentPermissions />`), with
+tests, stories and docs: https://github.com/keyboord01/sembol/pull/3
+
+---
+
+## Key design decisions and trade-offs
+
+**Session key on the user's own account, not a vault.** A vault would have been easier: deposit funds, let the
+contract move them. We rejected it because the moment funds sit in our contract we are a custodian, and a bug is
+everyone's loss. Instead the user keeps custody and grants a scoped, expiring key. The cost is complexity: every
+action is an auth tree the smart account must validate, and one context rule id per auth context.
+
+**A custom policy contract rather than a signer with a spending limit.** The policy allowlists `(contract, function)`
+pairs, pins the user's own XOXNO account id, forces `withdraw` to return funds to the smart account, restricts USDC
+transfer recipients to the XOXNO pool, and rate limits per rolling window. This is what makes "the agent can only do
+what the rules need" a property of the chain rather than a promise. The trade-off is that adding a new action means
+a new allowlist entry, so an armed autopilot cannot silently gain powers.
+
+**Priority-ordered rules with one level of AND or OR, no if/else.** An autopilot is an ordered list; each rule has
+one to three conditions joined by all or any, one action, one cooldown. On each tick the first rule that is true,
+off cooldown, and has something real to do runs, and the tick stops. This is less expressive than a scripting
+language and far easier to read, to validate on-chain, and to show honestly in a UI. Nesting was the first thing we
+cut after testing the wording with people.
+
+**Mandatory cooldowns.** Every rule carries one. Without it a true condition would fire every pass and grind a
+position into dust through fees and rounding. The cooldown is stored per rule and enforced by the contract, not by
+the keeper.
+
+**The landing-account pattern for the anchor.** Anchors do not accept contract addresses, so a naive bridge would
+mean an account someone controls. An ownerless account with pre-authorized forward and cleanup keeps the honest
+property: from the moment it exists, the only transactions it can ever submit are the two we published.
+
+**Agents propose, the user approves.** The sentence parser never signs anything. It returns data that is validated
+against the contract's limits, shown as rule cards with the live values beside them, and only becomes state after
+the user's passkey. Cashing out to lira is deliberately outside the agent's powers: a rule can bring USDC back to
+the wallet, and the user confirms the TRY withdrawal themselves.
+
+---
+
+## Technical challenges and how we solved them
+
+**One `context_rule_id` per authorization context.** The smart account's `__check_auth` receives the root call plus
+every sub-invocation; a router tick is three or four contexts. Passing one id fails with
+`ContextRuleIdsLengthMismatch`. The keeper walks the auth tree and repeats the rule id for each context.
+
+**Auth trees bake exact arguments while positions accrue interest every ledger.** An amount read during simulation
+is already stale at execution. Every amount is snapped down to 0.01 USDC, moves under 1 USDC are skipped, and
+repayments round the debt up by one grain so a signed amount stays valid for hours; the controller refunds the
+excess.
+
+**A hub only releases its liquid cash, and never past its utilisation ceiling.** XOXNO answers with errors 112 and
+127. `withdrawable()` caps by cash and by `borrowed / (supplied - w) <= max_utilization`, minus a grain of margin.
+
+**No TRY on any Reflector testnet feed.** We implemented Reflector's read interface in `koul_mock_fx` rather than
+inventing our own, so mainnet is a single `set_oracle` call.
+
+**No protocol-native scheduler on Soroban.** SoroCron exists, but its executor contract is the invoker, so it cannot
+carry a user's smart account authorization. Hence our own keeper, which is deliberately dumb.
+
+**Two copies of one library broke every signature.** `@koul/core` had its own install of the Stellar SDK, so an
+`xdr.ScVal` built inside it was not an instance of the class the wallet kit checks, and every passkey action died
+with a generic "something went wrong". One pnpm workspace, one physical copy, fixed it. Errors now surface the
+chain's own message instead of a wrapper's.
+
+**WebAuthn allows one ceremony at a time.** Arming runs up to three prompts in a row; a second prompt starting while
+one was open aborted both. A module-wide lock serialises them, and a dismissed prompt is reported as a cancellation
+rather than a failure.
+
+**A tick can lose a race with an oracle round.** XOXNO's health-factor read touches a Reflector round key that
+changes every five minutes, so a tick simulated just before the boundary can fail at execution with "outside of the
+footprint". The next pass succeeds; the keeper treats it as any other failed submission and spends nothing.
+
+---
+
+## Deployed contracts (Stellar testnet)
+
+| Contract | Address | WASM hash |
+|---|---|---|
+| `koul_router` | [`CBHRTWXARGZCUDBE7IX4SZV7GDFA6PRQICZQPUSOUPN3YDCVPXQBMT2P`](https://stellar.expert/explorer/testnet/contract/CBHRTWXARGZCUDBE7IX4SZV7GDFA6PRQICZQPUSOUPN3YDCVPXQBMT2P) | `613aaf63521f779a113de5308aa760736403a9afe9dd882580aa3fede19a685a` |
+| `koul_agent_policy` | [`CBDQPSGJDJUGLUIYTLAVH7C7FQE3ZN2HXOKYELNPEEUHFPV52QRI5AR2`](https://stellar.expert/explorer/testnet/contract/CBDQPSGJDJUGLUIYTLAVH7C7FQE3ZN2HXOKYELNPEEUHFPV52QRI5AR2) | `ad6bddd790970182a9a6bf86d537c8f07e63b4660bdfbcdb68cef5d54aea32f7` |
+| `koul_mock_fx` | [`CB6VNXADXR3XHCS4EKV5ZR5UJUZYQ5BZTPRHCNQE3XMKQMB4LJG6MKW2`](https://stellar.expert/explorer/testnet/contract/CB6VNXADXR3XHCS4EKV5ZR5UJUZYQ5BZTPRHCNQE3XMKQMB4LJG6MKW2) | `68d24e0791f6c6dac01f97ff048eac19f431905bb9de63cf139bbdf1d38532f0` |
+
+Contracts we integrate with, for reference:
+
+| Contract | Address |
+|---|---|
+| XOXNO controller | [`CCXRWJ6SIU2WPFEGLFGJVITPL57QAYIMIO6OAM2NBGNDQSSCK2FFV3F3`](https://stellar.expert/explorer/testnet/contract/CCXRWJ6SIU2WPFEGLFGJVITPL57QAYIMIO6OAM2NBGNDQSSCK2FFV3F3) |
+| XOXNO pool | [`CBSGF6QOQAMPFBEVSYPEQHSZRIHJ6RCGUPCRDMUX36DEKRWFAO2PZB5A`](https://stellar.expert/explorer/testnet/contract/CBSGF6QOQAMPFBEVSYPEQHSZRIHJ6RCGUPCRDMUX36DEKRWFAO2PZB5A) |
+| XOXNO position NFT | [`CDVN5JU675MEDPVRPCYC45AHFC275UH57WEU5OTFE4WFGZBNN7HTLPSY`](https://stellar.expert/explorer/testnet/contract/CDVN5JU675MEDPVRPCYC45AHFC275UH57WEU5OTFE4WFGZBNN7HTLPSY) |
+| USDC (SAC) | [`CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA`](https://stellar.expert/explorer/testnet/contract/CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA) |
+| Smart account wasm | `1b5f4534a76322da2ad7c745f6900857a6802b0ca79850c35a03561df997785a` |
+| WebAuthn verifier | [`CC7EKIHQP3TN4CARQDND6CEOY2UXLWWC2X5GHTD5NLAT7BG5GPZIOM3F`](https://stellar.expert/explorer/testnet/contract/CC7EKIHQP3TN4CARQDND6CEOY2UXLWWC2X5GHTD5NLAT7BG5GPZIOM3F) |
+| Ed25519 verifier | [`CAAVTMCBXEIBPR64EAASKFXERVPYFZA2JYP5A3BG6PESWEFUJX5IHKN4`](https://stellar.expert/explorer/testnet/contract/CAAVTMCBXEIBPR64EAASKFXERVPYFZA2JYP5A3BG6PESWEFUJX5IHKN4) |
+
+Keeper account `GAFHZTSL63YZYU35SCHDOGOMXQ25266DBQYG7KETG6HC2AHBIZMGXP6U` pays fees and sponsors landing accounts.
+Agent key `GBVD753EJMRQYI6WQCWC4OMDCNMGQMHXRT7IOAHTT3FD7ON6OQXTSAK3` is the one users grant; it holds nothing.
+
+Every on-chain change, with transaction hashes, is in [`docs/build-log.md`](docs/build-log.md); the go/no-go gates
+that came before are in [`docs/phase0.md`](docs/phase0.md).
+
+---
+
+## Setup, run and test
+
+**Prerequisites.** Rust 1.91.1 with the `wasm32v1-none` target, stellar CLI 27.0.0, Node 20, pnpm 8. `scripts/env.sh`
+pins the CLI and toolchain: `source scripts/env.sh` before any contract work. Contracts build only with
+`stellar contract build`; a bare `cargo build --target wasm32v1-none` fails because soroban-sdk's spec shaking needs
+the CLI.
+
+```sh
+git clone https://github.com/atahanyild/koul && cd koul
+pnpm install            # one workspace: web, keeper, packages/core, oracle-admin
+```
+
+**Environment.** `keeper/.env` (see `keeper/.env.example`): `KEEPER_SECRET` and `AGENT_SECRET` are funded testnet
+secrets; `ROUTER_V1`, `KOUL_POLICY`, `MOCK_FX` are the addresses above. `web/.env.local`: `ANTHROPIC_API_KEY` or
+`OPENAI_API_KEY` for the sentence parser, `KEEPER_SECRET` for the demo funds routes. `oracle-admin` needs
+`ORACLE_ADMIN_SECRET`. Nothing secret is ever exposed under a `NEXT_PUBLIC_` name.
+
+**Contracts.**
 
 ```sh
 source scripts/env.sh
+stellar contract build                      # all three
+cd contracts/koul_router && cargo test      # 10 unit and scenario tests
+stellar contract upload --wasm target/wasm32v1-none/release/koul_router.wasm --source <identity> --network testnet
+stellar contract invoke --id CBHRTWXARGZCUDBE7IX4SZV7GDFA6PRQICZQPUSOUPN3YDCVPXQBMT2P \
+  --source <identity> --network testnet -- upgrade --new_wasm_hash <hash>
 ```
 
-This puts the pinned CLI first on PATH, sets `RUSTUP_TOOLCHAIN=1.91.1` and `STELLAR_NETWORK=testnet`.
+The router is upgraded in place so its address, and therefore every user's policy allowlist, never changes.
 
-### 1. Contracts
-
-```sh
-source scripts/env.sh
-stellar contract build            # all workspace members, output in target/wasm32v1-none/release/
-cargo test -p koul_router         # pure decision helpers, 3 tests
-```
-
-Do not use a bare `cargo build --target wasm32v1-none`: the soroban-sdk build script requires the stellar CLI's spec shaking and fails outside `stellar contract build`.
-
-Upgrading the live router in place, so the address and every user's rules survive:
-
-```sh
-source scripts/env.sh
-stellar contract upload --wasm target/wasm32v1-none/release/koul_router.wasm --source niet-testnet --network testnet
-# prints the new wasm hash, then
-stellar contract invoke --id CBHRTWXARGZCUDBE7IX4SZV7GDFA6PRQICZQPUSOUPN3YDCVPXQBMT2P --source niet-testnet --network testnet -- upgrade --new_wasm_hash <hash>
-```
-
-`niet-testnet` is the stellar CLI identity holding the keeper secret (created before the rename; the name is local to this machine). Create yours with `stellar keys add niet-testnet --secret-key` and paste the same secret that goes into `KEEPER_SECRET` below.
-
-Deploying fresh contracts follows the same pattern with `stellar contract deploy` and the constructor arguments listed in each contract's `__constructor`. The router takes `(admin, controller, pool, usdc, oracle, spoke_id)`, the policy takes nothing, the oracle takes `(admin)`.
-
-### 2. Keeper
+**Frontend.** `cd web && pnpm dev` on http://localhost:3000. **Oracle admin.** `cd oracle-admin && pnpm dev` on
+port 3100. **Keeper.**
 
 ```sh
 cd keeper
-pnpm install
-cp .env.example .env
+pnpm keeper:once              # one pass over every user and autopilot
+pnpm keeper -- --interval 30  # the demo loop: reacts within seconds
 ```
 
-Fill `.env`:
+In this repo the keeper also runs itself: `.github/workflows/keeper.yml` ticks every five minutes and on demand,
+with the two secrets stored as GitHub repository secrets. Two keepers are safe; whichever loses a race simulates to
+`None` and spends nothing.
 
-| Variable | Value |
+**Tests.**
+
+```sh
+cd contracts/koul_router && cargo test    # rule evaluation, ordering, cooldowns, amounts, registries
+cd packages/core && pnpm test             # 14: codec round trips, validation, templates, parser boundaries
+cd packages/core && pnpm parse-test       # live: four sentences, one of them impossible
+cd packages/core && pnpm smoke            # live reads and unsigned writes against testnet
+cd keeper && pnpm test && pnpm policy-deny # landing accounts; policy rejections with the agent key
+cd web && npx tsc --noEmit && npx next build
+```
+
+---
+
+## How to evaluate
+
+Everything below runs on https://koul-stellar.vercel.app against Stellar testnet. A passkey belongs to the origin it
+was created on, so create a wallet on the domain rather than expecting a local one to appear.
+
+1. **Create a wallet.** Press *Create wallet* and confirm with your device. No seed phrase appears because there is
+   none: an OpenZeppelin smart account is deployed with your passkey as rule 0. Deployment and later signatures are
+   fee-sponsored.
+2. **Bring lira in.** *Funds → Deposit lira*, enter an amount, and the app opens a transfer through the anchor: a
+   landing account is created, SEP-10, SEP-12, SEP-38 and SEP-6 run, and the FAST instructions the anchor returned
+   appear with a reference. On the sandbox, press *Sandbox: pretend I sent the lira*. USDC lands in your wallet and
+   the temporary account closes itself. Each step shows its technical detail and its transaction.
+3. **Write a rule in a sentence.** *Autopilots → New autopilot*, type for example _"whenever I have at least 10 USDC
+   sitting in my wallet put it into the pool that pays more, and pull everything out if the lira passes 50"_, and
+   press *Turn into rules*. The rules appear as cards with the live value beside each condition and a mark on any
+   value Koul filled in. Anything the router cannot do comes back as a note instead of an invented rule; try
+   _"buy me gold when bitcoin dips"_ to see it refuse.
+4. **Arm it.** The sheet lists exactly what Koul's key will be allowed to do, for how long, and how many
+   confirmations it will take. Arming opens your XOXNO position if you have none, grants the scoped key, and stores
+   the rules on-chain. Each step names its transaction.
+5. **Watch it fire.** The keeper simulates `tick`; when a rule is true it submits. *Activity* shows the run in plain
+   words with the observed values and a link to the transaction on stellar.expert. To force the lira exit, open the
+   oracle admin at https://koul-oracle.vercel.app/oracle and press *50.25 (lira shock)*: within a pass, the rule
+   withdraws to your wallet.
+6. **See an out-of-policy action rejected.** In the repo, `cd keeper && pnpm policy-deny` sends four agent-signed
+   calls straight at XOXNO: a withdrawal to a foreign account (rejected, `7109`), a repayment on somebody else's
+   XOXNO account (`7108`), a `borrow`, which no rule needs and the allowlist therefore omits (`7103`), and one
+   allowed withdrawal to the user's own wallet as a control. The rejections come from the chain, not from our code.
+7. **Take lira out.** *Funds → Withdraw lira* with an IBAN. One passkey confirmation moves USDC to the landing
+   account; the anchor pays out and the account cleans itself up. Cashing out is never something the agent can do.
+8. **Read the rules yourself.** Everything is on-chain: `check(user, id)` returns per-condition truth and the live
+   value each was compared against, and the router's `Fired` events carry what was observed at the moment it acted.
+
+---
+
+## Stellar skills used
+
+The hackathon's skill pack shaped how we built. The ones we actually leaned on, by path:
+
+| Skill | What we used it for |
 |---|---|
-| `STELLAR_NETWORK`, `NETWORK_PASSPHRASE`, `RPC_URL` | testnet defaults from the example |
-| `ANCHOR_HOME_DOMAINS`, `ANCHOR_ASSET_CODE` | `tr-mock-anchor.fly.dev`, `USDC` |
-| `KEEPER_SECRET` | a funded testnet G-secret. Pays fees, sponsors landing accounts, is the mock oracle admin and the router admin. Fund a new one with friendbot |
-| `AGENT_SECRET` | the Ed25519 secret whose public key users grant. Any `stellar keys generate --as-secret` output. Its public key goes into the web app as `NEXT_PUBLIC_KOUL_AGENT_PUBLIC_KEY` |
-| `ROUTER_V1` | `CBHRTWXARGZCUDBE7IX4SZV7GDFA6PRQICZQPUSOUPN3YDCVPXQBMT2P` |
-| `KOUL_POLICY` | `CBDQPSGJDJUGLUIYTLAVH7C7FQE3ZN2HXOKYELNPEEUHFPV52QRI5AR2` |
-| `MOCK_FX` | `CB6VNXADXR3XHCS4EKV5ZR5UJUZYQ5BZTPRHCNQE3XMKQMB4LJG6MKW2` |
-| `ROUTER`, `NOOP_POLICY`, `DENY_POLICY` | phase 0 probe addresses, only needed by `scripts/phase0/*` |
+| `skills/soroban/SKILL.md` | Contract structure, storage types and TTL, `require_auth` and auth trees, cross-contract clients, `contracterror` and `contractevent`, and the upgrade pattern that keeps the router's address fixed. |
+| `skills/dapp/SKILL.md` | Building and simulating from TypeScript, `AssembledTransaction`, passkey smart accounts and the signing flow, and the error handling the UI now surfaces. |
+| `skills/data/SKILL.md` | Reading chain state through Stellar RPC: simulation as a read, `getEvents` with topic filters, and the retention window that made our first Activity query fail. |
+| `skills/standards/SKILL.md` | The SEP handshake for the anchor: SEP-1 discovery, SEP-10 authentication, SEP-12 customer data, SEP-38 quotes, SEP-6 deposit-exchange and withdraw-exchange. |
+| `skills/deploy-stellar-mainnet/SKILL.md` | The mainnet checklist we are working against: what must be audited, monitored and swapped (`set_oracle` to real Reflector) before this leaves testnet. |
+| `skills/agentic-payments/SKILL.md` | Background on agent-initiated payments on Stellar, which informed the "agent proposes, user approves" boundary and the scoped-key design. |
 
-The keeper and the setup scripts operate on the headless wallet described by `keeper/.phase0-state.json`. That file is gitignored because it contains the software passkey's private key. To create your own headless wallet from scratch:
+XOXNO's own contracts and configs (`XOXNO/rs-lending-xlm`) were the reference for hub and spoke semantics, market
+parameters and the position NFT; the ABIs we fetched from testnet are in [`docs/abi/`](docs/abi).
 
-```sh
-pnpm phase0:t1-t3     # deploys a smart account with a software passkey, funds it, adds a noop agent rule, sends 1 XLM with the agent key
-pnpm phase0:t4        # TRY -> USDC through the anchor sandbox into the wallet, then a passkey supply to XOXNO hub 1; records the XOXNO account id
-pnpm setup-autopilot  # passkey: grant the agent under koul_agent_policy (pinned to the XOXNO account), remove stale rules, router.set_autopilot(wallet, 1, Lira shield)
-```
+---
 
-`t1-t3` and `t4` write to `.phase0-state.json`. `setup-autopilot` needs `contractId`, `passkey` and `t4.accountId` in that file. The Lira shield autopilot is defined at the bottom of `scripts/setup-autopilot.ts`: five rules, health factor under 1.25 repays from the wallet, a 100 bps deposit-rate gap moves supply either way, USD per TRY under 0.0200 (USD/TRY over 50) withdraws each hub to the wallet, 900 s price staleness limit, cooldowns of 30 or 300 ledgers.
+## Roadmap toward SCF
 
-Other passkey helpers for the headless wallet:
+**Next, in order.**
 
-```sh
-pnpm position show                 # health factor, idle USDC, per-hub collateral, debt, rate, cash, utilisation
-pnpm position supply 1 10          # also borrow, repay, withdraw <hub> <usdc>; borrow pushes the health factor down for the health-guard demo
-pnpm policy-deny                   # agent-signed direct controller calls the policy must reject (7109, 7108, 7103) plus one allowed control
-pnpm tx-diag <hash>                # failing diagnostic events of a testnet transaction
-```
+1. **A Koul MCP server.** Expose autopilots as tools so anyone can manage them by talking to their own AI assistant:
+   read the portfolio, propose rules, explain what would fire and why. The server never holds funds or keys; it
+   returns unsigned transactions the user signs with their passkey, which is the same boundary the web app uses.
+2. **More protocols behind the same engine.** The router's conditions and actions are deliberately protocol-shaped
+   rather than XOXNO-shaped. Swap venues come first (an action that routes through an aggregator), then perpetual
+   DEXs, where conditional execution matters most: reduce exposure when funding flips, close when a level breaks.
+3. **Mainnet with audited contracts.** The router and the policy are small and self-contained by design, which is
+   what makes an audit affordable. The mock oracle disappears behind `set_oracle`; Reflector takes its place.
+4. **A keeper anyone can run.** The keeper is already permissionless in effect: it only submits what the contract
+   authorises. Publishing it with an incentive makes liveness independent of us.
 
-Run the keeper:
+**Funding.** We are applying to the Stellar Community Fund, Build Award, with the MCP server and the second protocol
+integration as the milestones, and the audit as the tranche before mainnet.
 
-```sh
-pnpm keeper:once                       # one pass over every user and autopilot the router lists: simulate tick, submit if it returns an action
-pnpm keeper -- --interval 30           # loop every 30 s, also republishes the mock TRY price when older than 10 min
-```
+---
 
-The keeper keeps no per-user state: users come from `router.list_users()`, autopilots from `list_ids(user)`, the agent rule id from the wallet's context rules. Each pass prints the simulated action, or when nothing applies the `check` view (`r1 HOLDS[+8080]` means rule 1's conditions hold with an observed rate gap of 8080 bps; `cooling` means the cooldown is running). On submission it prints the transaction hash.
+## Team
 
-Tests and typecheck:
+_Add names, roles and contacts before submission._
 
-```sh
-pnpm test          # vitest, runs the ported landing account tests (9 cases)
-pnpm typecheck
-```
+- **Atahan Yıldırım** — _role_ — _email / X / GitHub_
 
-From `packages/core`, run `pnpm install`, `pnpm test`, and `pnpm typecheck` to check the typed SDK.
+---
 
-### Frontend integration (`@koul/core`)
+## License and notes
 
-`packages/core` exports `Autopilot` and its strict `autopilotSchema`, `validateAutopilot`, `encodeAutopilot` and `decodeAutopilot`. Monetary values in the JSON schema are decimal strings of the contract's base units: USDC uses 7 decimals, health factor uses 18, oracle prices use 14. Do not pass JavaScript numbers for these values.
+This repository is MIT ([`LICENSE`](LICENSE)). One exception: `packages/core/src/anchor` and its keeper counterpart
+are ported from [Kumbara](https://github.com/keyboord01/kumbara) (MIT, Sembol 2026), whose notice is kept in
+[`LICENSE-KUMBARA`](LICENSE-KUMBARA) and in each file's header.
 
-`KoulReader` takes an RPC URL, network passphrase, a funded G-account public key for simulation, and the router, oracle, controller, pool, USDC and XLM contract addresses. Its methods are `readPortfolio(address, accountId?)`, `readPositionNft(address)`, `readOracle(asset?)`, `simulateTick(user, id)`, `checkAutopilot(user, id)`, and `readFired(user, startLedger, limit?)`. `readPortfolio` discovers the account ID from the user's first stored autopilot; pass `accountId` explicitly before the first autopilot is saved. Balances and position amounts are returned as `bigint` base units, rates and utilisation as RAY values, and health factor as WAD. `readFired` requires a starting ledger so callers can paginate within the RPC event retention window. `simulateTick` is a simulation of the authenticated router call and never submits it.
+**XOXNO lending is PolyForm Noncommercial.** We do not vendor, fork or redistribute any XOXNO code. Koul calls the
+deployed XOXNO contracts over the network like any other user, and the interfaces in [`docs/abi/`](docs/abi) were
+fetched from the chain for reference.
 
-`KoulWriter` adds the policy address, Ed25519 verifier and XOXNO spoke ID. Each `build*` method returns an unsigned assembled transaction for `kit.signAndSubmit`:
+Everything here runs on Stellar **testnet**. The FX oracle is a mock with the Reflector interface, and the anchor is
+the TR Mock Anchor sandbox. No real money moves anywhere in this repository.
 
-```ts
-import { KoulReader, KoulWriter, liraShield, permissionsFor, validateAutopilot } from "@koul/core";
-
-const ap = liraShield(accountId.toString());
-const errors = validateAutopilot(ap);
-if (errors.length) throw new Error(errors.join("; "));
-const permissionSheet = permissionsFor(ap, { router, controller, pool, usdc });
-const reader = new KoulReader({ rpcUrl, networkPassphrase, publicKey, router, oracle, controller, pool, usdc, xlm });
-const writer = new KoulWriter({ rpcUrl, networkPassphrase, publicKey, router, oracle, controller, pool, usdc, xlm, policy, ed25519Verifier, spoke: 3 });
-const states = await reader.checkAutopilot(wallet, 1);
-const tx = await writer.buildSetAutopilot(wallet, 1, ap);
-await kit.signAndSubmit(tx);
-```
-
-Other builders: `buildClearAutopilot`, `buildGrantAgent(kit, ap, agentRawPublicKey, days, name)`, `buildRevokeAgent(kit, ruleId)`, `buildSupply`, `buildWithdraw`, `buildBorrow`, and `buildTransfer`. `permissionsFor` returns the minimum router, controller and USDC call list plus transfer recipients and short descriptions for the arm sheet. Templates are `liraShield(accountId)`, `yieldOnly(accountId)`, and `healthGuard(accountId)`. The reference web route links the SDK as a local file dependency; the existing Strategy and Activity panels have not yet migrated to it.
-
-The parser works with either provider. Put one of these in `web/.env.local` (server side only, never a `NEXT_PUBLIC_` name):
-
-```sh
-ANTHROPIC_API_KEY=sk-ant-...            # or
-OPENAI_API_KEY=sk-...                   # any OpenAI-compatible endpoint
-OPENAI_MODEL=gpt-4o-mini                # a small model is enough; the output is validated anyway
-OPENAI_BASE_URL=http://localhost:11434/v1   # optional: a gateway, or Ollama on this machine
-```
-
-A ChatGPT or Claude subscription does not work here: both need an API key, billed separately. Without a key the app
-falls back to the keyword parser in `web/lib/sentence.ts` and says "matched by keywords" under the box. Check a live
-key with `cd packages/core && pnpm parse-test`, which parses four sentences, one of them deliberately impossible.
-
-The reference `POST /api/autopilot/parse` route accepts `{ text, context }` and calls the server-only `@koul/core/server` parser. `context` contains `accountId`, `hubIds`, `idleUsdc`, `healthFactorWad`, `depositRatesRay`, `fxAsset`, `fxPrice`, and `fxPriceAgeSeconds`; the frontend should populate it from live reads. The response is `{ autopilot, notes, defaulted_fields }`, with `autopilot: null` for wholly unsupported requests. The route reads `ANTHROPIC_API_KEY` from the server environment and optionally `ANTHROPIC_MODEL` (default `claude-sonnet-5`). The generated rules are validated again against contract limits and the supplied account and hub IDs. The route is a reference parser endpoint, not an authenticated write endpoint; users review and sign the resulting autopilot separately.
-
-`readReadyToCashOut(reader, wallet, startLedger, threshold, accountId?)` checks whether a `WithdrawToWallet` rule fired and the wallet now holds at least the chosen USDC threshold. It only reports readiness; the Funds withdrawal still needs a user passkey confirmation.
-
-The XOXNO position NFT exists on testnet: contract `CDVN5JU675MEDPVRPCYC45AHFC275UH57WEU5OTFE4WFGZBNN7HTLPSY` ("XOXNO Lending Position", symbol `XLEND`), one token per XOXNO account, token id equals the account id, owner is the smart wallet. `reader.readPositionNft(wallet)` returns `{ contract, tokenId, name, symbol, imageUrl }` or null when the wallet has no XOXNO account; the image URL is an SVG served by XOXNO's API (`https://api.xoxno.com/user/lending/image/<id>?isStatic=true&chain=STELLAR`), so the Portfolio page can render the NFT card directly. `readFired(wallet, startLedger, limit?)` walks the ledger range in windows because the RPC answers a range wider than a few thousand ledgers with an empty list, and skips router v1 events.
-
-### Funds backend (local demo)
-
-`packages/core` now owns the landing-account and SEP-10/12/38/6 code. The keeper scripts import it through compatibility files. `FundsService` creates deposit and withdrawal transfers and advances them when `getStatus(transferId)` is polled. It stores the SEP bearer token and pre-authorized envelopes in a private `FundsStore`; `FileFundsStore` is the local reference implementation. The public result includes the transfer ID, landing account, amount, bank instructions or quoted fiat, and status; it omits the token and pre-authorized envelopes.
-
-Reference routes in `web/app/api/funds`:
-
-| Route | Body or parameter | Result |
-|---|---|---|
-| `POST /api/funds/deposit` | `{ wallet, amountTry, customer, simulateSandboxBankTransfer? }` | Bank instructions and transfer ID. The optional simulation flag is for the testnet sandbox only. |
-| `POST /api/funds/withdraw` | `{ wallet, amountUsdc, iban, customer }` | Transfer ID and `unsignedTransfer` (serialized assembled USDC transfer to the landing account). The frontend deserializes it and asks the user to sign with the passkey. |
-| `GET /api/funds/:id` | Transfer ID | Polls SEP-6 and landing balance, forwards funds, runs cleanup and returns current status. |
-
-Set `KEEPER_SECRET` in the web server environment and keep `.funds-state/` private. These reference routes run in development. Production use requires `FUNDS_ALLOW_PRODUCTION=1` and a durable shared store and request authorization before exposing sponsor-funded transfer creation. The new Funds service is typechecked and the amount/public-record boundary is tested; the old keeper scripts remain the live-proven flow while the routes await a smoke test.
-
-The wallet menu also has **Get test USDC** beside **Add test XLM**. It creates a sponsored testnet G account with a Circle USDC trustline, shows the address to paste into [Circle Faucet](https://faucet.circle.com/) with **Stellar Testnet** selected, then polls and forwards the faucet's 20 USDC to the passkey smart wallet. The request and CAPTCHA are completed on Circle's site. Set `KEEPER_SECRET` and keep `.faucet-state/` private; the browser stores the transfer ID so it can resume polling after reopening the menu. The faucet routes share the development-only guard with Funds. Production use requires `FUNDS_ALLOW_PRODUCTION=1`, a durable shared store, and request authorization before exposing sponsor-funded account creation.
-
-### 3. Web app
-
-```sh
-cd web
-pnpm install
-cp .env.example .env.local
-pnpm dev                 # http://localhost:3000
-```
-
-`ANTHROPIC_API_KEY` and `KEEPER_SECRET` stay server-side for the reference parser and Funds routes. The `NEXT_PUBLIC_KOUL_*` overrides are optional and default to the live deployment. The app reads the mock oracle contract directly, without a web server route.
-
-Every page reads testnet through `@koul/core`: pools and USD/TRY on the home page; the wallet's balances, position NFT and XOXNO position on Portfolio; the router's autopilots (`list_ids` + `get_autopilot`) on Autopilots; the router's `Fired` events on Activity. There is no sample data and no demo switch: an empty wallet shows its empty states. Arming an autopilot maps the UI rules onto the router's `Autopilot` type (`lib/model/autopilot.ts`; one UI rule can become two router rules, one per hub or direction), grants the agent key under the policy pinned to the wallet's XOXNO account, and calls `set_autopilot`. The Funds flows run through the funds routes: `POST /api/funds/deposit` returns the anchor's FAST instructions, the sandbox button calls `POST /api/funds/:id/simulate`, `POST /api/funds/withdraw` returns the unsigned USDC transfer the passkey signs, and `GET /api/funds/:id` advances the transfer on every poll.
-
-`@koul/core` is linked into `web/` and `keeper/` with pnpm's `link:` protocol (a symlink), so edits in `packages/core` are picked up without reinstalling. Relative imports inside the package carry no `.js` suffix because Turbopack resolves them as written.
-
-For mock FX controls, run the separate app:
-
-```sh
-cd oracle-admin
-pnpm install
-cp .env.example .env.local
-# put the keeper G-secret in ORACLE_ADMIN_SECRET
-pnpm dev                 # http://localhost:3100/oracle
-```
-
-The oracle admin's `POST /api/oracle` is disabled in production unless `ORACLE_ALLOW_PRODUCTION=1` is explicitly set. The product app's Demo controls link opens the separate app. Set `NEXT_PUBLIC_ORACLE_ADMIN_URL` in the product app if the admin is hosted elsewhere.
-
-The app uses Sembol's testnet preset and the public SDF relayer, so wallet creation and every passkey-signed call are fee-sponsored and no local secret is needed for user actions. Passkeys are bound to the origin, so a wallet created on `localhost:3000` is only reachable from `localhost:3000`.
-
-The new web UI has Home, Portfolio, Funds, Autopilots and Activity pages. Its current autopilot adapter still calls the v1 router methods (`set_rules`, `get_rules`), so those screens need a frontend migration to `@koul/core` before live use. Until then use the keeper scripts above to operate the rule engine. The separate oracle controls are at `http://localhost:3100/oracle`.
-
-The keeper loop must be running for anything to execute. The web app never signs with the agent key.
-
-### 4. Anchor scripts
-
-```sh
-cd keeper
-pnpm anchor:withdraw 2       # 2 USDC from the headless smart wallet to TRY, prints every SEP step and the FAST reference
-```
-
-Deposit for the headless wallet is inside `pnpm phase0:t4`. The anchor was intermittently down during the night of 19 to 20 September; both directions have completed since.
-
-## Demo scenarios
-
-The Lira shield autopilot on the headless wallet, each proven on the rule engine (hashes in `docs/build-log.md`, "Keeper v2"):
-
-| Scenario | How to trigger | What the router does |
-|---|---|---|
-| Rebalance | hub 2 pays more than hub 1 by over 100 bps (the borrower on account 23 keeps it so) and hub 1 holds collateral: `pnpm position supply 1 10` | rule 1 `MoveSupply(1 -> 2, All)`: withdraw from hub 1 and supply to hub 2 in one transaction, amount capped by hub cash and the 95 percent utilisation ceiling |
-| Health guard | `pnpm position borrow 1 22` with the passkey, health factor drops under 1.25 | rule 0 `RepayFromWallet(1, All)`: repays `debt + 1 grain` from idle wallet USDC, health factor back to infinity |
-| FX exit | on `localhost:3100/oracle` press 50.25 lira shock, or `set_price` on the mock oracle, then a keeper pass | rules 3 and 4 `WithdrawToWallet(hub, All)`: the first hub with something liquid is withdrawn to the wallet, the next tick after the cooldown takes the other hub; an empty hub is skipped |
-| Stale price | `localhost:3100/oracle` Publish stale | `FxPrice` is false for a price older than its limit; `check` shows the observed price with `holds = false` |
-| Nothing to do | any pass in between | `tick -> None`, the keeper prints the `check` view and spends no fee |
-| Revoke | web app Revoke, or `pnpm phase0:revoke` | the next agent tick fails at simulation with `ContextRuleNotFound`, no fee spent |
-
-A rule whose conditions hold but whose action has nothing to move (empty hub, no debt, empty wallet, illiquid hub) is skipped and the next rule is tried, so the order of the rules is the priority.
-
-## Findings and constraints
-
-These shaped the code.
-
-- **One `context_rule_id` per authorization context.** The smart account's `__check_auth` receives the root call plus every sub-invocation. A router tick is three or four contexts, so the keeper passes the rule id that many times. Getting it wrong fails with `ContextRuleIdsLengthMismatch`.
-- **Auth trees bake exact arguments, positions accrue interest every ledger.** A withdraw amount read at simulation is stale by execution. Every router amount is snapped to 0.01 USDC, moves under 1 USDC are skipped, and repayments round the debt up by one grain.
-- **A hub only releases its liquid cash and never past its utilisation ceiling.** XOXNO errors 112 and 127. `withdrawable()` caps by both, reading `max_utilization` from `get_sync_data`.
-- **The policy rate limit counts contexts, not ticks.** A window of 40 allows roughly 10 ticks.
-- **No TRY on any Reflector testnet feed** (FX, CEX or DEX). Hence the mock oracle. Interface is identical, so mainnet is one `set_oracle` call.
-- **Testnet hubs had 0 percent supply rates.** Nobody borrowed USDC. The borrower identity fixes that and makes the rate gap steerable.
-- **No protocol-native scheduler on Soroban.** SoroCron exists but its executor contract is the invoker, so it cannot carry a user's smart account authorization. The keeper is required.
-- **The anchor rejects contract addresses** and its watcher ignores Soroban transfers. The landing account is an ownerless classic G-account with pre-authorized forward and cleanup transactions, sponsored by the keeper, alive for under a minute per transfer.
-- **The agent cannot pay a landing account.** The policy allows USDC transfers to the pool only and landing accounts are created per transfer, so cashing out to TRY still takes one passkey confirmation for the transfer step.
-- **SAC contracts have no wasm**, so calls to the USDC token are built with `contract.AssembledTransaction.build` rather than `contract.Client.from`.
-- **The kit hides simulation diagnostics.** The keeper wraps `kit.rpc.simulateTransaction` to surface `Error(Contract, #N)`.
-- **XOXNO's health factor read touches a Reflector round key** that changes every 5 minutes. A tick simulated just before the round boundary can fail at execution with "outside of the footprint"; the next pass succeeds. The keeper treats it as any other failed submission.
-
-## Phase 0 gates
-
-The project brief defined go/no-go gates. All passed. Details and hashes are in `docs/phase0.md`.
-
-| Gate | Result |
-|---|---|
-| T0 toolchain and provenance | smart account wasm reproduced byte for byte from OpenZeppelin `1e513890` |
-| T1 smart account | headless wallet deployed |
-| T2 custom policy install | noop policy installed under a Default rule |
-| T3 agent-only call, positive and deny | agent key signs alone, deny policy rejects at simulation |
-| T4 anchor USDC into the wallet and XOXNO supply | account 12 |
-| T5 agent-signed cross-hub withdraw and supply | two transactions |
-| T6 the same through the router, atomic | one transaction, four contexts |
-| T7 real policy: allowlist, recipient, expiry, rate limit | all four negatives rejected at simulation |
-| Revoke | one passkey call, agent cut off immediately |
-| T8 oracle and rates | two findings, both handled |
-| T9 anchor with a contract wallet | solved with the landing account port |
-
-T3 and T5 green meant custody stays in the user's smart account with a session key, no vault.
-
-## Open items
-
-- Router becomes a rule engine (ordered rules per autopilot, conditions with all or any, one action, cooldown), keyed by user and autopilot id, with keeper changes. Decided in principle, not started.
-- Designed web app on shadcn, replacing the prototype in `web/`. Design is in review.
-- Oracle admin moves to its own app.
-- Sentence to rules route backed by Claude.
-- Cash out to TRY as an autopilot action needs the landing account decision above.
-- The Sembol pull request is open and unreleased; the web app inlines the same logic until then.
+Build and operations notes that used to live in this file, including the run guide in more detail, are in
+[`docs/README-build-guide.md`](docs/README-build-guide.md).
