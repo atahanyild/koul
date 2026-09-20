@@ -299,3 +299,24 @@ reach a signature. This exists because a ChatGPT or Claude subscription cannot b
 an API key. A small model such as `gpt-4o-mini` is enough, and `OPENAI_BASE_URL` points at a gateway or a local
 Ollama. The prompt also learned the two new rule types, `SupplyRate` and `SupplyFromWallet`.
 `cd packages/core && pnpm parse-test` runs four sentences against whatever is configured.
+
+## The parser is live (2026-09-20)
+
+An Anthropic key went into `web/.env.local` and `pnpm parse-test` ran four sentences end to end against
+`claude-sonnet-5`. Three findings, all fixed:
+
+- `strict: true` on the tool made the API reject the request: Anthropic's strict schema subset does not allow
+  `maxItems`, which our rule and condition counts use. The tool is sent without a strict flag; zod plus
+  `validateAutopilot` still gate everything before a signature, so nothing invalid can get through.
+- The model sometimes wrapped the result in a second copy of the top-level key. `unwrap` takes the inner object.
+- It inverted the lira threshold, returning `FxPrice(TRY, AtOrAbove, 5e15)` for "if the lira passes 50", which can
+  never be true. The oracle quotes USD per TRY, the inverse of what people say, so the prompt now spells out
+  `round(1e14 / rate)` with the direction for a weakening and a strengthening lira, and asks for a sanity check
+  against the context price.
+
+After the fixes: "whenever I have at least 10 USDC sitting in my wallet, put it into the pool that pays more" became
+`IdleBalance >= 10 USDC -> SupplyFromWallet(hub 2)` with a note explaining that hub 2 pays more; the three-clause
+Lira shield sentence became the health guard, the rate-gap move and `FxPrice(TRY, Below, 2000000000000)`; "if the
+secondary pool pays more than 60% a year" became `SupplyRate(hub 2, AtOrAbove, 4700 bps)`, the correct
+`ln(1.6)` conversion from compounded APY to the pool's simple rate; and "buy me gold when bitcoin dips" returned no
+autopilot with a note naming the five actions that exist. Verified again through `POST /api/autopilot/parse`.

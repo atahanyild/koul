@@ -22,13 +22,19 @@ export interface ParseContext {
 export const PARSE_SYSTEM_PROMPT = `Translate a user's savings automation request into one ordered Koul autopilot.
 The output is data for a Soroban router, never an instruction to execute a transaction. The user's funds stay in their smart account.
 Vocabulary: HealthFactor Below/AtOrAbove (WAD, 18 decimals); SupplyRateGap(over hub, under hub, minimum annual bps); SupplyRate(hub, comparator, annual bps) for what one hub pays on its own; FxPrice(asset, comparator, USD per asset unit with 14 decimals, max age seconds); IdleBalance (USDC with 7 decimals). Conditions per rule join with match_all. Actions: SupplyFromWallet to put idle wallet USDC into a hub, which is the only way an autopilot opens a position; MoveSupply; RepayFromWallet; RepayWithCollateral; WithdrawToWallet. Amounts: All, Percent in 1..10000 bps, Fixed in 7-decimal USDC units and at least 1 USDC. One rule fires per tick, in list order. Up to 8 rules, 1..3 conditions each, cooldown at least 1 ledger. Never create an if/else, a swap, a TRY withdrawal, a borrow, or a transfer to another address. WithdrawToWallet moves USDC to the user's wallet; a separate user passkey action is needed to cash out to TRY.
+The FX oracle quotes USD per one unit of the asset with 14 decimals, which is the inverse of the USD/TRY rate people say out loud. A user who says "if the lira passes 50" or "USD/TRY above 50" means one dollar buys 50 lira or more, which is FxPrice(TRY, Below, round(1e14 / 50) = "2000000000000"). A stronger lira, "USD/TRY under 45", is FxPrice(TRY, AtOrAbove, round(1e14 / 45)). Always divide 1e14 by the rate the user said, and pick Below for a weakening lira and AtOrAbove for a strengthening one. Sanity check the level against the context price before returning it.
 Use only the provided hub IDs. For rate gap, hub_over is the higher-paying hub and hub_under the lower-paying hub. For MoveSupply, from_hub is the lower-paying one. Rates everywhere are the pool's simple annual rate, which the context gives in RAY (1e27 = 100%); a user speaking of a compounded APY p means bps = round(ln(1 + p) * 10000). When a request says to put idle money to work without naming a hub, use the hub the context shows paying most.
 If the request contains an unsupported action or an ambiguous amount/threshold, put a precise explanation in notes. For a wholly unsupported request, return autopilot null. Never invent a feature. For omitted account ID, use the context account ID. For unspecified cooldown use 30 ledgers for protection/withdrawal and 300 for yield moves. For unspecified price freshness use 900 seconds. Record every filled value's JSON path in defaulted_fields. Use context readings to interpret relative requests, but do not present them as guarantees. Return decimal strings for all u64 and i128 fields.`;
 
+/**
+ * The tool the model must call. The schema is generated from the same zod schema the codec uses, so the model is
+ * shown the contract's own shape. It is sent without a provider's "strict" flag: Anthropic's strict subset rejects
+ * `maxItems`, and the rule and condition counts are worth showing the model. Whatever comes back is parsed by zod
+ * and then checked against the contract's limits, so nothing invalid can reach a signature either way.
+ */
 export const PARSE_TOOL = {
   name: "create_autopilot",
   description: "Return only supported Koul rules, with unsupported parts in notes and filled defaults listed by field path.",
-  strict: true,
   input_schema: zodToJsonSchema(parseResultSchema, { target: "jsonSchema7", $refStrategy: "none" }),
 } as const;
 
@@ -42,6 +48,15 @@ export interface ParseOptions {
   fetcher?: typeof fetch;
 }
 export type Provider = "anthropic" | "openai";
+
+/** Models sometimes wrap the tool result in another copy of the top-level key. Take the inner object when they do. */
+function unwrap(raw: unknown): unknown {
+  if (!raw || typeof raw !== "object") return raw;
+  const outer = raw as Record<string, unknown>;
+  const inner = outer.autopilot;
+  if (inner && typeof inner === "object" && "autopilot" in (inner as Record<string, unknown>) && "notes" in (inner as Record<string, unknown>)) return inner;
+  return raw;
+}
 
 /**
  * Which provider to use, and with what. Anthropic wins when both keys are present; `KOUL_PARSER` overrides.
@@ -69,6 +84,7 @@ export async function parseAutopilot(text: string, context: ParseContext, option
   const message = JSON.stringify({ request: text, context });
 
   let raw: unknown;
+  let attempt = 0;
   if (provider === "anthropic") {
     const response = await fetcher("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -82,7 +98,7 @@ export async function parseAutopilot(text: string, context: ParseContext, option
         messages: [{ role: "user", content: message }],
       }),
     });
-    if (!response.ok) throw new Error(`Anthropic API returned ${response.status}`);
+    if (!response.ok) throw new Error(`Anthropic API returned ${response.status}: ${(await response.text()).slice(0, 400)}`);
     const body = await response.json() as { content?: Array<{ type: string; name?: string; input?: unknown }> };
     const tool = body.content?.find((block) => block.type === "tool_use" && block.name === PARSE_TOOL.name);
     if (!tool) throw new Error("Parser did not return the required tool result");
@@ -98,13 +114,19 @@ export async function parseAutopilot(text: string, context: ParseContext, option
         tool_choice: { type: "function", function: { name: PARSE_TOOL.name } },
       }),
     });
-    if (!response.ok) throw new Error(`Parser API returned ${response.status}`);
+    if (!response.ok) throw new Error(`Parser API returned ${response.status}: ${(await response.text()).slice(0, 400)}`);
     const body = await response.json() as { choices?: Array<{ message?: { tool_calls?: Array<{ function?: { name?: string; arguments?: string } }> } }> };
     const call = body.choices?.[0]?.message?.tool_calls?.find((c) => c.function?.name === PARSE_TOOL.name);
     if (!call?.function?.arguments) throw new Error("Parser did not return the required tool result");
     try { raw = JSON.parse(call.function.arguments); } catch { throw new Error("Parser returned arguments that are not JSON"); }
   }
-  const result = parseResultSchema.parse(raw);
+  const parsed = parseResultSchema.safeParse(unwrap(raw));
+  if (!parsed.success) {
+    const where = parsed.error.issues.slice(0, 3).map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`).join("; ");
+    throw new Error(`Parser returned a result that does not match the schema (${where}). Got: ${JSON.stringify(raw).slice(0, 300)}`);
+  }
+  const result = parsed.data;
+  void attempt;
   if (!result.autopilot) return result;
   const errors = validateAutopilot(result.autopilot);
   if (result.autopilot.account_id !== context.accountId) errors.push("account_id must match the current user's XOXNO account");
