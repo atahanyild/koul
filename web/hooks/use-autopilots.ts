@@ -92,7 +92,7 @@ export function useAutopilotEditor() {
 }
 
 export type ArmResult =
-  | { ok: true; chainId: number; grantHash: string | null; rulesHash: string; openHash?: string | null }
+  | { ok: true; chainId: number; grantHash: string | null; rulesHash: string | null; openHash?: string | null }
   | { ok: false; step: "wallet" | "account" | "open" | "rules" | "grant" | "write"; grantHash?: string | null; errors?: string[] };
 
 /** XOXNO mints the position inside the first supply, and the id shows up on the position NFT a ledger later. */
@@ -155,12 +155,16 @@ export function useArmAutopilot() {
     }
     const existing = chainIdOf(ap.id);
     const chainId = existing ?? (chain.list.length ? Math.max(...chain.list.map((c) => c.id)) + 1 : 1);
-    const res = await write.run(() => writer.buildSetAutopilot(address, chainId, core), { title: "Rules saved on-chain", description: `${core.rules.length} router rule${core.rules.length === 1 ? "" : "s"} for ${ap.name}.`, invalidatePrefixes: ["autopilots:", "portfolio:"] });
+    // A re-arm after a failed key grant should not ask for a signature it already has: the router may hold exactly
+    // these rules already, in which case only the key was missing.
+    const stored = chain.list.find((c) => c.id === chainId)?.autopilot;
+    const unchanged = stored !== undefined && JSON.stringify(stored) === JSON.stringify(core);
+    const res = unchanged ? { hash: null } : await write.run(() => writer.buildSetAutopilot(address, chainId, core), { title: "Rules saved on-chain", description: `${core.rules.length} router rule${core.rules.length === 1 ? "" : "s"} for ${ap.name}.`, invalidatePrefixes: ["autopilots:", "portfolio:"] });
     if (!res) return { ok: false, step: "write", grantHash };
     // The chain now holds the rules: keep name, sentence and marks under the chain id, drop the draft it came from.
     const armed: Autopilot = { ...ap, id: chainUiId(chainId), status: "armed", armedUntil: Date.now() + opts.days * 86400_000, agentRuleId: agent.active?.ruleId ?? null };
     drafts.set((prev) => [armed, ...prev.filter((a) => a.id !== ap.id && a.id !== armed.id)]);
-    return { ok: true, chainId, grantHash, rulesHash: res.hash, openHash };
+    return { ok: true, chainId, grantHash, rulesHash: res.hash ?? null, openHash };
   }, [kit, address, agent, chain.list, preview, write, openAction]);
 
   /** Revoke the agent key: every autopilot stops, the rules stay stored. */

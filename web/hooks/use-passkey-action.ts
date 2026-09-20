@@ -10,6 +10,20 @@ import { shortHash } from "@/lib/format";
 
 export type ActionPhase = "idle" | "building" | "prompt" | "submitting" | "success" | "cancelled" | "error";
 
+/**
+ * A browser allows one WebAuthn ceremony at a time: starting a second one aborts the first, and both come back as
+ * "the operation was not allowed" or "sent an abort signal". Arming runs up to three prompts in a row, so the lock
+ * is module-wide rather than per hook.
+ */
+let ceremonyOpen = false;
+
+/** A dismissed, timed out or aborted prompt is the user saying no, not a failure worth a red toast. */
+function isDismissed(err: unknown): boolean {
+  const name = (err as { name?: unknown } | null)?.name;
+  const text = `${name ?? ""} ${err instanceof Error ? err.message : String(err)}`;
+  return /NotAllowedError|AbortError|abort signal|timed out or was not allowed|user_cancelled|cancell?ed/i.test(text);
+}
+
 export interface ActionState {
   phase: ActionPhase;
   error: SembolError | null;
@@ -51,6 +65,11 @@ export function usePasskeyAction() {
 
   const run = useCallback(async <T,>(build: () => Promise<AssembledTransaction<T>>, opts: { title: string; description?: string; invalidatePrefixes?: string[] } ): Promise<TransactionSuccess | null> => {
     if (!kit) { toast.error("Wallet not ready"); return null; }
+    if (ceremonyOpen) {
+      toast("One at a time", { description: "A passkey prompt is already open. Finish or dismiss it first." });
+      return null;
+    }
+    ceremonyOpen = true;
     setError(null); setHash(null); setPhase("building");
     try {
       const tx = await build();
@@ -66,9 +85,13 @@ export function usePasskeyAction() {
     } catch (err) {
       const e = toSembolError(err);
       setError(e);
-      setPhase(e.code === "user_cancelled" ? "cancelled" : "error");
-      toastError(`${opts.title} failed`, err);
+      const dismissed = e.code === "user_cancelled" || isDismissed(err);
+      setPhase(dismissed ? "cancelled" : "error");
+      if (dismissed) toast("Nothing was signed", { description: "The passkey prompt was dismissed or timed out. Press the button again when you are ready." });
+      else toastError(`${opts.title} failed`, err);
       return null;
+    } finally {
+      ceremonyOpen = false;
     }
   }, [kit]);
 

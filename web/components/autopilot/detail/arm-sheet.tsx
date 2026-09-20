@@ -87,8 +87,14 @@ export function ArmSheet({ open, onOpenChange, ap, onArmed }: ArmSheetProps) {
   const canOpen = noAccount && openUnits >= 10_000_000n;
   const preview = React.useMemo(() => armer.preview(ap, accountId ?? 0n), [armer.preview, ap, accountId]);
   const permissions = React.useMemo(() => permissionsFor(ap), [ap]);
+  // When the router already holds exactly these rules, arming is only about the key.
+  const storedSame = React.useMemo(() => {
+    const chainId = Number(ap.id.replace(/^chain-/, ""));
+    const stored = armer.chain.list.find((c) => c.id === chainId)?.autopilot;
+    return stored !== undefined && JSON.stringify(stored) === JSON.stringify(preview.autopilot);
+  }, [ap.id, armer.chain.list, preview.autopilot]);
   const keyActive = agent.active;
-  const prompts = (canOpen ? 1 : 0) + (keyActive ? 1 : 2);
+  const prompts = (canOpen ? 1 : 0) + (keyActive ? 0 : 1) + (storedSame ? 0 : 1);
   const enabledRules = ap.rules.filter((r) => r.enabled).length;
   const blocked = (noAccount && !canOpen) || pf.loading || preview.errors.length > 0;
   const busy = grantAction.busy || rulesAction.busy || armer.openAction.busy;
@@ -98,7 +104,7 @@ export function ArmSheet({ open, onOpenChange, ap, onArmed }: ArmSheetProps) {
 
   const openState: StepState = armer.openAction.phase === "success" ? "done" : armer.openAction.busy ? "active" : "pending";
   const grantState: StepState = keyActive ? "skipped" : grantAction.phase === "success" ? "done" : grantAction.busy ? "active" : "pending";
-  const rulesState: StepState = rulesAction.phase === "success" ? "done" : rulesAction.busy ? "active" : "pending";
+  const rulesState: StepState = storedSame ? "skipped" : rulesAction.phase === "success" ? "done" : rulesAction.busy ? "active" : "pending";
 
   const run = async () => {
     if (blocked) return;
@@ -188,8 +194,8 @@ export function ArmSheet({ open, onOpenChange, ap, onArmed }: ArmSheetProps) {
             <Step n={canOpen ? 2 : 1} state={grantState} title={keyActive ? "Grant Koul's key (already done)" : "Grant Koul's key"}>
               <span className="inline-flex items-center gap-1"><KeyRound className="size-3" aria-hidden /> {keyActive ? "An active key is on your smart account, so this prompt is skipped." : `One passkey prompt adds the keeper's key to your smart account, restricted by the Koul policy, for ${days} day${days === 1 ? "" : "s"}.`}</span>
             </Step>
-            <Step n={canOpen ? 3 : 2} state={rulesState} title="Save the rules on-chain">
-              <span className="inline-flex items-center gap-1"><ScrollText className="size-3" aria-hidden /> One passkey prompt writes the rules to the router. Koul starts checking them within a few minutes.</span>
+            <Step n={canOpen ? 3 : 2} state={rulesState} title={storedSame ? "Save the rules on-chain (already done)" : "Save the rules on-chain"}>
+              <span className="inline-flex items-center gap-1"><ScrollText className="size-3" aria-hidden /> {storedSame ? "The router already holds exactly these rules, so this prompt is skipped." : "One passkey prompt writes the rules to the router. Koul starts checking them within a few minutes."}</span>
             </Step>
           </ol>
         </section>
