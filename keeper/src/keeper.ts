@@ -1,9 +1,11 @@
 /**
- * Koul keeper: every INTERVAL seconds, for each registered user, simulate `router.tick(user)`.
- * `Action::None` or a failed simulation -> skip (no fee). Otherwise sign the smart-account auth entry with the
- * agent Ed25519 key (one context_rule_id per auth context) and submit. The keeper never decides anything: the
- * router evaluates the rules on-chain, and koul_agent_policy confines what the agent key can authorise.
- *   pnpm tsx src/keeper.ts [--once] [--interval 30]
+ * Koul keeper: every INTERVAL seconds, for every user the router lists and every autopilot they own, simulate
+ * `router.tick(user, id)`. `None` or a failed simulation -> skip (no fee). Otherwise sign the smart-account auth
+ * entries with the agent Ed25519 key (one context_rule_id per auth context) and submit. The keeper never decides
+ * anything: the router evaluates the rules on-chain, and koul_agent_policy confines what the agent key can authorise.
+ * The keeper keeps no per-user state: users come from `list_users`, autopilots from `list_ids`, the agent rule id from
+ * the wallet's context rules.
+ *   pnpm tsx src/keeper.ts [--once] [--interval 30] [--quiet]
  */
 import { BASE_FEE, Contract, TransactionBuilder, contract, nativeToScVal, rpc, scValToNative, xdr } from "@stellar/stellar-sdk";
 import { ForbiddenAuthenticator, RP_ID, ORIGIN, TESTNET, countContexts, describeEntries, json, keeperKeypair, loadEnv, loadState, makeKit } from "./lib/common";
@@ -11,20 +13,22 @@ import { ForbiddenAuthenticator, RP_ID, ORIGIN, TESTNET, countContexts, describe
 const env = loadEnv();
 const state = loadState();
 const once = process.argv.includes("--once");
+const quiet = process.argv.includes("--quiet");
 const intervalArg = process.argv.indexOf("--interval");
 const interval = intervalArg > 0 ? Number(process.argv[intervalArg + 1]) : 30;
 const ROUTER = env.ROUTER_V1!;
 const ORACLE = env.MOCK_FX;
 const FEED_MAX_AGE = 600;
+const keeper = keeperKeypair(env);
 
 /**
  * Testnet only: the mock oracle has no feed of its own, so the keeper republishes the last price when it is older than
- * FEED_MAX_AGE seconds. Rules reject prices older than 900 s. With Reflector on mainnet this function does not exist.
+ * FEED_MAX_AGE seconds. Rules reject prices older than their max_age_secs (900 s in the templates). With Reflector on
+ * mainnet this function does not exist.
  */
 async function refreshMockOracle(): Promise<void> {
   if (!ORACLE) return;
   const server = new rpc.Server(TESTNET.rpcUrl);
-  const keeper = keeperKeypair(env);
   const oracle = new Contract(ORACLE);
   const tryAsset = xdr.ScVal.scvVec([xdr.ScVal.scvSymbol("Other"), xdr.ScVal.scvSymbol("TRY")]);
   const acc = await server.getAccount(keeper.publicKey());
@@ -42,50 +46,50 @@ async function refreshMockOracle(): Promise<void> {
   console.log(`${new Date().toISOString()} oracle   republished TRY price ${v.price} (was ${age}s old): ${sent.status} ${sent.hash}`);
 }
 
-interface User { wallet: string; credentialId: string; agentRuleId: number }
-const users: User[] = state.contractId && state.passkey && state.agentRuleId !== undefined
-  ? [{ wallet: state.contractId, credentialId: state.passkey.credentialId, agentRuleId: state.agentRuleId }]
-  : [];
-if (users.length === 0) throw new Error("no registered users (run scripts/setup-rules.ts)");
+interface Executed { rule_index: number; kind: string; amount: bigint; from_hub: number; to_hub: number }
+interface ConditionState { holds: boolean; observed: bigint }
+interface RuleState { ready: boolean; holds: boolean; conditions: ConditionState[]; last_fired: number }
+type RouterClient = {
+  list_users: () => Promise<contract.AssembledTransaction<string[]>>;
+  list_ids: (a: { user: string }) => Promise<contract.AssembledTransaction<number[]>>;
+  check: (a: { user: string; id: number }) => Promise<contract.AssembledTransaction<RuleState[]>>;
+  tick: (a: { user: string; id: number }) => Promise<contract.AssembledTransaction<Executed | undefined>>;
+};
+const router = (await contract.Client.from({ contractId: ROUTER, networkPassphrase: TESTNET.networkPassphrase, rpcUrl: TESTNET.rpcUrl, publicKey: keeper.publicKey() })) as unknown as RouterClient;
 
-const log = (u: User, m: string) => console.log(`${new Date().toISOString()} ${u.wallet.slice(0, 8)} ${m}`);
-const router = await contract.Client.from({ contractId: ROUTER, networkPassphrase: TESTNET.networkPassphrase, rpcUrl: TESTNET.rpcUrl, publicKey: keeperKeypair(env).publicKey() });
-type RouterClient = { tick: (a: { user: string }) => Promise<contract.AssembledTransaction<unknown>> };
+const stamp = () => new Date().toISOString();
+const tag = (user: string, id: number) => `${user.slice(0, 8)}#${id}`;
+const describe = (x: Executed) => `${x.kind} rule ${x.rule_index} amount ${(Number(x.amount) / 1e7).toFixed(2)} USDC hub ${x.from_hub} -> ${x.to_hub}`;
+const describeState = (st: RuleState[]) => st.map((r, i) => `r${i}${r.ready ? "" : " cooling"}${r.holds ? " HOLDS" : ""}[${r.conditions.map((c) => `${c.holds ? "+" : "-"}${c.observed}`).join(" ")}]`).join(" ");
 
-function describeAction(a: unknown): string {
-  if (!a || typeof a !== "object") return String(a);
-  const t = a as { tag?: string; values?: unknown[] };
-  if (t.tag === "None") return "None";
-  return `${t.tag}(${(t.values ?? []).map(String).join(", ")})`;
-}
-
-async function tickOnce(u: User): Promise<void> {
-  const kit = makeKit(env, new ForbiddenAuthenticator(RP_ID, ORIGIN, state.passkey));
-  await kit.connectWallet({ credentialId: u.credentialId, contractId: u.wallet });
-  kit.externalSigners.addEd25519FromSecret(env.AGENT_SECRET!);
-  const selected = kit.multiSigners.buildSelectedSigners(await kit.multiSigners.getAvailableSigners(), null).filter((s) => s.type === "ed25519");
-  if (selected.length !== 1) { log(u, "agent key is not a signer on this wallet, skipping"); return; }
-
-  let tx: contract.AssembledTransaction<unknown>;
+async function tickOne(user: string, id: number, agentRuleId: number, kit: ReturnType<typeof makeKit>, selected: Awaited<ReturnType<typeof kit.multiSigners.buildSelectedSigners>>): Promise<void> {
+  const log = (m: string) => console.log(`${stamp()} ${tag(user, id)} ${m}`);
+  let tx: contract.AssembledTransaction<Executed | undefined>;
   try {
-    tx = await (router as unknown as RouterClient).tick({ user: u.wallet });
+    tx = await router.tick({ user, id });
   } catch (err) {
-    log(u, `simulation failed, skipping: ${(err instanceof Error ? err.message : String(err)).replace(/\s+/g, " ").slice(0, 300)}`);
+    log(`simulation failed, skipping: ${(err instanceof Error ? err.message : String(err)).replace(/\s+/g, " ").slice(0, 300)}`);
     return;
   }
   const sim = (tx as { simulation?: rpc.Api.SimulateTransactionResponse }).simulation;
   if (!sim || rpc.Api.isSimulationError(sim)) {
     const codes = [...new Set((sim && rpc.Api.isSimulationError(sim) ? sim.error : "").match(/Error\(Contract, #\d+\)/g) ?? [])].join(",");
-    log(u, `simulation error, skipping: ${codes || (sim && rpc.Api.isSimulationError(sim) ? sim.error.replace(/\s+/g, " ").slice(0, 200) : "no simulation")}`);
+    log(`simulation error, skipping: ${codes || (sim && rpc.Api.isSimulationError(sim) ? sim.error.replace(/\s+/g, " ").slice(0, 200) : "no simulation")}`);
     return;
   }
-  let action: string;
-  try { action = describeAction(tx.result); } catch (err) { log(u, `cannot read result, skipping: ${err instanceof Error ? err.message : String(err)}`); return; }
-  if (action === "None") { log(u, "tick -> None, nothing to do"); return; }
+  const result = tx.result;
+  if (!result) {
+    if (!quiet) {
+      try { log(`tick -> None; ${describeState((await router.check({ user, id })).result)}`); } catch { log("tick -> None"); }
+    } else {
+      log("tick -> None");
+    }
+    return;
+  }
   const op = tx.built?.operations[0];
   const entries = op && "auth" in op ? (op as { auth: xdr.SorobanAuthorizationEntry[] }).auth : [];
-  if (entries.length === 0) { log(u, "no auth entries in simulation, skipping"); return; }
-  log(u, `tick -> ${action}; auth: ${describeEntries(entries).join(" | ")}`);
+  if (entries.length === 0) { log("no auth entries in simulation, skipping"); return; }
+  log(`tick -> ${describe(result)}; auth: ${describeEntries(entries).join(" | ")}`);
 
   let lastSim = "";
   const orig = kit.rpc.simulateTransaction.bind(kit.rpc);
@@ -96,23 +100,46 @@ async function tickOnce(u: User): Promise<void> {
   };
   const res = await kit.multiSigners.operation(tx, selected, {
     forceMethod: "rpc",
-    resolveContextRuleIds: (entry) => Array<number>(countContexts(entry.rootInvocation())).fill(u.agentRuleId),
+    resolveContextRuleIds: (entry) => Array<number>(countContexts(entry.rootInvocation())).fill(agentRuleId),
   });
+  (kit.rpc as { simulateTransaction: typeof orig }).simulateTransaction = orig;
   if (!res.success) {
-    const codes = [...new Set(lastSim.match(/Error\(Contract, #\d+\)/g) ?? [])].join(",");
-    log(u, `submit FAILED ${codes || json(res.error).slice(0, 200)}`);
+    const msg = `${lastSim} ${(res.error as { message?: string }).message ?? ""}`;
+    const codes = [...new Set(msg.match(/Error\(Contract, #\d+\)/g) ?? [])].join(",");
+    log(`submit FAILED ${codes || msg.replace(/\s+/g, " ").trim().slice(0, 300) || json(res.error).slice(0, 200)}`);
     return;
   }
-  log(u, `submitted ${res.hash}`);
+  log(`submitted ${res.hash}`);
   const r = await kit.rpc.getTransaction(res.hash!);
   const ret = (r as { returnValue?: xdr.ScVal }).returnValue;
-  if (ret) log(u, `on-chain result: ${json((tx as unknown as { parseResultXdr?: (v: xdr.ScVal) => unknown }).parseResultXdr?.(ret) ?? ret.switch().name)}`);
+  if (ret) log(`on-chain result: ${json((tx as unknown as { parseResultXdr?: (v: xdr.ScVal) => unknown }).parseResultXdr?.(ret) ?? ret.switch().name)}`);
+}
+
+async function tickUser(user: string): Promise<void> {
+  const log = (m: string) => console.log(`${stamp()} ${user.slice(0, 8)}   ${m}`);
+  const ids = (await router.list_ids({ user })).result;
+  if (ids.length === 0) { log("no autopilots"); return; }
+  const kit = makeKit(env, new ForbiddenAuthenticator(RP_ID, ORIGIN, state.passkey));
+  await kit.connectWallet({ credentialId: "koul-keeper", contractId: user });
+  kit.externalSigners.addEd25519FromSecret(env.AGENT_SECRET!);
+  const rules = await kit.rules.list();
+  const agentRules = rules.filter((r) => r.signers.some((s) => s.tag === "External" && s.values[0] === TESTNET.ed25519VerifierAddress));
+  if (agentRules.length === 0) { log("agent not granted on this wallet, skipping"); return; }
+  const agentRuleId = Number(agentRules[agentRules.length - 1]!.id);
+  const selected = kit.multiSigners.buildSelectedSigners(await kit.multiSigners.getAvailableSigners(), null).filter((s) => s.type === "ed25519");
+  if (selected.length !== 1) { log("agent key is not a signer on this wallet, skipping"); return; }
+  for (const id of ids) {
+    try { await tickOne(user, id, agentRuleId, kit, selected); } catch (err) { console.log(`${stamp()} ${tag(user, id)} error: ${err instanceof Error ? err.message : String(err)}`); }
+  }
 }
 
 do {
-  try { await refreshMockOracle(); } catch (err) { console.log(`oracle refresh failed: ${err instanceof Error ? err.message : String(err)}`); }
+  try { await refreshMockOracle(); } catch (err) { console.log(`${stamp()} oracle refresh failed: ${err instanceof Error ? err.message : String(err)}`); }
+  let users: string[] = [];
+  try { users = (await router.list_users()).result; } catch (err) { console.log(`${stamp()} list_users failed: ${err instanceof Error ? err.message : String(err)}`); }
+  if (users.length === 0) console.log(`${stamp()} no users registered on the router`);
   for (const u of users) {
-    try { await tickOnce(u); } catch (err) { log(u, `error: ${err instanceof Error ? err.message : String(err)}`); }
+    try { await tickUser(u); } catch (err) { console.log(`${stamp()} ${u.slice(0, 8)}   error: ${err instanceof Error ? err.message : String(err)}`); }
   }
   if (!once) await new Promise((r) => setTimeout(r, interval * 1000));
 } while (!once);

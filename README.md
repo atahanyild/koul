@@ -72,9 +72,9 @@ Two signing paths exist and only two.
 | Item | Address or value |
 |---|---|
 | Router `koul_router` | `CBHRTWXARGZCUDBE7IX4SZV7GDFA6PRQICZQPUSOUPN3YDCVPXQBMT2P` (admin is the keeper G-account, upgradeable in place with `upgrade`, keep this address) |
-| Agent policy `koul_agent_policy` | `CCEYSMIWTRJL7GE6G4MVKEC4NONUCTYVMZKMQH7D3PTQ7DPBLU5V3X4O` |
+| Agent policy `koul_agent_policy` | `CBDQPSGJDJUGLUIYTLAVH7C7FQE3ZN2HXOKYELNPEEUHFPV52QRI5AR2` |
 | Mock FX oracle `koul_mock_fx` | `CB6VNXADXR3XHCS4EKV5ZR5UJUZYQ5BZTPRHCNQE3XMKQMB4LJG6MKW2` |
-| Headless test wallet (software passkey) | `CBHMG4IGCLP36WJUMYR55N2TGDSZ4C5V6YQSBT4HWT6A77DCL3Y7UUFL`, XOXNO account 12, rules `0:multisig` and `6:koul-agent-bhrtwx` |
+| Headless test wallet (software passkey) | `CBHMG4IGCLP36WJUMYR55N2TGDSZ4C5V6YQSBT4HWT6A77DCL3Y7UUFL`, XOXNO account 12, rules `0:multisig` and `7:koul-agent-bhrtwx` |
 | Keeper G-account (fees, sponsor, oracle admin, router admin) | `GAFHZTSL63YZYU35SCHDOGOMXQ25266DBQYG7KETG6HC2AHBIZMGXP6U` |
 | Agent Ed25519 public key | `GBVD753EJMRQYI6WQCWC4OMDCNMGQMHXRT7IOAHTT3FD7ON6OQXTSAK3` |
 | Borrower identity (creates utilisation) | `GBRXD5JOT5YV6U3VFZ4ESR6MPCLJ3MSP55SUQNKSK23465U34M6H5EZJ`, XOXNO account 23, 2000 XLM collateral, 12 USDC borrowed on hub 2 |
@@ -85,7 +85,7 @@ Two signing paths exist and only two.
 | Anchor | `tr-mock-anchor.fly.dev`, asset USDC |
 | Retired phase 0 probes | router probe `CA53BZYX...`, noop policy `CA4TJH2W...`, deny policy `CB2N5CHX...` |
 
-The contract source was renamed from `niet_*` to `koul_*` after these deployments. Logic is unchanged; the on-chain wasm hashes recorded in the logs were produced from the pre-rename source. The router will be redeployed anyway when it becomes a rule engine.
+The contract source was renamed from `niet_*` to `koul_*` after the initial deployments. The router was upgraded in place to the rule engine; its address stayed fixed. The policy was redeployed separately.
 
 ## Repository layout
 
@@ -107,7 +107,8 @@ keeper/
   src/lib/common.ts               constants, env, state, kit factory, policy params, helpers
   src/anchor/                     Kumbara landing account port (MIT, see LICENSE-KUMBARA) plus local fee-bump relay
   src/phase0/passkey.ts           software P-256 WebAuthn authenticator for headless wallets
-  scripts/setup-rules.ts          grant the agent and save rules for the headless wallet
+  scripts/setup-autopilot.ts      grant the agent and save Lira shield for the headless wallet
+packages/core/                    typed autopilot schema, validation and contract codec; SDK reads and writes in progress
   scripts/demo-health.ts          passkey borrow to push the health factor under the minimum
   scripts/anchor-withdraw.ts      USDC from the smart wallet to TRY through a reverse landing account
   scripts/phase0/                 t1-t3, t3-deny, t4, t5, t6, t7, revoke
@@ -180,7 +181,7 @@ Fill `.env`:
 | `KEEPER_SECRET` | a funded testnet G-secret. Pays fees, sponsors landing accounts, is the mock oracle admin and the router admin. Fund a new one with friendbot |
 | `AGENT_SECRET` | the Ed25519 secret whose public key users grant. Any `stellar keys generate --as-secret` output. Its public key goes into the web app as `NEXT_PUBLIC_KOUL_AGENT_PUBLIC_KEY` |
 | `ROUTER_V1` | `CBHRTWXARGZCUDBE7IX4SZV7GDFA6PRQICZQPUSOUPN3YDCVPXQBMT2P` |
-| `KOUL_POLICY` | `CCEYSMIWTRJL7GE6G4MVKEC4NONUCTYVMZKMQH7D3PTQ7DPBLU5V3X4O` |
+| `KOUL_POLICY` | `CBDQPSGJDJUGLUIYTLAVH7C7FQE3ZN2HXOKYELNPEEUHFPV52QRI5AR2` |
 | `MOCK_FX` | `CB6VNXADXR3XHCS4EKV5ZR5UJUZYQ5BZTPRHCNQE3XMKQMB4LJG6MKW2` |
 | `ROUTER`, `NOOP_POLICY`, `DENY_POLICY` | phase 0 probe addresses, only needed by `scripts/phase0/*` |
 
@@ -189,19 +190,28 @@ The keeper and the setup scripts operate on the headless wallet described by `ke
 ```sh
 pnpm phase0:t1-t3     # deploys a smart account with a software passkey, funds it, adds a noop agent rule, sends 1 XLM with the agent key
 pnpm phase0:t4        # TRY -> USDC through the anchor sandbox into the wallet, then a passkey supply to XOXNO hub 1; records the XOXNO account id
-pnpm setup-rules      # passkey: grant the agent under koul_agent_policy for the real router, remove stale rules, router.set_rules
+pnpm setup-autopilot  # passkey: grant the agent under koul_agent_policy (pinned to the XOXNO account), remove stale rules, router.set_autopilot(wallet, 1, Lira shield)
 ```
 
-`t1-t3` and `t4` write to `.phase0-state.json`. `setup-rules` needs `contractId`, `passkey` and `t4.accountId` in that file. Strategy parameters are constants at the top of `scripts/setup-rules.ts`: hubs 1 and 2, 100 bps rebalance threshold, minimum health factor 1.25, FX exit at USD/TRY 50 with a 900 s staleness limit.
+`t1-t3` and `t4` write to `.phase0-state.json`. `setup-autopilot` needs `contractId`, `passkey` and `t4.accountId` in that file. The Lira shield autopilot is defined at the bottom of `scripts/setup-autopilot.ts`: five rules, health factor under 1.25 repays from the wallet, a 100 bps deposit-rate gap moves supply either way, USD per TRY under 0.0200 (USD/TRY over 50) withdraws each hub to the wallet, 900 s price staleness limit, cooldowns of 30 or 300 ledgers.
+
+Other passkey helpers for the headless wallet:
+
+```sh
+pnpm position show                 # health factor, idle USDC, per-hub collateral, debt, rate, cash, utilisation
+pnpm position supply 1 10          # also borrow, repay, withdraw <hub> <usdc>; borrow pushes the health factor down for the health-guard demo
+pnpm policy-deny                   # agent-signed direct controller calls the policy must reject (7109, 7108, 7103) plus one allowed control
+pnpm tx-diag <hash>                # failing diagnostic events of a testnet transaction
+```
 
 Run the keeper:
 
 ```sh
-pnpm keeper:once                       # one pass: simulate tick, submit if the router returns an action
+pnpm keeper:once                       # one pass over every user and autopilot the router lists: simulate tick, submit if it returns an action
 pnpm keeper -- --interval 30           # loop every 30 s, also republishes the mock TRY price when older than 10 min
 ```
 
-Each pass prints the simulated action, and on submission the transaction hash and the decoded `Fired` event.
+The keeper keeps no per-user state: users come from `router.list_users()`, autopilots from `list_ids(user)`, the agent rule id from the wallet's context rules. Each pass prints the simulated action, or when nothing applies the `check` view (`r1 HOLDS[+8080]` means rule 1's conditions hold with an observed rate gap of 8080 bps; `cooling` means the cooldown is running). On submission it prints the transaction hash.
 
 Tests and typecheck:
 
@@ -209,6 +219,8 @@ Tests and typecheck:
 pnpm test          # vitest, runs the ported landing account tests (9 cases)
 pnpm typecheck
 ```
+
+The typed SDK is being built in `packages/core`. Its `Autopilot` JSON uses decimal strings for u64/i128 values to avoid JavaScript precision loss. `autopilotSchema`, `validateAutopilot`, `encodeAutopilot`, and `decodeAutopilot` are available now. From `packages/core`, run `pnpm install`, `pnpm test`, and `pnpm typecheck`. Contract reads and unsigned transaction builders are the next step; see PLAN.md section D.
 
 ### 3. Web app
 
@@ -222,6 +234,8 @@ pnpm dev                 # http://localhost:3000
 `ORACLE_ADMIN_SECRET` in `.env.local` is the keeper secret; it is only read by the server route `app/api/oracle/route.ts` and never shipped to the browser. The `NEXT_PUBLIC_KOUL_*` overrides are optional and default to the live deployment.
 
 The app uses Sembol's testnet preset and the public SDF relayer, so wallet creation and every passkey-signed call are fee-sponsored and no local secret is needed for user actions. Passkeys are bound to the origin, so a wallet created on `localhost:3000` is only reachable from `localhost:3000`.
+
+The prototype's Strategy and Activity panels still speak the v1 router (`set_rules`, `branch`) and the v1 policy params; they are rewired to `@koul/core` in PLAN.md section D. Until then use the keeper scripts above for the rule engine.
 
 Flow in the current prototype:
 
@@ -245,17 +259,18 @@ Deposit for the headless wallet is inside `pnpm phase0:t4`. The anchor was inter
 
 ## Demo scenarios
 
-All three router branches on the headless wallet, in the order they were proven:
+The Lira shield autopilot on the headless wallet, each proven on the rule engine (hashes in `docs/build-log.md`, "Keeper v2"):
 
 | Scenario | How to trigger | What the router does |
 |---|---|---|
-| Rebalance | hub 2 pays more than hub 1 by over 100 bps (the borrower on account 23 keeps it so; borrow more from account 23 to widen, repay to shrink) | `Rebalance(1 -> 2, amount)`, withdraw from hub 1 and supply to hub 2 in one transaction, amount capped by hub cash and the 95 percent utilisation ceiling |
-| FX exit | on `/oracle` press 50.25 lira shock, or `pnpm keeper` after `set_price` | `FxExit(amount)`, withdraw what is liquid from hub 2 to the wallet, stays armed while over 1 USDC remains supplied |
-| Health guard | `pnpm demo:health 16` borrows 16 USDC with the passkey, health factor drops under 1.25 | `Repay(hub, debt + 1 grain)` from idle wallet USDC, health factor back to infinity |
-| Stale price | `/oracle` Publish stale | tick returns none, FX branch refuses a price older than the rule's limit |
+| Rebalance | hub 2 pays more than hub 1 by over 100 bps (the borrower on account 23 keeps it so) and hub 1 holds collateral: `pnpm position supply 1 10` | rule 1 `MoveSupply(1 -> 2, All)`: withdraw from hub 1 and supply to hub 2 in one transaction, amount capped by hub cash and the 95 percent utilisation ceiling |
+| Health guard | `pnpm position borrow 1 22` with the passkey, health factor drops under 1.25 | rule 0 `RepayFromWallet(1, All)`: repays `debt + 1 grain` from idle wallet USDC, health factor back to infinity |
+| FX exit | on `/oracle` press 50.25 lira shock, or `set_price` on the mock oracle, then a keeper pass | rules 3 and 4 `WithdrawToWallet(hub, All)`: the first hub with something liquid is withdrawn to the wallet, the next tick after the cooldown takes the other hub; an empty hub is skipped |
+| Stale price | `/oracle` Publish stale | `FxPrice` is false for a price older than its limit; `check` shows the observed price with `holds = false` |
+| Nothing to do | any pass in between | `tick -> None`, the keeper prints the `check` view and spends no fee |
 | Revoke | web app Revoke, or `pnpm phase0:revoke` | the next agent tick fails at simulation with `ContextRuleNotFound`, no fee spent |
 
-Between scenarios the next tick returns none, which shows idempotence.
+A rule whose conditions hold but whose action has nothing to move (empty hub, no debt, empty wallet, illiquid hub) is skipped and the next rule is tried, so the order of the rules is the priority.
 
 ## Findings and constraints
 

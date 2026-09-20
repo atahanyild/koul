@@ -4,7 +4,11 @@ Read this first in every session. Update the checklist and the "Where we are" li
 
 ## Where we are
 
-2026-09-20: backend v1 complete (fixed three-branch router, keeper, policy, mock oracle, anchor both ways). Decisions taken with the user: router becomes a rule engine; cash out to TRY is a "withdraw to wallet, then user confirms cash out on the Funds page" flow (option A); AI sentence-to-rules uses a strict schema and a server route; the position NFT card is checked and dropped if none exists; the frontend is not our work. Nothing from the plan below is started.
+2026-09-20 (current): sections A, B, C are done and proven live (see `docs/build-log.md`, "Router v2", "Policy v2", "Keeper v2"). D1-D3 are implemented in `packages/core`: strict JSON schema, contract ScVal codec and mirrored validation. Next: D4 reads. The package is not yet wired into a workspace or frontend. The `web/` prototype is stale against the new router and policy until D rewires it.
+
+Earlier: the router is a rule engine on its fixed address; the policy is redeployed at `CBDQPSGJ...5AR2` with a pinned account id and a withdraw-recipient check; the keeper is stateless and the three scenarios fired through the new stack. Deviations from the sketch below, all deliberate: `tick` returns `Option<Executed {rule_index, kind, amount, from_hub, to_hub}>`; `check` returns `Vec<RuleState {ready, holds, conditions: Vec<ConditionState {holds, observed}>, last_fired}>`; `RepayWithCollateral(withdraw_hub, repay_hub, amount)` names both hubs; `KoulAgentParams` has `account_id`.
+
+Earlier the same day: backend v1 complete (fixed three-branch router, keeper, policy, mock oracle, anchor both ways). Decisions taken with the user: router becomes a rule engine; cash out to TRY is a "withdraw to wallet, then user confirms cash out on the Funds page" flow (option A); AI sentence-to-rules uses a strict schema and a server route; the position NFT card is checked and dropped if none exists; the frontend is not our work.
 
 ## Decisions (do not reopen)
 
@@ -51,26 +55,26 @@ Constraints carried over: amounts snapped to 0.01 USDC, min move 1 USDC, repay r
 ## Checklist
 
 ### A. Router rule engine (`contracts/koul_router`)
-- [ ] A1 types above as `contracttype`s, storage keys, migrate constructor signature if needed
-- [ ] A2 `set_autopilot` / `clear_autopilot` / `get_autopilot` / `list_ids` / `list_users`, validation (1..=3 conditions, hubs differ for MoveSupply, cooldown > 0, max_age > 0, at most 8 rules)
-- [ ] A3 condition evaluation with the existing reads; `check` view
-- [ ] A4 `tick`: cooldown, first true rule, execute action with the existing amount logic, record LastFired, emit Fired
-- [ ] A5 unit tests for evaluation, ordering, cooldown, amount resolution
-- [ ] A6 build, upload, `upgrade` on `CBHRTWXA...`, log wasm hash in `docs/build-log.md`
+- [x] A1 types above as `contracttype`s, storage keys, migrate constructor signature if needed
+- [x] A2 `set_autopilot` / `clear_autopilot` / `get_autopilot` / `list_ids` / `list_users`, validation (1..=3 conditions, hubs differ for MoveSupply, cooldown > 0, max_age > 0, at most 8 rules)
+- [x] A3 condition evaluation with the existing reads; `check` view
+- [x] A4 `tick`: cooldown, first true rule, execute action with the existing amount logic, record LastFired, emit Fired
+- [x] A5 unit tests for evaluation, ordering, cooldown, amount resolution
+- [x] A6 build, upload, `upgrade` on `CBHRTWXA...`, log wasm hash in `docs/build-log.md`
 
 ### B. Policy hardening (`contracts/koul_agent_policy`)
-- [ ] B1 `withdraw` recipient check: controller `withdraw(user, id, entries, Some(to))` must have `to == smart_account` (today any `to` passes); same for any call that names a destination
-- [ ] B2 redeploy policy, new address in README, `keeper/.env`, `web/lib/koul.ts`; re-grant on the headless wallet
+- [x] B1 `withdraw` recipient check: controller `withdraw(user, id, entries, Some(to))` must have `to == smart_account` (today any `to` passes); same for any call that names a destination
+- [x] B2 redeploy policy, new address in README, `keeper/.env`, `web/lib/koul.ts`; re-grant on the headless wallet
 
 ### C. Keeper (`keeper/`)
-- [ ] C1 iterate `list_users` x `list_ids`, tick each, per-autopilot log line
-- [ ] C2 `setup-rules.ts` becomes `setup-autopilot.ts` writing the "Lira shield" autopilot as three rules
-- [ ] C3 rerun the three live scenarios (rebalance, fx exit, health guard) and record hashes in `docs/build-log.md`
+- [x] C1 iterate `list_users` x `list_ids`, tick each, per-autopilot log line
+- [x] C2 `setup-rules.ts` becomes `setup-autopilot.ts` writing the "Lira shield" autopilot (five rules: health guard, rate gap both ways, FX exit per hub); `position.ts` and `policy-deny.ts` added
+- [x] C3 rerun the three live scenarios (rebalance, fx exit, health guard) and record hashes in `docs/build-log.md`
 
 ### D. Typed SDK for the frontend (`packages/core`, published as a workspace package `@koul/core`)
-- [ ] D1 TypeScript types mirroring the contract types, plus `zod` schemas (the strict data type the LLM must produce)
-- [ ] D2 `encodeAutopilot(ap) -> ScVal`, `decodeAutopilot(ScVal) -> Autopilot`, round-trip tests
-- [ ] D3 `validateAutopilot(ap)` with the same limits the contract enforces, returning readable errors
+- [x] D1 TypeScript types mirroring the contract types, plus `zod` schemas (the strict data type the LLM must produce)
+- [x] D2 `encodeAutopilot(ap) -> ScVal`, `decodeAutopilot(ScVal) -> Autopilot`, round-trip tests
+- [x] D3 `validateAutopilot(ap)` with the same limits the contract enforces, returning readable errors
 - [ ] D4 reads: `readPortfolio(address)` (idle USDC, XLM, positions per hub, health factor, hub rates, cash, utilisation), `readOracle()`, `simulateTick(user, id)` (no signing, returns the action or none), `checkAutopilot(user, id)` (per condition truth), `readFired(user)` events
 - [ ] D5 writes as unsigned `AssembledTransaction`s the frontend hands to `kit.signAndSubmit`: `buildSetAutopilot`, `buildClearAutopilot`, `buildGrantAgent(days, neededCalls)`, `buildRevokeAgent`, `buildSupply`, `buildWithdraw`, `buildBorrow`, `buildTransfer`
 - [ ] D6 `permissionsFor(ap)` -> the minimal allowlist and the plain-English list for the arm sheet

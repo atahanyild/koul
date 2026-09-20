@@ -141,3 +141,52 @@ panicking. Tests: 8 (helpers, validation, registries, and three scenario tests a
 oracle with a real Stellar asset contract).
 
 The keeper and `setup-rules.ts` still speak the v1 interface at this point; section C updates them.
+
+## Policy v2: pinned account and withdraw recipient (2026-09-20)
+
+`contracts/koul_agent_policy` gained `account_id` in `KoulAgentParams` and three checks in `enforce`: controller
+`withdraw` / `supply` / `repay` must name the pinned account (`7108 AccountNotAllowed`), and `withdraw`'s `to` must be
+`None` or the smart account (`7109 WithdrawRecipientNotAllowed`). `TransferArity` became `Arity` (7105). New
+deployment, the old policy address is retired.
+
+| Step | Result |
+|---|---|
+| deploy | `CBDQPSGJDJUGLUIYTLAVH7C7FQE3ZN2HXOKYELNPEEUHFPV52QRI5AR2`, wasm `ad6bddd7...`, tx `5bedc8b6ccb9379f6851e111c845db8a1604931ed40d2389e15eb72b6318938e` |
+| `rules.add` koul-agent-bhrtwx (agent key + policy v2, account 12, 1 day) on `CBHMG4IG...` | rule id 7, tx `1df68d4c29d32856e497113cdb7ac72305d7fb9ea78c253b95ee9624434f0c64` |
+| `rules.remove` 6 niet-agent-bhrtwx (policy v1) | tx `69b61e662ffa6d9f15f54f30459b310f0376991222bde5150616bfdc2b92af89` |
+| agent-signed `controller.withdraw(..., to = GBRXD5JO...)` | rejected in simulation with `#7109` |
+| agent-signed `controller.repay(wallet, 23, ...)` | rejected in simulation with `#7108` |
+| agent-signed `controller.borrow(...)` | rejected in simulation with `#7103` (not allowlisted) |
+| agent-signed `controller.withdraw(..., to = wallet)` (control) | submitted `b7ec85ab58ff00f80e2c80aba098c7f8f26d4a2d9e2f518d224f8fbff09b2c5e`, `4389e4cc3007534e1a63b73cd4693f378ae36fe4fda9da5754a2a30e8c63b0ba` |
+
+Wallet rules now: `0:multisig` (passkey), `7:koul-agent-bhrtwx`. `pnpm policy-deny` reruns the four checks. XOXNO
+itself refuses `supply` into an account the caller does not own (`#44`), so the account pin only adds a second
+line of defence there; for `repay` it is the only one.
+
+Note on testing the policy: a call XOXNO rejects in simulation never reaches `__check_auth`, and the kit then submits a
+transaction without auth entries which the network answers with `txMALFORMED`. `policy-deny` checks the simulation
+first and reports "policy not reached" instead.
+
+## Keeper v2 and the three scenarios on the rule engine (2026-09-20)
+
+`keeper/src/keeper.ts` is stateless: `router.list_users()` x `router.list_ids(user)`, one `tick(user, id)` each,
+agent rule id read from the wallet's context rules, `check(user, id)` logged when a tick is `None` (`--quiet` to skip).
+`scripts/setup-autopilot.ts` replaces `setup-rules.ts`; `scripts/position.ts` (passkey supply / borrow / repay /
+withdraw / show) replaces `demo-health.ts`; `scripts/tx-diag.ts <hash>` prints a failed transaction's diagnostics.
+
+| Step | Result |
+|---|---|
+| `set_autopilot(CBHMG4IG..., 1, Lira shield)` (passkey): 5 rules, health guard 1.25 / rate gap 100 bps both ways / FX exit both hubs at USD per TRY < 0.0200 | tx `dd4ca8a0320c2c3ec272a6722b421481c33b5b25914a620a139b8f94b93c69b0` |
+| keeper pass, nothing to do | `tick -> None; r0[-inf] r1 HOLDS[+8080] r2[--8080] r3[-2049600327936] r4[-2049600327936]`: rule 1 holds (hub 2 pays 80.8 % more) but hub 1 is empty, so it falls through |
+| passkey `supply 10 USDC hub 1` | tx `4c55f8be67685d6a07560d7402ac1ea1b9b8b5d29213861c1ed29eedac968648` |
+| **rebalance**: `move_supply rule 1 amount 10.00 USDC hub 1 -> 2` | tx `ca977dc98bc9f2bc7ac169039bea1c69c1ea06730e541044b2a3996896076d88` |
+| passkey `borrow 16` + `borrow 6` from hub 1, health factor 1.2064 | txs `b0612abf...`, `b386c713...` |
+| health guard, first attempt | FAILED `5073c3ca7faebae0280410491dcd067e2c193fd03379f99b2693ec1878ff18bf`: XOXNO `get_health_factor` reads Reflector `prices` at a 5-minute round key; the round changed between simulation and execution ("trying to access contract data key outside of the footprint"). Timing, not logic; the next tick retries |
+| **health guard**: `repay_wallet rule 0 amount 22.02 USDC hub 1` | tx `1977c549c73b182800d43261042e365de89ff07e77e5848400729df465b0cfd7`, debt 0, health factor back to infinity |
+| mock oracle `set_price` TRY 0.0199 | tx `28e5b50a27f4c13b89701c6368f8807f299871cd0007c2ba28c72d206c50c825` |
+| **FX exit**: rule 3 (hub 1) skipped as empty, `withdraw rule 4 amount 10.00 USDC hub 2` (capped by hub 2's 95 % utilisation ceiling, 23.18 stays) | tx `2f37d8b44b2b902bed140d02fc593c692cdcaa50038a3a0c4d0a39a20bc09cd9` |
+| mock oracle `set_price` back to 0.0205 | tx `2c5b7a1dd2d9736a10af3e03a23ef9a7c4766a082123b04c494f6af7e7831bed` |
+
+Position after the run: hub 1 0 USDC, hub 2 23.18 USDC (hub 2 is at its utilisation ceiling, borrower account 23
+owes 12 USDC there), wallet 23.82 USDC idle, no debt. The `web/` prototype still speaks the v1 router interface and
+the v1 policy params; it is rewired to `@koul/core` in section D.

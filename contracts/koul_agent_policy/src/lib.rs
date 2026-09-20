@@ -6,14 +6,17 @@
 //!   1. rejects anything that is not a `Context::Contract`;
 //!   2. requires `(contract, fn_name)` to be in `allowed_calls`;
 //!   3. for `transfer`, requires `args[1]` (recipient) to be in `allowed_transfer_recipients`;
-//!   4. counts enforce calls per (account, rule) in a rolling ledger window and rejects above the limit;
-//!   5. emits a small event (never the whole Context, see OZ issue #852).
+//!   4. for the XOXNO controller's `withdraw` / `supply` / `repay`, requires `args[1]` (account id) to equal the
+//!      pinned `account_id`, and for `withdraw` requires `args[3]` (`to`) to be `None` or the smart account itself,
+//!      so the agent can only ever move funds between the user's wallet and the user's own position;
+//!   5. counts enforce calls per (account, rule) in a rolling ledger window and rejects above the limit;
+//!   6. emits a small event (never the whole Context, see OZ issue #852).
 #![no_std]
 
 use soroban_sdk::{
     auth::{Context, ContractContext},
     contract, contracterror, contractevent, contractimpl, contracttype, panic_with_error, symbol_short, Address, Env,
-    Symbol, TryFromVal, Vec,
+    Symbol, TryFromVal, Val, Vec,
 };
 use stellar_accounts::{
     policies::Policy,
@@ -23,6 +26,8 @@ use stellar_accounts::{
 #[contracttype]
 #[derive(Clone, Debug)]
 pub struct KoulAgentParams {
+    /// The user's XOXNO account id. Controller calls naming another account are rejected.
+    pub account_id: u64,
     pub allowed_calls: Vec<(Address, Symbol)>,
     pub allowed_transfer_recipients: Vec<Address>,
     pub max_calls_per_window: u32,
@@ -52,9 +57,11 @@ pub enum KoulPolicyError {
     NotContractContext = 7102,
     CallNotAllowed = 7103,
     TransferRecipientNotAllowed = 7104,
-    TransferArity = 7105,
+    Arity = 7105,
     RateLimited = 7106,
     BadParams = 7107,
+    AccountNotAllowed = 7108,
+    WithdrawRecipientNotAllowed = 7109,
 }
 
 #[contractevent]
@@ -89,6 +96,14 @@ fn params(e: &Env, smart_account: &Address, rule_id: u32) -> KoulAgentParams {
     p
 }
 
+/// XOXNO controller calls carry the account id as their second argument.
+fn check_account(e: &Env, args: &Vec<Val>, account_id: u64) {
+    let id = u64::try_from_val(e, &args.get(1).unwrap()).unwrap_or_else(|_| panic_with_error!(e, KoulPolicyError::Arity));
+    if id != account_id {
+        panic_with_error!(e, KoulPolicyError::AccountNotAllowed);
+    }
+}
+
 #[contract]
 pub struct KoulAgentPolicy;
 
@@ -112,12 +127,34 @@ impl Policy for KoulAgentPolicy {
         }
         if fn_name == symbol_short!("transfer") {
             if args.len() != 3 {
-                panic_with_error!(e, KoulPolicyError::TransferArity);
+                panic_with_error!(e, KoulPolicyError::Arity);
             }
-            let to = Address::try_from_val(e, &args.get(1).unwrap()).unwrap_or_else(|_| panic_with_error!(e, KoulPolicyError::TransferArity));
+            let to = Address::try_from_val(e, &args.get(1).unwrap()).unwrap_or_else(|_| panic_with_error!(e, KoulPolicyError::Arity));
             if !p.allowed_transfer_recipients.iter().any(|r| r == to) {
                 panic_with_error!(e, KoulPolicyError::TransferRecipientNotAllowed);
             }
+        } else if fn_name == symbol_short!("withdraw") {
+            if args.len() != 4 {
+                panic_with_error!(e, KoulPolicyError::Arity);
+            }
+            check_account(e, &args, p.account_id);
+            let to: Val = args.get(3).unwrap();
+            if !to.is_void() {
+                let to = Address::try_from_val(e, &to).unwrap_or_else(|_| panic_with_error!(e, KoulPolicyError::Arity));
+                if to != smart_account {
+                    panic_with_error!(e, KoulPolicyError::WithdrawRecipientNotAllowed);
+                }
+            }
+        } else if fn_name == symbol_short!("supply") {
+            if args.len() != 4 {
+                panic_with_error!(e, KoulPolicyError::Arity);
+            }
+            check_account(e, &args, p.account_id);
+        } else if fn_name == symbol_short!("repay") {
+            if args.len() != 3 {
+                panic_with_error!(e, KoulPolicyError::Arity);
+            }
+            check_account(e, &args, p.account_id);
         }
         let now = e.ledger().sequence();
         let wkey = StorageKey::Window(smart_account.clone(), context_rule.id);
@@ -136,7 +173,7 @@ impl Policy for KoulAgentPolicy {
 
     fn install(e: &Env, install_params: KoulAgentParams, context_rule: ContextRule, smart_account: Address) {
         smart_account.require_auth();
-        if install_params.allowed_calls.is_empty() || install_params.max_calls_per_window == 0 || install_params.window_ledgers == 0 {
+        if install_params.account_id == 0 || install_params.allowed_calls.is_empty() || install_params.max_calls_per_window == 0 || install_params.window_ledgers == 0 {
             panic_with_error!(e, KoulPolicyError::BadParams);
         }
         let key = StorageKey::Params(smart_account.clone(), context_rule.id);

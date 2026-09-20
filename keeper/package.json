@@ -15,8 +15,10 @@
     "phase0:revoke": "tsx scripts/phase0/revoke.ts",
     "keeper": "tsx src/keeper.ts",
     "keeper:once": "tsx src/keeper.ts --once",
-    "setup-rules": "tsx scripts/setup-rules.ts",
-    "demo:health": "tsx scripts/demo-health.ts",
+    "setup-autopilot": "tsx scripts/setup-autopilot.ts",
+    "position": "tsx scripts/position.ts",
+    "policy-deny": "tsx scripts/policy-deny.ts",
+    "tx-diag": "tsx scripts/tx-diag.ts",
     "anchor:withdraw": "tsx scripts/anchor-withdraw.ts"
   },
   "dependencies": {

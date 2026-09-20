@@ -1,7 +1,7 @@
 /** Shared wiring for the keeper and its scripts: testnet constants, env, state file, kit factory. */
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { Address, Keypair, xdr } from "@stellar/stellar-sdk";
+import { Address, Keypair, nativeToScVal, xdr } from "@stellar/stellar-sdk";
 import { MemoryStorage, SmartAccountKit } from "smart-account-kit";
 import { SoftwareAuthenticator, type AuthenticatorState } from "../phase0/passkey";
 
@@ -91,8 +91,9 @@ export function describeEntries(entries: xdr.SorobanAuthorizationEntry[]): strin
 }
 
 /** `KoulAgentParams` as the kit expects it for a custom policy: a hand-built ScVal map, keys in sorted order. */
-export function policyParams(p: { allowedCalls: [string, string][]; recipients: string[]; maxCalls: number; windowLedgers: number }): xdr.ScVal {
+export function policyParams(p: { accountId: bigint; allowedCalls: [string, string][]; recipients: string[]; maxCalls: number; windowLedgers: number }): xdr.ScVal {
   return xdr.ScVal.scvMap([
+    new xdr.ScMapEntry({ key: sym("account_id"), val: nativeToScVal(p.accountId, { type: "u64" }) }),
     new xdr.ScMapEntry({ key: sym("allowed_calls"), val: xdr.ScVal.scvVec(p.allowedCalls.map(([c, f]) => xdr.ScVal.scvVec([addr(c), sym(f)]))) }),
     new xdr.ScMapEntry({ key: sym("allowed_transfer_recipients"), val: xdr.ScVal.scvVec(p.recipients.map(addr)) }),
     new xdr.ScMapEntry({ key: sym("max_calls_per_window"), val: xdr.ScVal.scvU32(p.maxCalls) }),
