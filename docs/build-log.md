@@ -274,3 +274,18 @@ Fixed with a `pnpm-workspace.yaml` covering `web`, `keeper`, `packages/*` and `o
 Also: failures now say what the chain said. `toastError` prefers the contract error over Sembol's generic sentence
 and logs the raw error, and `describeFailure` names the policy codes (7103, 7104, 7106, 7108, 7109), the router
 codes (7200, 7201, 7206) and XOXNO's liquidity codes (112, 127).
+
+## First end-to-end autopilot on a browser passkey wallet (2026-09-20)
+
+Wallet `CCDWPO4QAXLRYZBJA2LBHU44MS34JRRNZQXFS3QQFIOBAGP6MBDFBDPX`, created in Chrome with a real passkey, armed from
+the app: position NFT token 25, autopilot 1 = `IdleBalance >= 5 USDC -> SupplyFromWallet(hub 1, All)`, cooldown 12
+ledgers. The keeper picked it up on its first pass and the rule fired: `supply rule 0 amount 20.00 USDC hub 1`,
+auth `tick > supply > transfer`, tx `d03ac8676140465b2dd0c06b90c5ca6f10b12d9b744f2adcfc672e035d103131`. Activity
+shows it as "Put 20.00 USDC to work in USDC · Main hub".
+
+Two web fixes came out of the same session. WebAuthn allows one ceremony at a time, and a second prompt aborts the
+first with "the operation either timed out or was not allowed" and "authentication ceremony was sent an abort
+signal"; `usePasskeyAction` now holds a module-wide lock, refuses a second prompt while one is open, and treats a
+dismissed or timed-out prompt as a cancellation rather than a failure. Re-arming after a failed key grant also
+compares the stored autopilot with what it would write and skips the rules signature when they match, so recovering
+from a half-finished arm costs one prompt instead of two.

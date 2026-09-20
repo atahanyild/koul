@@ -137,6 +137,8 @@ export function firedToActivity(f: Fired): ActivityItem {
   const first = f.observed[0];
   const base = { id: f.txHash, kind: "autopilot_run" as const, at: f.at, txHash: f.txHash, autopilotName: `Autopilot ${f.autopilot_id}`, ruleName: `Rule ${f.rule_index + 1}` };
   switch (f.kind) {
+    case "supply":
+      return { ...base, title: `Put ${amt} USDC to work in ${pool(f.to_hub)}`, detail: first !== undefined && first > 0n ? `${(Number(first) / 1e7).toFixed(2)} USDC was sitting idle in the wallet.` : "" };
     case "move_supply":
       return { ...base, title: `Moved ${amt} USDC from ${pool(f.from_hub)} to ${pool(f.to_hub)}`, detail: first !== undefined ? `${pool(f.to_hub)} paid ${(Number(first) / 100).toFixed(2)} points more.` : "" };
     case "repay_wallet":
