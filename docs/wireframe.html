@@ -1,0 +1,354 @@
+<title>Koul Page Design</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --bg:#f6f7f4;--ink:#161a17;--mute:#68706a;--line:#d9ddd7;--panel:#ffffff;--panel2:#eef0ec;
+  --accent:#1f7a5c;--accent-ink:#ffffff;--warn:#b8791a;--bad:#b23a3a;--good:#1f7a5c;--chip:#e3ebe6;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f1311;--ink:#e6eae7;--mute:#8d968f;--line:#262c28;--panel:#161b18;--panel2:#1d2320;
+  --accent:#5fc9a0;--accent-ink:#06261a;--warn:#e0a640;--bad:#f07373;--good:#5fc9a0;--chip:#1f2c25;}}
+:root[data-theme="dark"]{
+  --bg:#0f1311;--ink:#e6eae7;--mute:#8d968f;--line:#262c28;--panel:#161b18;--panel2:#1d2320;
+  --accent:#5fc9a0;--accent-ink:#06261a;--warn:#e0a640;--bad:#f07373;--good:#5fc9a0;--chip:#1f2c25;}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 "IBM Plex Sans",system-ui,sans-serif;margin:0}
+.wrap{max-width:1080px;margin:0 auto;padding-block:32px 96px;padding-inline:16px}
+h1{font-size:28px;margin:0 0 4px;text-wrap:balance}
+h2{font-size:20px;margin:48px 0 8px;text-wrap:balance}
+h2 small{font-family:"IBM Plex Mono",monospace;font-weight:400;font-size:13px;color:var(--mute);margin-left:10px}
+p{max-width:68ch;margin:6px 0}
+.lead{color:var(--mute)}
+.mono{font-family:"IBM Plex Mono",monospace;font-size:12.5px}
+.tag{display:inline-block;padding:1px 8px;border-radius:999px;background:var(--chip);color:var(--ink);font-size:12px;margin-right:6px}
+.tag.good{background:var(--good);color:var(--accent-ink)}
+.tag.warn{background:var(--warn);color:#1a1200}
+.tag.bad{background:var(--bad);color:#fff}
+/* wireframe frame */
+.frame{border:1px solid var(--line);border-radius:10px;background:var(--panel);margin:14px 0;overflow:hidden}
+.frame .bar{display:flex;gap:8px;align-items:center;padding:8px 12px;border-bottom:1px solid var(--line);background:var(--panel2);font-size:12px;color:var(--mute)}
+.frame .bar .dot{width:9px;height:9px;border-radius:50%;background:var(--line)}
+.frame .bar .url{margin-left:8px;font-family:"IBM Plex Mono",monospace}
+.shell{display:grid;grid-template-columns:184px 1fr;min-height:420px}
+.side{border-right:1px solid var(--line);padding:14px 12px;display:flex;flex-direction:column;gap:4px;font-size:13px;background:var(--panel2)}
+.side .brand{font-weight:600;font-size:15px;margin-bottom:10px}
+.side a{padding:6px 8px;border-radius:6px;color:var(--mute)}
+.side a.on{background:var(--panel);color:var(--ink);font-weight:500}
+.side .grp{margin-top:14px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--mute);padding:0 8px}
+.side .wallet{margin-top:auto;border:1px solid var(--line);border-radius:8px;padding:8px;background:var(--panel);font-size:12px}
+.side .wallet b{display:block;font-family:"IBM Plex Mono",monospace;font-weight:500}
+.main{padding:18px 20px;display:grid;gap:14px;align-content:start}
+.hdr{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.hdr h3{margin:0;font-size:18px}
+.btn{display:inline-block;padding:6px 12px;border-radius:7px;border:1px solid var(--line);font-size:13px;background:var(--panel)}
+.btn.p{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:500}
+.btn.d{color:var(--bad);border-color:var(--bad)}
+.tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.tile{border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+.tile .k{font-size:11px;color:var(--mute);text-transform:uppercase;letter-spacing:.06em}
+.tile .v{font-size:20px;font-weight:600;font-variant-numeric:tabular-nums}
+.tile .s{font-size:12px;color:var(--mute)}
+.hf{height:6px;border-radius:3px;background:linear-gradient(90deg,var(--bad) 0 25%,var(--warn) 25% 45%,var(--good) 45%);position:relative;margin-top:8px}
+.hf i{position:absolute;top:-4px;width:2px;height:14px;background:var(--ink)}
+.box{border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+.box .t{font-weight:500;font-size:13px;margin-bottom:6px;display:flex;justify-content:space-between}
+table.w{width:100%;border-collapse:collapse;font-size:12.5px;font-variant-numeric:tabular-nums}
+table.w th{text-align:left;color:var(--mute);font-weight:500;border-bottom:1px solid var(--line);padding:4px 6px}
+table.w td{padding:5px 6px;border-bottom:1px solid var(--line)}
+table.w tr:last-child td{border-bottom:0}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.three{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.cond{border:1px solid var(--line);border-radius:8px;padding:10px 12px;font-size:12.5px}
+.cond .n{font-weight:500;display:flex;justify-content:space-between}
+.cond .m{height:5px;background:var(--panel2);border-radius:3px;margin:8px 0 4px;position:relative}
+.cond .m b{position:absolute;left:0;top:0;height:100%;background:var(--accent);border-radius:3px}
+.cond .m i{position:absolute;top:-3px;width:2px;height:11px;background:var(--ink)}
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);font-size:13px}
+.tabs span{padding:6px 10px;color:var(--mute)}
+.tabs span.on{color:var(--ink);border-bottom:2px solid var(--accent)}
+.card{border:1px solid var(--line);border-radius:8px;padding:12px}
+.card .n{font-weight:600;display:flex;justify-content:space-between;align-items:center}
+.pills{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
+.pill{font-size:11.5px;padding:2px 8px;border-radius:999px;border:1px solid var(--line);font-variant-numeric:tabular-nums}
+.steps{display:grid;grid-template-columns:150px 1fr;gap:16px}
+.steps ol{margin:0;padding:0;list-style:none;font-size:13px;color:var(--mute)}
+.steps li{padding:6px 0;border-left:2px solid var(--line);padding-left:10px}
+.steps li.on{border-color:var(--accent);color:var(--ink);font-weight:500}
+.radio{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.radio div{border:1px solid var(--line);border-radius:8px;padding:10px;font-size:12.5px}
+.radio div.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+.radio div b{display:block;font-weight:500}
+.feed{font-size:12.5px}
+.feed div{display:grid;grid-template-columns:62px 90px 1fr 60px;gap:8px;padding:6px 0;border-bottom:1px solid var(--line)}
+.feed div:last-child{border:0}
+.big{font-size:44px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.1}
+.dec{border-left:3px solid var(--accent);padding:2px 0 2px 14px;margin:12px 0}
+.dec b{display:block}
+ul.tight{margin:6px 0;padding-left:20px}
+ul.tight li{margin:3px 0}
+.centered{display:grid;place-items:center;min-height:300px}
+.centered .box{text-align:center;padding:24px 32px}
+.nft{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.nft div{border:1px solid var(--line);border-radius:8px;padding:10px;font-size:12px}
+.nft .img{aspect-ratio:1;background:repeating-linear-gradient(45deg,var(--panel2) 0 8px,var(--chip) 8px 16px);border-radius:6px;margin-bottom:6px}
+.pool{border:1px solid var(--line);border-radius:8px;padding:12px;display:grid;gap:6px}
+.pool .n{font-weight:600;display:flex;justify-content:space-between}
+.pool .r{display:flex;gap:14px;font-size:12.5px;font-variant-numeric:tabular-nums}
+.pool .r b{font-weight:600;font-size:16px;display:block}
+.pool .r span{color:var(--mute);font-size:11px}
+@media (max-width:760px){.shell{grid-template-columns:1fr}.side{flex-direction:row;flex-wrap:wrap;border-right:0;border-bottom:1px solid var(--line)}.side .wallet{margin:0;width:100%}.tiles,.three{grid-template-columns:1fr 1fr}.two,.radio,.steps,.nft{grid-template-columns:1fr}.feed div{grid-template-columns:1fr}}
+@media (max-width:480px){.tiles,.three{grid-template-columns:1fr}}
+</style>
+
+<div class="wrap">
+<h1>Koul page design</h1>
+<p class="lead">Two apps. The user app (`web/`) with six routes behind a sidebar, and a separate oracle app (`oracle-admin/`) that only the demo operator opens. Desktop first, every layout stacks to one column on phones. shadcn components throughout, dark and light.</p>
+<p><span class="tag">Sidebar</span><span class="tag">Card</span><span class="tag">Tabs</span><span class="tag">Table</span><span class="tag">Dialog</span><span class="tag">Badge</span><span class="tag">Switch</span><span class="tag">RadioGroup</span><span class="tag">Progress</span><span class="tag">Sonner toasts</span></p>
+
+<h2>Shell <small>every route</small></h2>
+<p>Left sidebar with three sections. Wallet chip in the footer with the short address and USDC balance, opening a menu with copy, fund XLM, disconnect. Not connected: the sidebar stays, the content area shows one panel with the two Sembol buttons.</p>
+<div class="frame"><div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="url">koul.app/portfolio (not connected)</span></div>
+<div class="shell">
+  <div class="side"><div class="brand">Koul <span class="tag" style="font-size:10px">TESTNET</span></div><a>Home</a><a class="on">Portfolio</a><a>Funds</a><a>Autopilots</a><a>Activity</a><div class="wallet" style="color:var(--mute)">No wallet</div></div>
+  <div class="main centered"><div class="box"><div style="font-weight:600;margin-bottom:4px">Sign in with your passkey</div><div style="color:var(--mute);font-size:13px;margin-bottom:12px">Face ID or Touch ID creates the wallet. Nothing to write down.</div><span class="btn p">Create wallet</span> <span class="btn">Connect wallet</span></div></div>
+</div></div>
+
+<h2>1. Home <small>/</small></h2>
+<p>What you can do with the money. One card per XOXNO pool with live supply and borrow APY, utilisation and cash, straight from `get_sync_data`. Each card has Supply and a link to build an autopilot on it. A second section lists the autopilot templates. This is the page a visitor understands in ten seconds.</p>
+<div class="frame"><div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="url">koul.app/</span></div>
+<div class="shell">
+  <div class="side"><div class="brand">Koul</div><a class="on">Home</a><a>Portfolio</a><a>Funds</a><a>Autopilots</a><a>Activity</a><div class="wallet">Wallet<b>CBHMG4…UUFL</b>27.82 USDC</div></div>
+  <div class="main">
+    <div class="hdr"><h3>Available actions</h3><span class="mono" style="color:var(--mute)">XOXNO lending, spoke 3</span></div>
+    <div class="two">
+      <div class="pool"><div class="n">USDC hub 1 <span class="tag">supplying 0</span></div>
+        <div class="r"><div><b>1.35%</b><span>supply APY</span></div><div><b>3.9%</b><span>borrow APY</span></div><div><b>34%</b><span>utilisation</span></div><div><b>1,204</b><span>USDC cash</span></div></div>
+        <div class="row"><span class="btn p">Supply</span><span class="btn">Autopilot on this</span></div></div>
+      <div class="pool"><div class="n">USDC hub 2 <span class="tag good">supplying 23.00</span></div>
+        <div class="r"><div><b>5.56%</b><span>supply APY</span></div><div><b>8.1%</b><span>borrow APY</span></div><div><b>68%</b><span>utilisation</span></div><div><b>388</b><span>USDC cash</span></div></div>
+        <div class="row"><span class="btn p">Supply</span><span class="btn">Autopilot on this</span></div></div>
+    </div>
+    <div class="hdr"><h3>Autopilot templates</h3></div>
+    <div class="three">
+      <div class="box"><div class="t">Lira shield</div><div style="font-size:12px;color:var(--mute)">Best USDC yield, repay before liquidation, exit to the wallet when USD/TRY crosses your level.</div></div>
+      <div class="box"><div class="t">Yield rebalancer</div><div style="font-size:12px;color:var(--mute)">Move between hubs when the APY gap passes a threshold.</div></div>
+      <div class="box"><div class="t">Health guard</div><div style="font-size:12px;color:var(--mute)">Repay from idle USDC when the health factor drops.</div></div>
+    </div>
+  </div>
+</div></div>
+
+<h2>2. Portfolio <small>/portfolio</small></h2>
+<p>Summary tiles, then positions per hub, then the XOXNO position NFT, then money in and out. The NFT card reads the account NFT contract (the controller has `deploy_position_nft`, so each account id is a token). If the testnet controller has no NFT deployed, the card shows the account id alone and I drop the image.</p>
+<div class="frame"><div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="url">koul.app/portfolio</span></div>
+<div class="shell">
+  <div class="side"><div class="brand">Koul</div><a>Home</a><a class="on">Portfolio</a><a>Funds</a><a>Autopilots</a><a>Activity</a><div class="wallet">Wallet<b>CBHMG4…UUFL</b>27.82 USDC</div></div>
+  <div class="main">
+    <div class="hdr"><h3>Portfolio</h3><span class="mono" style="color:var(--mute)">2,478 TRY at 48.79</span></div>
+    <div class="tiles">
+      <div class="tile"><div class="k">Net value</div><div class="v">50.82</div><div class="s">USDC</div></div>
+      <div class="tile"><div class="k">Idle in wallet</div><div class="v">27.82</div><div class="s">USDC</div></div>
+      <div class="tile"><div class="k">Supplied</div><div class="v">23.00</div><div class="s">hub 2</div></div>
+      <div class="tile"><div class="k">Health factor</div><div class="v">no debt</div><div class="hf"><i style="left:96%"></i></div></div>
+    </div>
+    <div class="box"><div class="t">Positions</div>
+      <table class="w"><tr><th>Hub</th><th>Supplied</th><th>Borrowed</th><th>Supply APY</th><th>Autopilot</th><th></th></tr>
+      <tr><td>USDC hub 1</td><td>0.00</td><td>0.00</td><td>1.35%</td><td class="mono">rebalance a</td><td><span class="btn">Supply</span></td></tr>
+      <tr><td>USDC hub 2</td><td>23.00</td><td>0.00</td><td>5.56%</td><td class="mono">rebalance b</td><td><span class="btn">Withdraw</span></td></tr></table></div>
+    <div class="two">
+      <div class="box"><div class="t">XOXNO position <span class="mono">account 12</span></div>
+        <div class="nft"><div><div class="img"></div>Position #12<br><span style="color:var(--mute)">owner: this wallet</span></div></div></div>
+      <div class="box"><div class="t">Cash</div>
+        <div class="row" style="margin-bottom:8px"><span class="btn p">Deposit TRY</span><span class="btn">Withdraw to TRY</span></div>
+        <div style="font-size:12px;color:var(--mute)">Both open the Funds page. Last transfer: 2 USDC out, 97.08 TRY, done.</div></div>
+    </div>
+  </div>
+</div></div>
+
+<h2>3. Funds <small>/funds</small></h2>
+<p>Everything that moves money in or out of the wallet, in one place, built for the live anchor demo. Four actions across the top. TRY transfers render as a step timeline the audience can follow. Crypto transfers are the plain wallet actions: receive shows the address and a QR, send takes an address and an amount and needs one passkey confirmation.</p>
+<div class="frame"><div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="url">koul.app/funds</span></div>
+<div class="shell">
+  <div class="side"><div class="brand">Koul</div><a>Home</a><a>Portfolio</a><a class="on">Funds</a><a>Autopilots</a><a>Activity</a><div class="wallet">Wallet<b>CBHMG4…UUFL</b>27.82 USDC</div></div>
+  <div class="main">
+    <div class="hdr"><h3>Funds</h3><span class="mono" style="color:var(--mute)">27.82 USDC · 412 XLM</span></div>
+    <div class="tiles">
+      <div class="tile" style="border-color:var(--accent)"><div class="k">TRY</div><div class="v" style="font-size:15px">Deposit</div><div class="s">bank to wallet</div></div>
+      <div class="tile"><div class="k">TRY</div><div class="v" style="font-size:15px">Withdraw</div><div class="s">wallet to bank</div></div>
+      <div class="tile"><div class="k">Crypto</div><div class="v" style="font-size:15px">Receive</div><div class="s">USDC or XLM</div></div>
+      <div class="tile"><div class="k">Crypto</div><div class="v" style="font-size:15px">Send</div><div class="s">to any address</div></div>
+    </div>
+    <div class="two">
+      <div class="box"><div class="t">Deposit TRY</div>
+        <div class="row"><span class="mono">[ 500 ] TRY</span><span style="color:var(--mute)">about 10.30 USDC at 48.54</span></div>
+        <div style="font-size:12px;color:var(--mute);margin:8px 0">The anchor pays a landing account that forwards to your wallet on its own. Nothing to sign.</div>
+        <span class="btn p">Start deposit</span></div>
+      <div class="box"><div class="t">Transfer in progress <span class="tag warn">waiting for bank</span></div>
+        <div class="feed" style="grid-template-columns:1fr">
+          <div><span class="mono">1</span><span class="tag good">done</span><span>Landing account created</span><span class="mono">tx</span></div>
+          <div><span class="mono">2</span><span class="tag good">done</span><span>Anchor login and KYC</span><span></span></div>
+          <div><span class="mono">3</span><span class="tag good">done</span><span>Deposit opened, reference FAST-2K9M</span><span></span></div>
+          <div><span class="mono">4</span><span class="tag warn">now</span><span>Waiting for the anchor to send USDC</span><span></span></div>
+          <div><span class="mono">5</span><span class="tag">next</span><span>Forward to your wallet, close landing account</span><span></span></div>
+        </div></div>
+    </div>
+    <div class="three">
+      <div class="box"><div class="t">Withdraw TRY</div><div style="font-size:12px;color:var(--mute)">USDC amount and IBAN. One passkey confirmation moves USDC to the landing account, the rest runs alone. Ends with TRY received and the FAST reference.</div></div>
+      <div class="box"><div class="t">Receive crypto</div><div class="nft" style="grid-template-columns:64px 1fr"><div><div class="img"></div></div><div style="font-size:12px"><span class="mono">CBHMG4IG…L3Y7UUFL</span><br><span style="color:var(--mute)">USDC and XLM on Stellar testnet</span><br><span class="btn" style="margin-top:6px">Copy</span></div></div></div>
+      <div class="box"><div class="t">Send crypto</div><div style="font-size:12px;color:var(--mute)">Asset (USDC, XLM), address, amount. Passkey confirms. Shows the fee the relayer covers and the tx link after.</div></div>
+    </div>
+    <div class="box"><div class="t">History</div><div class="feed"><div><span class="mono">13:55</span><span>TRY out</span><span>2 USDC, 97.08 TRY received, FAST-OR36GG</span><span class="mono">tx</span></div><div><span class="mono">11:02</span><span>TRY in</span><span>500 TRY, 10.30 USDC received</span><span class="mono">tx</span></div><div><span class="mono">10:40</span><span>Crypto in</span><span>50 USDC from GAFH…XP6U</span><span class="mono">tx</span></div></div></div>
+  </div>
+</div></div>
+
+<h2>4. Autopilots <small>/autopilots</small></h2>
+<p>The whole flow is two screens and one modal: this list, the autopilot page, and the rule modal. New autopilot opens an empty autopilot page straight away.</p>
+<div class="frame"><div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="url">koul.app/autopilots</span></div>
+<div class="shell">
+  <div class="side"><div class="brand">Koul</div><a>Home</a><a>Portfolio</a><a>Funds</a><a class="on">Autopilots</a><a>Activity</a><div class="wallet">Wallet<b>CBHMG4…UUFL</b>27.82 USDC</div></div>
+  <div class="main">
+    <div class="hdr"><h3>Autopilots</h3><span class="btn p">New autopilot</span></div>
+    <div class="tabs"><span class="on">Active 1</span><span>Draft 1</span><span>Ended 2</span></div>
+    <div class="card"><div class="n">Lira shield <span class="tag good">Armed</span></div>
+      <div style="font-size:12.5px;color:var(--mute);margin:6px 0">3 rules · next: rule 3 moves 23.00 USDC to hub 2 · agent access 21 h left</div>
+      <div class="row mono" style="color:var(--mute);font-size:12px"><span>3 runs</span><span>last 2 h ago</span></div></div>
+    <div class="card" style="opacity:.55"><div class="n">Yield only <span class="tag">Ended 19 Sep</span></div><div style="font-size:12.5px;color:var(--mute);margin:6px 0">1 rule · 1 run · ran 3 days</div></div>
+  </div>
+</div></div>
+
+<h2>5. Autopilot page <small>/autopilots/[id]</small></h2>
+<p>A new autopilot starts empty, and the page is the AI. The user describes what they want in their own words, Koul turns it into rule cards, and the user reads and adjusts them. Templates are one click away as a second path, and Add rule opens the modal for people who want to build by hand.</p>
+<div class="frame"><div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="url">koul.app/autopilots/new (empty)</span></div>
+<div class="shell">
+  <div class="side"><div class="brand">Koul</div><a>Home</a><a>Portfolio</a><a>Funds</a><a class="on">Autopilots</a><a>Activity</a><div class="wallet">Wallet<b>CBHMG4…UUFL</b>27.82 USDC</div></div>
+  <div class="main">
+    <div class="hdr"><h3><span class="mono" style="font-weight:400;color:var(--mute)">[ Untitled autopilot ]</span> <span class="tag">Draft</span></h3><span class="row"><span class="btn">Add rule</span><span class="btn p" style="opacity:.5">Arm autopilot</span></span></div>
+    <div class="box" style="border-color:var(--accent);padding:18px">
+      <div style="font-weight:600;font-size:16px;margin-bottom:4px">What should this autopilot do?</div>
+      <div style="font-size:13px;color:var(--mute);margin-bottom:10px">Describe it the way you would tell a friend. Koul writes the rules, you check them.</div>
+      <div class="mono" style="padding:12px;border:1px solid var(--line);border-radius:6px;background:var(--panel);min-height:70px;color:var(--ink)">Keep my USDC in whichever XOXNO hub pays more, but never let my health factor drop under 1.25, and if the lira goes past 50 pull everything back to my wallet.</div>
+      <div class="row" style="margin-top:10px"><span class="btn p">Write the rules</span><span style="font-size:12px;color:var(--mute)">Only things the router can actually check and do. Anything else is flagged, not invented.</span></div>
+    </div>
+    <div class="row"><span style="font-size:12.5px;color:var(--mute)">Or start from a template</span><span class="pill">Lira shield</span><span class="pill">Yield only</span><span class="pill">Health guard</span></div>
+    <div style="border:1px dashed var(--line);border-radius:8px;padding:22px;text-align:center;font-size:13px;color:var(--mute)">No rules yet. Rules appear here as cards, in the order they are checked.</div>
+  </div>
+</div></div>
+
+<div class="frame"><div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="url">same page, 3 s after Write the rules</span></div>
+<div class="shell">
+  <div class="side"><div class="brand">Koul</div><a>Home</a><a>Portfolio</a><a>Funds</a><a class="on">Autopilots</a><a>Activity</a><div class="wallet">Wallet<b>CBHMG4…UUFL</b>27.82 USDC</div></div>
+  <div class="main">
+    <div class="hdr"><h3><span class="mono" style="font-weight:400">[ Lira shield ]</span> <span class="tag">Draft</span></h3><span class="row"><span class="btn">Add rule</span><span class="btn p">Arm autopilot</span></span></div>
+    <div class="box" style="border-color:var(--accent)"><div class="row"><span class="tag good">3 rules written</span><span style="font-size:13px">Health guard first, so it always wins. Read each card, change any number, then arm.</span><span class="btn" style="margin-left:auto;font-size:12px">Change the description</span></div></div>
+    <div class="card" style="border-color:var(--accent)"><div class="n"><span><span class="mono" style="color:var(--mute);margin-right:8px">1</span>Health guard <span class="tag" style="font-size:10px">from your description</span></span><span class="tag">not true now</span></div>
+      <div style="display:grid;grid-template-columns:52px 1fr;gap:4px 10px;font-size:13px;margin-top:8px">
+        <span class="mono" style="color:var(--mute)">when</span><span>health factor is below <b>1.25</b> <span class="mono" style="color:var(--mute)">now 3.10</span></span>
+        <span class="mono" style="color:var(--mute)">do</span><span>repay my debt from the wallet, <b>all of it</b></span>
+        <span class="mono" style="color:var(--mute)">then</span><span>wait <b>6 h</b></span></div></div>
+    <div class="card" style="border-color:var(--accent)"><div class="n"><span><span class="mono" style="color:var(--mute);margin-right:8px">2</span>Lira exit <span class="tag" style="font-size:10px">from your description</span></span><span class="tag">not true now</span></div>
+      <div style="display:grid;grid-template-columns:52px 1fr;gap:4px 10px;font-size:13px;margin-top:8px">
+        <span class="mono" style="color:var(--mute)">when</span><span>USD/TRY is at or above <b>50.00</b> <span class="mono" style="color:var(--mute)">now 48.79</span></span>
+        <span class="mono" style="color:var(--mute)">do</span><span>withdraw <b>everything</b> to my wallet</span>
+        <span class="mono" style="color:var(--mute)">then</span><span>wait <b>24 h</b></span></div></div>
+    <div class="card" style="border-color:var(--accent)"><div class="n"><span><span class="mono" style="color:var(--mute);margin-right:8px">3</span>Chase yield <span class="tag" style="font-size:10px">from your description</span></span><span class="tag good">true now</span></div>
+      <div style="display:grid;grid-template-columns:52px 1fr;gap:4px 10px;font-size:13px;margin-top:8px">
+        <span class="mono" style="color:var(--mute)">when</span><span>hub 2 pays at least <b>1.00%</b> more than hub 1 <span class="mono" style="color:var(--mute)">now 4.21%</span></span>
+        <span class="mono" style="color:var(--mute)">do</span><span>move <b>all</b> my supply from hub 1 to hub 2</span>
+        <span class="mono" style="color:var(--mute)">then</span><span>wait <b>2 h</b> <span style="color:var(--mute)">(Koul picked this, you did not say)</span></span></div></div>
+  </div>
+</div></div>
+
+<p>Values the user did not state, like the wait, are filled with a sensible default and marked as such on the card so they get a look. The description box collapses into the one-line summary at the top and can be reopened. After the first rules exist, the page is the same one shown below.</p>
+
+<p>Same page once rules exist, for draft, armed and ended. The rules are the page. Each rule is one card that reads as a sentence: when this, do that, then wait. Cards are numbered because order matters: on every tick the router checks rule 1, then 2, then 3, and runs the first one that is true. The line under the header says which rule would run right now, straight from a read-only simulation. Nothing else explains itself.</p>
+<div class="frame"><div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="url">koul.app/autopilots/1 (draft, edited)</span></div>
+<div class="shell">
+  <div class="side"><div class="brand">Koul</div><a>Home</a><a>Portfolio</a><a>Funds</a><a class="on">Autopilots</a><a>Activity</a><div class="wallet">Wallet<b>CBHMG4…UUFL</b>27.82 USDC</div></div>
+  <div class="main">
+    <div class="hdr"><h3>Lira shield <span class="tag">Draft</span></h3><span class="row"><span class="btn">Add rule</span><span class="btn p">Arm autopilot</span></span></div>
+    <div class="box" style="border-color:var(--accent)"><div class="row"><span style="font-weight:500">Right now rule 3 would run:</span><span>move 23.00 USDC from hub 1 to hub 2</span><span class="mono" style="color:var(--mute);margin-left:auto">checked 8 s ago</span></div></div>
+    <div style="font-size:12px;color:var(--mute)">Checked top to bottom every few minutes. The first true rule runs, the rest wait for the next check.</div>
+
+    <div class="card"><div class="n"><span><span class="mono" style="color:var(--mute);margin-right:8px">1</span>Health guard</span><span class="tag">not true now</span></div>
+      <div style="display:grid;grid-template-columns:52px 1fr;gap:4px 10px;font-size:13px;margin-top:8px">
+        <span class="mono" style="color:var(--mute)">when</span><span>health factor is below <b>1.25</b> <span class="mono" style="color:var(--mute)">now 3.10</span></span>
+        <span class="mono" style="color:var(--mute)">do</span><span>repay my debt from the wallet, <b>all of it</b></span>
+        <span class="mono" style="color:var(--mute)">then</span><span>wait <b>6 h</b> before this rule can run again</span></div></div>
+
+    <div class="card"><div class="n"><span><span class="mono" style="color:var(--mute);margin-right:8px">2</span>Lira exit</span><span class="tag">not true now</span></div>
+      <div style="display:grid;grid-template-columns:52px 1fr;gap:4px 10px;font-size:13px;margin-top:8px">
+        <span class="mono" style="color:var(--mute)">when</span><span>USD/TRY is at or above <b>50.00</b> <span class="mono" style="color:var(--mute)">now 48.79</span></span>
+        <span class="mono" style="color:var(--mute)">do</span><span>withdraw <b>everything</b> to my wallet</span>
+        <span class="mono" style="color:var(--mute)">then</span><span>wait <b>24 h</b></span></div></div>
+
+    <div class="card" style="border-color:var(--accent)"><div class="n"><span><span class="mono" style="color:var(--mute);margin-right:8px">3</span>Chase yield</span><span class="tag good">true now</span></div>
+      <div style="display:grid;grid-template-columns:52px 1fr;gap:4px 10px;font-size:13px;margin-top:8px">
+        <span class="mono" style="color:var(--mute)">when</span><span>hub 2 pays at least <b>1.00%</b> more than hub 1 <span class="mono" style="color:var(--mute)">now 4.21%</span></span>
+        <span class="mono" style="color:var(--mute)">and</span><span>idle USDC in wallet is above <b>10</b> <span class="mono" style="color:var(--mute)">now 27.82</span></span>
+        <span class="mono" style="color:var(--mute)">do</span><span>move <b>all</b> my supply from hub 1 to hub 2</span>
+        <span class="mono" style="color:var(--mute)">then</span><span>wait <b>2 h</b></span></div></div>
+    <div style="font-size:12px;color:var(--mute)">Drag a card to change the order. Click a card to edit it.</div>
+  </div>
+</div></div>
+
+<p>Two conditions in one rule are shown as two lines, "when" and then "and" or "or". The word on the second line is the relationship, and there is nothing else to read. A rule has one action and one wait. That is the whole grammar.</p>
+
+<div class="frame"><div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="url">Rule modal, opened by Add rule or by clicking a card</span></div>
+<div style="padding:16px;display:grid;place-items:center"><div class="box" style="width:min(600px,100%);display:grid;gap:12px">
+  <div class="t">Rule 2 <span class="mono" style="color:var(--mute)">[ Lira exit ]</span></div>
+  <div class="box" style="background:var(--panel2);border-color:var(--accent)"><div class="row"><span class="mono" style="flex:1;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:var(--panel);color:var(--mute)">Describe it, for example: if the lira passes 50, pull everything out and wait a day</span><span class="btn p">Fill in</span></div></div>
+  <div style="display:grid;grid-template-columns:52px 1fr;gap:8px 10px;font-size:13px;align-items:center">
+    <span class="mono" style="color:var(--mute)">when</span><span class="row"><span class="pill">USD/TRY ▾</span><span class="pill">is at or above ▾</span><span class="mono">[ 50.00 ]</span><span class="mono" style="color:var(--mute)">now 48.79</span></span>
+    <span></span><span class="row"><span class="btn" style="font-size:12px">+ and another condition</span><span class="btn" style="font-size:12px">+ or another condition</span></span>
+    <span class="mono" style="color:var(--mute)">do</span><span class="row"><span class="pill">Withdraw to my wallet ▾</span><span class="pill">everything ▾</span></span>
+    <span class="mono" style="color:var(--mute)">then</span><span class="row">wait <span class="mono">[ 24 ]</span> hours before this rule can run again</span>
+  </div>
+  <div class="row" style="padding:8px 10px;border-radius:6px;background:var(--panel2);font-size:12.5px"><span class="tag">not true now</span><span style="color:var(--mute)">USD/TRY is 48.79, the level is 50.00</span></div>
+  <div class="row" style="justify-content:flex-end"><span class="btn d">Delete</span><span style="flex:1"></span><span class="btn">Cancel</span><span class="btn p">Save rule</span></div>
+</div></div></div>
+
+<p>The modal has the same AI line for a single rule. Typing a sentence and pressing Fill in sets the pickers below. The user reads the pickers, changes anything, saves. If the sentence asks for something the router cannot do, the modal says so under the box in one line and leaves the pickers empty.</p>
+
+<div class="frame"><div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="url">Arm sheet, opened by Arm autopilot</span></div>
+<div style="padding:16px;display:grid;place-items:center"><div class="box" style="width:min(520px,100%);display:grid;gap:12px">
+  <div class="t">Arm Lira shield</div>
+  <div style="font-size:13.5px">Koul gets a key to your wallet that can only do what these three rules need:</div>
+  <ul class="tight" style="font-size:13px"><li>move your USDC between XOXNO hubs</li><li>repay your XOXNO debt</li><li>withdraw your USDC to this wallet</li></ul>
+  <div style="font-size:13px;color:var(--mute)">It cannot send funds anywhere else, change these rules, or act after the key expires.</div>
+  <div class="row">Key valid for <span class="pill">1 day</span><span class="pill" style="border-color:var(--accent)">7 days</span><span class="pill">30 days</span></div>
+  <div class="row" style="justify-content:flex-end"><span class="btn">Cancel</span><span class="btn p">Arm, 2 passkey confirmations</span></div>
+</div></div></div>
+
+<p>Armed, the same page shows the status pill as Armed, a Pause button that revokes the key, and a Runs section under the rules listing what executed and when, each with a tx link. Ended autopilots keep the page read-only.</p>
+
+<h2>6. Activity <small>/activity</small></h2>
+<p>Everything that touched the wallet, newest first. Router executions, rules saved, agent granted or revoked, anchor deposits and withdrawals. Filter chips by type, each row links to stellar.expert.</p>
+<div class="frame"><div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="url">koul.app/activity</span></div>
+<div class="shell">
+  <div class="side"><div class="brand">Koul</div><a>Home</a><a>Portfolio</a><a>Funds</a><a>Autopilots</a><a class="on">Activity</a><div class="wallet">Wallet<b>CBHMG4…UUFL</b>27.82 USDC</div></div>
+  <div class="main">
+    <div class="hdr"><h3>Activity</h3><span class="row"><span class="pill">All</span><span class="pill">Executions</span><span class="pill">Rules</span><span class="pill">Agent</span><span class="pill">Anchor</span></span></div>
+    <div class="feed"><div><span class="mono">14:02</span><span>execution</span><span>Rebalance 31.99 USDC, hub 1 to 2</span><span class="mono">tx</span></div><div><span class="mono">13:55</span><span>anchor</span><span>Withdrew 2 USDC, 97.08 TRY, FAST-OR36GG</span><span class="mono">tx</span></div><div><span class="mono">13:41</span><span>execution</span><span>FX exit 26.82 USDC to wallet</span><span class="mono">tx</span></div><div><span class="mono">11:20</span><span>agent</span><span>Granted rule 6 for 1 day</span><span class="mono">tx</span></div><div><span class="mono">11:19</span><span>rules</span><span>Saved Lira shield</span><span class="mono">tx</span></div></div>
+  </div>
+</div></div>
+
+<h2>7. Oracle admin <small>separate app, oracle-admin/, port 3100</small></h2>
+<p>Its own Next app with no wallet and no sidebar. One screen: the big number, a slider, the presets, price age, and a log of what it published. The admin secret stays in that app's env. The user app never links to it.</p>
+<div class="frame"><div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="url">localhost:3100</span></div>
+<div class="main" style="max-width:560px">
+  <div class="hdr"><h3>USD/TRY mock oracle</h3><span class="tag good">fresh · 42 s</span></div>
+  <div class="big">48.79</div>
+  <div style="height:6px;background:var(--panel2);border-radius:3px;position:relative"><b style="position:absolute;left:0;top:0;height:100%;width:40%;background:var(--accent);border-radius:3px"></b><i style="position:absolute;left:90%;top:-4px;width:2px;height:14px;background:var(--bad)"></i></div>
+  <div class="row"><span class="btn">48.79 calm</span><span class="btn">50.25 lira shock</span><span class="btn">Publish stale</span><span class="btn p">Publish</span></div>
+  <div class="feed"><div><span class="mono">14:00</span><span>set_price</span><span>48.79</span><span class="mono">tx</span></div><div><span class="mono">13:40</span><span>set_price</span><span>50.25</span><span class="mono">tx</span></div></div>
+</div></div>
+
+<h2>Decisions I need from you</h2>
+<div class="dec"><b>The router becomes a rule engine</b>Today it has three fixed branches. The builder above needs `Autopilot { rules: Vec&lt;Rule&gt; }` with `Rule { conditions, match_all, action, cooldown_ledgers }` and enums for the condition and action kinds, keyed by `(user, autopilot_id)`, plus `last_fired` per rule for the cooldown. `tick(user, id)` walks the list. Any is as cheap as all on-chain, so both are in. This is the first thing I build, about two to three hours including keeper changes and re-running the three live scenarios. Say yes and I start with it.</div>
+<div class="dec"><b>Withdraw and send to TRY as an agent action</b>The policy only lets the agent send USDC to the XOXNO pool, and a landing account is created per withdrawal, so the agent cannot pay it. Two options: the rule withdraws to the wallet and the Funds page shows a "ready to cash out" banner the user confirms with one passkey, or the router owns a fixed exit escrow the policy allows and the keeper cashes out from there. I recommend the first for the hackathon. It is honest and the demo shows the passkey once.</div>
+<div class="dec"><b>Sentence to rule</b>A server route that calls Claude with the condition and action vocabulary as a JSON schema, returns chips, never saves the sentence. If you would rather not depend on an API key in the demo, I keep the input but hide it behind an env flag.</div>
+<div class="dec"><b>NFT card</b>Shown only if the XOXNO testnet controller has a position NFT contract deployed. I check first and skip the card if not.</div>
+
+<h2>Build order</h2>
+<ul class="tight"><li>Router rule engine and keeper update, re-run the three live scenarios</li><li>Shell, wallet chip, not-connected panel, theme tokens</li><li>Funds page: TRY timeline, receive and send crypto</li><li>Autopilots list, autopilot page, rule modal, arm sheet</li><li>Home with live pool cards, Portfolio tiles and positions</li><li>Activity, sentence-to-rule route</li><li>Oracle app moved out into its own project</li><li>NFT card, mobile pass</li></ul>
+</div>

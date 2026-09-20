@@ -101,6 +101,7 @@ docs/
   phase0.md                       every gate T0 to T9 with tx hashes
   build-log.md                    router, keeper, anchor and web runs after phase 0
   abi/                            XOXNO controller and pool interfaces as fetched from testnet
+  wireframe.html                  page designs (Home, Portfolio, Funds, Autopilots, Activity), open in a browser
 keeper/
   src/keeper.ts                   the loop
   src/lib/common.ts               constants, env, state, kit factory, policy params, helpers
