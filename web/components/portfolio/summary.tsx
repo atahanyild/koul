@@ -74,7 +74,7 @@ export function PortfolioTiles({ positions, health }: { positions: Positions; he
 
   return (
     <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-      <Tile label="In pools" sub={inPools.length === 0 ? "nothing supplied yet" : inPools.length === 2 ? `Pool A ${fmtUsdc(positions.supplied.A)} · Pool B ${fmtUsdc(positions.supplied.B)}` : `all in Pool ${inPools[0]}`}>
+      <Tile label="In pools" sub={inPools.length === 0 ? "nothing supplied yet" : inPools.length === 2 ? `Main hub ${fmtUsdc(positions.supplied.A)} · Secondary hub ${fmtUsdc(positions.supplied.B)}` : `all in the ${inPools[0] === "A" ? "Main" : "Secondary"} hub`}>
         <Money value={supplied} size="lg" />
       </Tile>
       <Tile

@@ -2,7 +2,7 @@
 
 /** Market reads: pool rates and the USD/TRY price, polled from testnet. */
 import { usePoll } from "@/lib/data/store";
-import { readFx, readPools } from "@/lib/data/live";
+import { readFx, readMarkets, readPools, type MarketReading } from "@/lib/data/live";
 import type { FxPrice, Pool } from "@/lib/data/types";
 import { MAX_PRICE_AGE_SECS } from "@/lib/koul";
 
@@ -12,6 +12,15 @@ export function usePools(): PoolsState {
   const p = usePoll<Pool[]>("pools", readPools, { intervalMs: 45_000 });
   const loading = p.data === undefined && (p.loading || (!p.error && p.updatedAt === 0));
   return { pools: p.data ?? [], loading, error: p.error, updatedAt: p.updatedAt, refresh: p.refresh };
+}
+
+export interface MarketsState { markets: MarketReading[]; loading: boolean; error: Error | null; updatedAt: number; refresh: () => Promise<void> }
+
+/** Every XOXNO testnet market with live rates. */
+export function useMarkets(): MarketsState {
+  const p = usePoll<MarketReading[]>("markets", readMarkets, { intervalMs: 45_000 });
+  const loading = p.data === undefined && (p.loading || (!p.error && p.updatedAt === 0));
+  return { markets: p.data ?? [], loading, error: p.error, updatedAt: p.updatedAt, refresh: p.refresh };
 }
 
 /** What the fx hook reports before the first read lands: no rate, marked stale so nothing quotes against it. */

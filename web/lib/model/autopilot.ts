@@ -11,8 +11,8 @@ import { LEDGER_SECONDS, MAX_PRICE_AGE_SECS, tryPerUsdToUsdPerTry, usdPerTryToTr
 export type PoolId = "A" | "B";
 /** Plain names for the user; the hub id is the protocol detail shown in tooltips. */
 export const POOLS: Record<PoolId, { id: PoolId; name: string; hub: number; technical: string }> = {
-  A: { id: "A", name: "Pool A", hub: 1, technical: "XOXNO hub 1 (USDC) on spoke 3" },
-  B: { id: "B", name: "Pool B", hub: 2, technical: "XOXNO hub 2 (USDC_HUB2) on spoke 3" },
+  A: { id: "A", name: "USDC · Main hub", hub: 1, technical: "XOXNO market USDC on hub 1 (Main), spoke 3" },
+  B: { id: "B", name: "USDC · Secondary hub", hub: 2, technical: "XOXNO market USDC_HUB2 on hub 2 (Secondary), spoke 3" },
 };
 export const poolByHub = (hub: number): PoolId => (hub === 2 ? "B" : "A");
 
@@ -382,7 +382,7 @@ export function permissionsFor(ap: Pick<Autopilot, "rules">): { can: string[]; t
   const kinds = new Set(ap.rules.filter((r) => r.enabled).map((r) => r.action.kind));
   const can: string[] = [];
   const technical: string[] = ["router.tick"];
-  if (kinds.has("move_to_best_pool")) { can.push("Move your USDC between Pool A and Pool B"); technical.push("controller.withdraw", "controller.supply", "usdc.transfer → XOXNO pool only"); }
+  if (kinds.has("move_to_best_pool")) { can.push("Move your USDC between the two USDC hubs"); technical.push("controller.withdraw", "controller.supply", "usdc.transfer → XOXNO pool only"); }
   if (kinds.has("repay_from_wallet")) { can.push("Repay your loan with USDC from this wallet"); technical.push("controller.repay", "usdc.transfer → XOXNO pool only"); }
   if (kinds.has("withdraw_to_wallet")) { can.push("Withdraw your USDC from the pools back into this wallet"); technical.push("controller.withdraw"); }
   return { can, technical: [...new Set(technical)] };

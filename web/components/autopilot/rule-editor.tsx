@@ -7,7 +7,7 @@
 import * as React from "react";
 import { Plus, Trash2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { ResponsiveSheet } from "@/components/koul/responsive-sheet";
+import { CenterDialog } from "@/components/koul/center-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -137,7 +137,7 @@ export function RuleEditorSheet({ open, onOpenChange, rule, live, onSave, onDele
   );
 
   return (
-    <ResponsiveSheet open={open} onOpenChange={onOpenChange} title={isNew ? "New rule" : `Edit rule`} description="A rule is one sentence: when something is true, do one thing, then wait." footer={footer} width="md:max-w-[560px]">
+    <CenterDialog open={open} onOpenChange={onOpenChange} title={isNew ? "New rule" : `Edit rule`} description="A rule is one sentence: when something is true, do one thing, then wait." footer={footer} width="md:max-w-[560px]">
       <div className="grid gap-6 pt-1">
         <div className="grid gap-1.5">
           <Label htmlFor="rule-name" className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Name</Label>
@@ -247,7 +247,7 @@ export function RuleEditorSheet({ open, onOpenChange, rule, live, onSave, onDele
           <span className={cn("leading-relaxed", evalLine.tone === "saffron" && "text-saffron")}>{evalLine.text}</span>
         </div>
       </div>
-    </ResponsiveSheet>
+    </CenterDialog>
   );
 }
 

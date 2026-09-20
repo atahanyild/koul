@@ -2,9 +2,11 @@
  * Live readers against Stellar testnet through `@koul/core`. Every function throws on failure; the hooks show the
  * error and keep the last good value. Reads simulate with the keeper's public G-account as source, no signature.
  */
+import { contract } from "@stellar/stellar-sdk";
 import { KoulReader, type Autopilot as CoreAutopilot, type FiredEvent, type PositionNft, type RuleState } from "@koul/core";
 import type { ContextRule } from "smart-account-kit";
-import { MAX_PRICE_AGE_SECS, READ_CONFIG, usdPerTryToTryPerUsd } from "@/lib/koul";
+import { MARKETS, type Market } from "./markets";
+import { MAX_PRICE_AGE_SECS, READ_CONFIG, XOXNO, usdPerTryToTryPerUsd } from "@/lib/koul";
 import { fromUnits } from "@/lib/format";
 import { POOLS, poolByHub, type PoolId } from "@/lib/model/autopilot";
 import type { ActivityItem, FxPrice, Health, Pool, Positions } from "./types";
@@ -28,6 +30,44 @@ export async function readPools(): Promise<Pool[]> {
     const borrowApy = util > 0 ? supplyApy / util : 0;
     return { ...POOLS[id], supplyApy, borrowApy, utilization: util, availableUsdc: fromUnits(h.cash), totalSuppliedUsdc: suppliedN };
   });
+}
+
+export interface MarketReading extends Market {
+  supplyApy: number;
+  borrowApy: number;
+  utilization: number;
+  supplied: number;
+  borrowed: number;
+  cash: number;
+}
+
+type Assembled<T> = Promise<contract.AssembledTransaction<T>>;
+type PoolClient = {
+  get_deposit_rate: (a: { hub_asset: { asset: string; hub_id: number } }) => Assembled<bigint>;
+  get_borrow_rate: (a: { hub_asset: { asset: string; hub_id: number } }) => Assembled<bigint>;
+  get_sync_data: (a: { hub_asset: { asset: string; hub_id: number } }) => Assembled<{ state: { cash: bigint } }>;
+  get_supplied_amount: (a: { hub_asset: { asset: string; hub_id: number } }) => Assembled<bigint>;
+  get_borrowed_amount: (a: { hub_asset: { asset: string; hub_id: number } }) => Assembled<bigint>;
+};
+let poolClient: Promise<PoolClient> | null = null;
+const poolReader = () => (poolClient ??= contract.Client.from({ contractId: XOXNO.pool, rpcUrl: READ_CONFIG.rpcUrl, networkPassphrase: READ_CONFIG.networkPassphrase, publicKey: READ_CONFIG.publicKey }) as unknown as Promise<PoolClient>);
+
+/** Rates and liquidity of every XOXNO testnet market, in the order of `MARKETS`. */
+export async function readMarkets(): Promise<MarketReading[]> {
+  const p = await poolReader();
+  return Promise.all(MARKETS.map(async (m) => {
+    const hub_asset = { asset: m.asset, hub_id: m.hub };
+    const [rate, borrowRate, sync, supplied, borrowed] = await Promise.all([
+      p.get_deposit_rate({ hub_asset }).then((t) => t.result),
+      p.get_borrow_rate({ hub_asset }).then((t) => t.result),
+      p.get_sync_data({ hub_asset }).then((t) => t.result),
+      p.get_supplied_amount({ hub_asset }).then((t) => t.result),
+      p.get_borrowed_amount({ hub_asset }).then((t) => t.result),
+    ]);
+    const suppliedN = fromUnits(supplied);
+    const borrowedN = fromUnits(borrowed);
+    return { ...m, supplyApy: Number(rate) / RAY * 100, borrowApy: Number(borrowRate) / RAY * 100, utilization: suppliedN > 0 ? borrowedN / suppliedN : 0, supplied: suppliedN, borrowed: borrowedN, cash: fromUnits(sync.state.cash) };
+  }));
 }
 
 export interface WalletPortfolio { positions: Positions; health: Health; nft: PositionNft | null }
