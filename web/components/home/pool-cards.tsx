@@ -91,7 +91,7 @@ function useAutoScroll() {
     mq.addEventListener("change", apply);
     return () => mq.removeEventListener("change", apply);
   }, []);
-  const plugin = React.useRef(AutoScroll({ speed: 0.6, startDelay: 1200, stopOnMouseEnter: true, stopOnFocusIn: true, stopOnInteraction: false }));
+  const plugin = React.useRef(AutoScroll({ speed: 0.6, startDelay: 0, stopOnMouseEnter: true, stopOnFocusIn: true, stopOnInteraction: false }));
   return React.useMemo(() => (reduced ? [] : [plugin.current]), [reduced]);
 }
 
