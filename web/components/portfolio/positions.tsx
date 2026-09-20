@@ -2,7 +2,7 @@
 
 /**
  * Where the USDC sits: a table on desktop, cards on phones. Supply and withdraw open a sheet with an amount and a
- * passkey button; those two actions are not wired on-chain yet, so the sheet says so instead of pretending.
+ * passkey button that signs the XOXNO controller call and submits it.
  */
 import * as React from "react";
 import Link from "next/link";
@@ -10,7 +10,8 @@ import { Section, Card, Money, Term, Pill, Sk, AnimatedNumber } from "@/componen
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { ResponsiveSheet } from "@/components/koul/responsive-sheet";
-import { PasskeyButton } from "@/components/koul/passkey-button";
+import { PasskeyButton, PasskeyHint } from "@/components/koul/passkey-button";
+import { usePositionActions, toUsdcUnits, fromUsdcUnits, snapWithdrawUnits } from "@/hooks/use-position-actions";
 import type { Pool, Positions } from "@/lib/data/types";
 import type { Autopilot } from "@/lib/model/autopilot";
 import { fmtPct, fmtUsdc } from "@/lib/format";
@@ -130,33 +131,39 @@ const parseAmount = (t: string) => {
 
 function PositionSheet({ state, open, onOpenChange, idle, supplied }: { state: SheetState | null; open: boolean; onOpenChange: (o: boolean) => void; idle: number; supplied: number }) {
   const [text, setText] = React.useState("");
-  const [submitted, setSubmitted] = React.useState(false);
-  React.useEffect(() => { if (open) { setText(""); setSubmitted(false); } }, [open, state]);
+  const { supply, withdraw, action, ready } = usePositionActions();
+  const { reset } = action;
+  React.useEffect(() => { if (open) { setText(""); reset(); } }, [open, state, reset]);
 
   const pool = state?.pool;
   const mode = state?.mode ?? "supply";
   const max = mode === "supply" ? idle : supplied;
   const amount = parseAmount(text);
-  const valid = amount > 0 && amount <= max + 1e-7;
+  // Withdrawals go out rounded down to the cent; the button and the title show what will actually be signed.
+  const signedAmount = mode === "withdraw" ? fromUsdcUnits(snapWithdrawUnits(toUsdcUnits(amount))) : amount;
+  const valid = signedAmount > 0 && amount <= max + 1e-7;
   const rate = pool?.supplyApy ?? 0;
   const verb = mode === "supply" ? "Supply" : "Withdraw";
+  const busy = action.busy;
+
+  const submit = async () => {
+    if (!pool || !valid || busy) return;
+    const res = mode === "supply" ? await supply(pool.id, signedAmount) : await withdraw(pool.id, signedAmount);
+    if (res) { setText(""); onOpenChange(false); }
+  };
 
   return (
     <ResponsiveSheet
       open={open}
-      onOpenChange={onOpenChange}
+      onOpenChange={(o) => { if (!busy) onOpenChange(o); }}
       title={pool ? (mode === "supply" ? `Supply to ${pool.name}` : `Withdraw from ${pool.name}`) : verb}
       description={mode === "supply" ? `Earns ${fmtPct(rate)} a year from the moment it lands. Withdraw whenever you like.` : "Back to your wallet in one transaction."}
       width="md:max-w-[460px]"
       footer={
         <div className="flex flex-col gap-3">
-          {submitted && (
-            <p role="status" className="rounded-lg bg-surface-2 px-3 py-2.5 text-sm leading-relaxed text-muted-foreground">
-              Supply and withdraw from the app are next; today the keeper scripts do this. Nothing was sent, nothing changed.
-            </p>
-          )}
-          <PasskeyButton phase="idle" className="w-full" disabled={!valid || submitted} onClick={() => setSubmitted(true)}>
-            {verb}{valid ? ` ${fmtUsdc(amount)} USDC` : ""}
+          <PasskeyHint phase={action.phase} error={action.error} />
+          <PasskeyButton phase={action.phase} className="w-full" disabled={!valid || !ready} onClick={() => void submit()}>
+            {verb}{valid ? ` ${fmtUsdc(signedAmount)} USDC` : ""}
           </PasskeyButton>
         </div>
       }
@@ -170,18 +177,20 @@ function PositionSheet({ state, open, onOpenChange, idle, supplied }: { state: S
           value={text}
           onChange={(e) => setText(e.target.value.replace(/[^\d.,]/g, ""))}
           placeholder="0.00"
+          disabled={busy}
           aria-describedby="position-max"
           aria-invalid={text !== "" && !valid ? true : undefined}
-          className="num w-full min-w-0 bg-transparent text-3xl leading-none text-foreground outline-none placeholder:text-muted-foreground/40"
+          className="num w-full min-w-0 bg-transparent text-3xl leading-none text-foreground outline-none placeholder:text-muted-foreground/40 disabled:opacity-60"
         />
         <span className="text-sm font-medium tracking-wide text-muted-foreground">USDC</span>
-        <button type="button" onClick={() => setText(fmtUsdc(max).replace(/,/g, ""))} disabled={max <= 0}
+        <button type="button" onClick={() => setText(fmtUsdc(max).replace(/,/g, ""))} disabled={max <= 0 || busy}
           className="num ml-1 inline-flex min-h-9 shrink-0 items-center rounded-full border border-border px-3 text-xs text-muted-foreground transition-colors hover:border-foreground/25 hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50">
           Max
         </button>
       </div>
       <p id="position-max" className="mt-2 text-xs text-muted-foreground">
         {mode === "supply" ? <><span className="num">{fmtUsdc(idle)} USDC</span> in your wallet</> : <><span className="num">{fmtUsdc(supplied)} USDC</span> in {pool?.name ?? "this pool"}</>}
+        {mode === "withdraw" && <> · rounded down to 0.01 USDC, since the position earns interest every ledger</>}
         {text !== "" && !valid && amount > max && <span className="text-negative"> · more than you have</span>}
       </p>
       {mode === "supply" && (
