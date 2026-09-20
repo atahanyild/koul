@@ -100,13 +100,13 @@ export function BankInstructions({ amountTry, reference, instructions }: { amoun
     <div className="rounded-xl border border-border bg-surface-2/60 p-4">
       <div className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">FAST transfer from your bank</div>
       <dl className="mt-1 divide-y divide-border/70">
-        <InstructionRow label="Send to">{iban ? <><span className="num text-[13px]">{groupIban(iban)}</span><CopyButton text={iban} label="IBAN" /></> : <span className="skeleton h-5 w-40" aria-busy />}</InstructionRow>
+        <InstructionRow label="Send to">{iban ? <><span className="mono text-[13px]">{groupIban(iban)}</span><CopyButton text={iban} label="IBAN" /></> : <span className="skeleton h-5 w-40" aria-busy />}</InstructionRow>
         <InstructionRow label="Recipient"><span className="text-[13px]">{name}</span></InstructionRow>
         <InstructionRow label="Amount"><span className="num text-[13px]">{fmtTry(amountTry)}</span></InstructionRow>
         <InstructionRow label="Reference">
-          {reference ? <><span className="num text-base font-medium text-saffron">{reference}</span><CopyButton text={reference} label="reference" /></> : <span className="skeleton h-5 w-24" aria-busy />}
+          {reference ? <><span className="mono text-base font-medium text-saffron">{reference}</span><CopyButton text={reference} label="reference" /></> : <span className="skeleton h-5 w-24" aria-busy />}
         </InstructionRow>
-        {shown.map(([k, v]) => <InstructionRow key={k} label={v.description ?? k.replace(/_/g, " ")}><span className="num text-[13px]">{v.value}</span></InstructionRow>)}
+        {shown.map(([k, v]) => <InstructionRow key={k} label={v.description ?? k.replace(/_/g, " ")}><span className="mono text-[13px]">{v.value}</span></InstructionRow>)}
       </dl>
       <p className="mt-3 text-xs leading-relaxed text-muted-foreground">Put the reference in the description field. The bank partner matches it on its own; there is nothing else to do.</p>
     </div>

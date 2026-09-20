@@ -84,7 +84,7 @@ export function Address({ value, head = 6, tail = 4, className, label }: { value
   };
   return (
     <button type="button" onClick={copy} aria-label={copied ? "Copied" : `Copy ${label ?? "address"} ${value}`} title={value}
-      className={cn("num group inline-flex min-h-8 items-center gap-1.5 rounded-md px-1.5 -mx-1.5 text-[0.9em] text-foreground/90 transition-colors hover:bg-surface-2 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50", className)}>
+      className={cn("mono group inline-flex min-h-8 items-center gap-1.5 rounded-md px-1.5 -mx-1.5 text-[0.9em] text-foreground/90 transition-colors hover:bg-surface-2 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50", className)}>
       <span>{shortAddress(value, head, tail)}</span>
       {copied ? <Check className="size-3.5 text-positive" aria-hidden /> : <Copy className="size-3.5 text-muted-foreground opacity-70 transition-opacity group-hover:opacity-100" aria-hidden />}
     </button>
@@ -94,7 +94,7 @@ export function Address({ value, head = 6, tail = 4, className, label }: { value
 export function TxLink({ hash, className, children }: { hash: string; className?: string; children?: React.ReactNode }) {
   return (
     <a href={explorerTx(hash)} target="_blank" rel="noopener noreferrer" className={cn("inline-flex min-h-8 items-center gap-1 rounded-md text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50", className)}>
-      {children ?? <span className="num">{hash.slice(0, 8)}…</span>}
+      {children ?? <span className="mono">{hash.slice(0, 8)}…</span>}
       <ExternalLink className="size-3" aria-hidden />
       <span className="sr-only">Open on stellar.expert</span>
     </a>
@@ -204,9 +204,9 @@ export function PageHeader({ title, eyebrow, description, actions, chips, classN
   return (
     <header className={cn("mb-6 flex flex-col gap-4 sm:mb-8 sm:flex-row sm:items-end sm:justify-between", className)}>
       <div className="min-w-0">
-        {eyebrow && <div className="mb-1.5 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">{eyebrow}</div>}
+        {eyebrow && <div className="label mb-2 text-muted-foreground">{eyebrow}</div>}
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-          <h1 className="display text-[2rem] leading-none tracking-tight sm:text-[2.5rem]">{title}</h1>
+          <h1 className="display text-[2rem] leading-none sm:text-[2.5rem]">{title}</h1>
           {chips}
         </div>
         {description && <p className="mt-2 max-w-prose text-sm text-muted-foreground">{description}</p>}
@@ -222,7 +222,7 @@ export function Section({ title, description, aside, children, className }: { ti
       {(title || aside) && (
         <div className="mb-3 flex items-end justify-between gap-3">
           <div>
-            {title && <h2 className="text-[13px] font-medium uppercase tracking-[0.12em] text-muted-foreground">{title}</h2>}
+            {title && <h2 className="label text-foreground">{title}</h2>}
             {description && <p className="mt-1 text-sm text-muted-foreground">{description}</p>}
           </div>
           {aside}

@@ -57,7 +57,7 @@ export function WithdrawFlow({ onLockedChange, onClose }: FlowProps) {
       <DoneCard
         transfer={t}
         headline="is on its way to your bank"
-        subline={<>To <span className="num">{ibanShort}</span> via FAST{t.reference && <> · <span className="num">{t.reference}</span></>}. It shows on your statement with that reference.</>}
+        subline={<>To <span className="mono">{ibanShort}</span> via FAST{t.reference && <> · <span className="mono">{t.reference}</span></>}. It shows on your statement with that reference.</>}
         hash={last?.txHash}
         secondary={<Button variant="outline" size="lg" className="min-h-11 flex-1 text-[15px]" onClick={runner.reset}>Withdraw more</Button>}
         primary={<Button size="lg" className="min-h-11 flex-1 text-[15px]" onClick={onClose}>Done</Button>}

@@ -99,7 +99,7 @@ function WalletMenu({ open, onOpenChange }: { open: boolean; onOpenChange: (o: b
       <div className="mb-4 flex items-center gap-3 rounded-xl border border-border bg-card p-4">
         <Avatar address={w.address!} size="lg" />
         <div className="min-w-0 flex-1">
-          <div className="num truncate text-sm">{w.address}</div>
+          <div className="mono truncate text-sm">{w.address}</div>
           <div className="mt-1 flex flex-wrap gap-x-3 text-xs text-muted-foreground">
             <span className="num">{w.usdc === null ? "—" : `${fmtUsdc(w.usdc)} USDC`}</span>
             <span className="num">{w.xlm === null ? "—" : `${fmtUsdc(w.xlm)} XLM`}</span>

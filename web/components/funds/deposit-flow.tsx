@@ -42,7 +42,7 @@ export function DepositFlow({ onLockedChange }: FlowProps) {
       <DoneCard
         transfer={t}
         headline="is in your wallet"
-        subline={<>{fmtTry(t.amountTry)} at <span className="num">{fmtFx(t.rate)}</span>{t.reference && <> · reference <span className="num">{t.reference}</span></>}</>}
+        subline={<>{fmtTry(t.amountTry)} at <span className="num">{fmtFx(t.rate)}</span>{t.reference && <> · reference <span className="mono">{t.reference}</span></>}</>}
         hash={last?.txHash}
         secondary={<Button variant="outline" size="lg" className="min-h-11 flex-1 text-[15px]" onClick={runner.reset}>Deposit more</Button>}
         primary={<PutItToWork />}
@@ -66,7 +66,7 @@ export function DepositFlow({ onLockedChange }: FlowProps) {
                 </Button>
               </div>
             );
-            if (s.state === "done" && t.reference) return <div className="text-xs text-muted-foreground">Reference <span className="num text-foreground">{t.reference}</span> · matched by the bank partner</div>;
+            if (s.state === "done" && t.reference) return <div className="text-xs text-muted-foreground">Reference <span className="mono text-foreground">{t.reference}</span> · matched by the bank partner</div>;
             return null;
           }}
         />

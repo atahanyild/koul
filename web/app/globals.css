@@ -11,10 +11,10 @@
    ------------------------------------------------------------------ */
 
 @theme inline {
-  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
-  --font-serif: var(--font-instrument-serif), ui-serif, Georgia, serif;
-  --font-mono: var(--font-geist-mono), ui-monospace, "SF Mono", Menlo, monospace;
-  --font-heading: var(--font-serif);
+  --font-sans: var(--font-sans-family), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-display-family), var(--font-sans-family), ui-sans-serif, sans-serif;
+  --font-mono: var(--font-mono-family), ui-monospace, "SF Mono", Menlo, monospace;
+  --font-heading: var(--font-display);
 
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -201,9 +201,16 @@
 
 @layer utilities {
   .tnum { font-variant-numeric: tabular-nums; }
-  .num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
-  .display { font-family: var(--font-serif); font-weight: 400; letter-spacing: -0.01em; }
-  .display-italic { font-family: var(--font-serif); font-style: italic; font-weight: 400; }
+  /* Money and rates: the interface font with lining tabular figures, so columns align without looking like code. */
+  .num { font-variant-numeric: tabular-nums lining-nums; font-feature-settings: "tnum", "lnum"; letter-spacing: -0.005em; }
+  /* Addresses, hashes and references, where every character matters. */
+  .mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+  .display { font-family: var(--font-display); font-weight: 600; letter-spacing: -0.02em; }
+  .display-italic { font-family: var(--font-display); font-weight: 600; font-style: normal; letter-spacing: -0.02em; color: var(--saffron); }
+  /* The hero voice: set tight and shouted, the way the Sembol and No Name pages do it. */
+  .display-hero { font-family: var(--font-display); font-weight: 700; text-transform: uppercase; letter-spacing: -0.03em; line-height: 0.92; }
+  /* Small capitals for labels, eyebrows and the ticker. */
+  .label { font-family: var(--font-mono); font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.14em; }
   .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
   .pt-safe { padding-top: env(safe-area-inset-top); }
   .mb-tabbar { margin-bottom: calc(4.25rem + env(safe-area-inset-bottom)); }

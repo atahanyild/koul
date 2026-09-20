@@ -118,7 +118,7 @@ function MarketCard({ market, paysMost, index }: { market: MarketReading; paysMo
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <div className="truncate text-[15px] font-medium">{market.pair}</div>
-          <div className="num mt-1 flex items-center gap-2 truncate whitespace-nowrap text-xs text-muted-foreground">
+          <div className="mono mt-1 flex items-center gap-2 truncate whitespace-nowrap text-xs text-muted-foreground">
             <Term detail={`XOXNO writes a market as #spoke • #hub. This is spoke 3 on the ${market.hubName} hub, HubAssetKey { asset: ${market.asset.slice(0, 6)}…, hub_id: ${market.hub} }.`}>#3 • #{market.hub}</Term>
             <span className="truncate font-sans">{market.hubName} hub</span>
           </div>

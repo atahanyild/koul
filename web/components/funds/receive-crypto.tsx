@@ -28,7 +28,7 @@ export function ReceiveCrypto() {
       <div className="w-full text-center">
         <div className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">Your wallet address</div>
         <div className="mt-1.5 flex justify-center lg:hidden"><Address value={address} head={10} tail={8} className="text-sm" /></div>
-        <code className="num mt-2 hidden break-all text-[13px] leading-relaxed text-foreground/90 lg:block">{address}</code>
+        <code className="mono mt-2 hidden break-all text-[13px] leading-relaxed text-foreground/90 lg:block">{address}</code>
       </div>
       <Button size="lg" className="min-h-11 w-full text-[15px]" onClick={() => void w.copy()} aria-live="polite">
         {w.copied ? <Check data-icon="inline-start" aria-hidden /> : <Copy data-icon="inline-start" aria-hidden />}

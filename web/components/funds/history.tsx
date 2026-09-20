@@ -64,7 +64,7 @@ function HistoryRow({ item, now }: { item: ActivityItem; now: number }) {
         <div className="text-sm leading-snug">{item.title}</div>
         <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-xs text-muted-foreground">
           <span>{fmtRelative(item.at, now)}</span>
-          {item.reference ? <><span aria-hidden>·</span><span className="num">{item.reference}</span></> : item.detail ? <><span aria-hidden className="hidden md:inline">·</span><span className="hidden truncate md:inline">{item.detail}</span></> : null}
+          {item.reference ? <><span aria-hidden>·</span><span className="mono">{item.reference}</span></> : item.detail ? <><span aria-hidden className="hidden md:inline">·</span><span className="hidden truncate md:inline">{item.detail}</span></> : null}
           {item.txHash && <><span aria-hidden className="md:hidden">·</span><TxLink hash={item.txHash} className="min-h-0 md:hidden" /></>}
         </div>
       </div>

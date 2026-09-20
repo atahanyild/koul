@@ -1,13 +1,14 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
+import { Bricolage_Grotesque, Geist_Mono, Inter } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 import { AppShell } from "@/components/shell/app-shell";
 import { cn } from "@/lib/utils";
 
-const sans = Geist({ subsets: ["latin"], variable: "--font-geist-sans", display: "swap" });
-const mono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono", display: "swap" });
-const serif = Instrument_Serif({ subsets: ["latin"], weight: "400", style: ["normal", "italic"], variable: "--font-instrument-serif", display: "swap" });
+const sans = Inter({ subsets: ["latin"], variable: "--font-sans-family", display: "swap" });
+const mono = Geist_Mono({ subsets: ["latin"], variable: "--font-mono-family", display: "swap" });
+/** Headlines. One voice, no serif; the grotesque carries the weight. */
+const display = Bricolage_Grotesque({ subsets: ["latin"], variable: "--font-display-family", display: "swap" });
 
 export const metadata: Metadata = {
   title: { default: "Koul", template: "%s · Koul" },
@@ -28,7 +29,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={cn(sans.variable, mono.variable, serif.variable)} suppressHydrationWarning>
+    <html lang="en" className={cn(sans.variable, mono.variable, display.variable)} suppressHydrationWarning>
       <body>
         <Providers>
           <AppShell>{children}</AppShell>

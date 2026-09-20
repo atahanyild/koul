@@ -74,7 +74,7 @@ export function SendCrypto({ onLockedChange }: FlowProps) {
         <div className="mb-5 flex size-14 items-center justify-center rounded-full bg-positive-soft text-positive"><Check className="size-6" strokeWidth={2.5} aria-hidden /></div>
         <Money value={sent.amount} currency={sent.asset} size="hero" animate={false} />
         <div className="display mt-3 text-2xl leading-tight">sent</div>
-        <p className="mt-1.5 text-sm text-muted-foreground">To <span className="num text-foreground">{shortAddress(sent.to, 8, 6)}</span>. It is on Stellar now.</p>
+        <p className="mt-1.5 text-sm text-muted-foreground">To <span className="mono text-foreground">{shortAddress(sent.to, 8, 6)}</span>. It is on Stellar now.</p>
         <TxLink hash={sent.hash} className="mt-3 text-sm">See it on stellar.expert</TxLink>
         <Button variant="outline" size="lg" className="mt-6 min-h-11 w-full text-[15px]" onClick={again}>Send another</Button>
       </div>
