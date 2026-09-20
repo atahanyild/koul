@@ -355,3 +355,19 @@ everything out if the lira passes 55" with no notes.
 Not set there on purpose: `KEEPER_SECRET`, so the Funds routes answer 503 on the hosted app until someone adds it in
 the dashboard. The keeper itself still runs on a laptop; it serves every wallet the router lists, including wallets
 created on the hosted app.
+
+## Everything hosted (2026-09-20)
+
+- App at https://koul-stellar.vercel.app (`koul.vercel.app` belongs to someone else's team).
+- Oracle admin at https://koul-oracle.vercel.app/oracle, its own Vercel project on `oracle-admin`, holding the mock
+  oracle's admin secret server side. This is how USD/TRY is moved during a demo.
+- Keeper on GitHub Actions, `.github/workflows/keeper.yml`, every five minutes plus manual dispatch, with
+  `KEEPER_SECRET` and `AGENT_SECRET` as repository secrets. `keeper/src/lib/common.ts` `loadEnv` now falls back to
+  the process environment, which is what made a `.env`-less runner possible. A manual run proved it end to end: the
+  hosted keeper ticked both wallets and submitted `58496475f30dad58efd03acf028de01fa6f097ed14f6398cf010cdeee1bab319`
+  for the browser wallet, a `withdraw` of 40 USDC that its armed rule called for.
+
+Five minutes is the shortest schedule GitHub offers, and scheduled runs can be delayed under load. Nothing breaks at
+a longer gap: the router is idempotent, a rule that is still true simply fires on the next pass. For a demo where a
+rule should fire within seconds, run `pnpm keeper -- --interval 30` on a laptop as well; two keepers are safe, since
+the loser of a race simulates to `None`.

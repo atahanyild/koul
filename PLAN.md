@@ -4,11 +4,15 @@ Read this first in every session. Update the checklist and the "Where we are" li
 
 ## Where we are
 
-Deployed: https://koul-atahanyilds-projects.vercel.app, Vercel project `koul` in `atahanyilds-projects`, linked to
-the GitHub repo, root directory `web`, production branch `master`, so every push redeploys. Vercel authentication on
-the deployment is off so the link opens for anyone. Environment set there: `ANTHROPIC_API_KEY`,
-`FUNDS_ALLOW_PRODUCTION=1`, `ANCHOR_HOME_DOMAINS`. Deliberately not set: `KEEPER_SECRET`, which the Funds routes need;
-add it in the Vercel dashboard to enable lira deposit and withdrawal on the hosted app.
+Deployed, all from this repo on `master`, every push redeploys:
+
+- App: https://koul-stellar.vercel.app, Vercel project `koul`, root directory `web`. Environment: `ANTHROPIC_API_KEY`,
+  `KEEPER_SECRET`, `FUNDS_ALLOW_PRODUCTION=1`, `ANCHOR_HOME_DOMAINS`. Vercel authentication off so the link opens for
+  anyone.
+- Oracle admin: https://koul-oracle.vercel.app/oracle, Vercel project `koul-oracle`, root directory `oracle-admin`,
+  with `ORACLE_ADMIN_SECRET` and `ORACLE_ALLOW_PRODUCTION=1`. This is the lever that moves USD/TRY on stage.
+- Keeper: `.github/workflows/keeper.yml`, every five minutes and on demand, with `KEEPER_SECRET` and `AGENT_SECRET`
+  as GitHub repository secrets. `loadEnv` falls back to the process environment, so no `.env` file is needed there.
 
 2026-09-20 (Circle faucet UI): the wallet menu has **Get test USDC** beside test XLM. A development-only route sponsors a classic G account with a Circle USDC trustline, and the menu provides its address for Circle's Stellar Testnet faucet. Status polling forwards the faucet's 20 USDC through the existing pre-authorized landing-account bridge to the smart wallet. The browser retains the transfer ID so polling can resume. The Circle CAPTCHA and request remain on Circle's site. This flow builds and typechecks, but a live faucet request has not been completed yet.
 

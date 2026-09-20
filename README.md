@@ -6,11 +6,10 @@ A user creates a passkey smart wallet, brings Turkish lira in through an anchor,
 
 This document covers everything built so far and how to run it. Design work for the product UI is tracked separately and is not part of this document.
 
-**Live app: https://koul-atahanyilds-projects.vercel.app** (Stellar testnet). Passkeys are bound to the origin, so a
-wallet created on `localhost` does not appear there: press Create wallet on the domain to make one. Autopilots armed
-there run whenever a keeper is running against the same router, which today is `pnpm keeper` on a laptop. Lira deposit
-and withdrawal need `KEEPER_SECRET` in the Vercel project's environment; without it those two routes answer 503 and
-everything else works.
+**Live app: https://koul-stellar.vercel.app** · **Oracle admin: https://koul-oracle.vercel.app/oracle** · Stellar
+testnet throughout. The keeper runs itself: a GitHub Actions schedule in this repo ticks every five minutes, so
+autopilots armed on the live app fire without anyone's laptop being open. Passkeys are bound to the origin, so a
+wallet created on `localhost` does not appear on the domain: press Create wallet there to make one.
 
 ## Contents
 
