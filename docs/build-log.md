@@ -190,3 +190,23 @@ withdraw / show) replaces `demo-health.ts`; `scripts/tx-diag.ts <hash>` prints a
 Position after the run: hub 1 0 USDC, hub 2 23.18 USDC (hub 2 is at its utilisation ceiling, borrower account 23
 owes 12 USDC there), wallet 23.82 USDC idle, no debt. The `web/` prototype still speaks the v1 router interface and
 the v1 policy params; it is rewired to `@koul/core` in section D.
+
+## SDK live smoke test and position NFT (2026-09-20)
+
+`packages/core` `pnpm smoke` runs `KoulReader` and `KoulWriter` against testnet on the headless wallet (read-only,
+writes simulated, nothing signed). Results: `readPortfolio` account 12, idle 25.82 USDC, hubs with collateral, debt,
+rates, utilisation; `readOracle` TRY 0.02049600 (14 decimals), age reported; `checkAutopilot` five rule states with
+observed values; `simulateTick` null (nothing to do); `validateAutopilot(liraShield)` no errors; codec round trip
+equal; `buildSetAutopilot` simulates with one auth entry for the wallet; `buildWithdraw` from hub 2 simulates to XOXNO
+`#127` because hub 2 sits at its utilisation ceiling (expected, not an SDK fault).
+
+Two fixes from the run: `readFired` returned nothing for a 17280-ledger range because the RPC answers wide ranges
+with an empty list (a 5000-ledger range returned the events); it now walks 5000-ledger windows with cursor paging and
+skips router v1 `Fired { branch }` events. Verified: three events, `move_supply` / `repay_wallet` / `withdraw` with
+the hashes above.
+
+Position NFT (PLAN H1): XOXNO's `get_health_factor` calls `owner_of(12)` on
+`CDVN5JU675MEDPVRPCYC45AHFC275UH57WEU5OTFE4WFGZBNN7HTLPSY` = "XOXNO Lending Position" (`XLEND`), total supply 14.
+`owner_of(12)` = the headless wallet, `balance(wallet)` = 1, `get_owner_token_id(wallet, 0)` = 12, `token_uri(12)` =
+`https://api.xoxno.com/user/lending/image/12?isStatic=true&chain=STELLAR` (HTTP 200, `image/svg+xml`, 86 KB).
+`KoulReader.readPositionNft(address)` added.
