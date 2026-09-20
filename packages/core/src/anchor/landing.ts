@@ -277,7 +277,9 @@ async function buildSorobanForward(deps: LandingDeps, landing: string, seq: bigi
 
 function buildClassicForward(deps: LandingDeps, landing: string, seq: bigint, input: LandingInput, treasury: string, memoId: string, amount: bigint): Transaction {
   return new TransactionBuilder(new Account(landing, seq.toString()), { fee: "1000", networkPassphrase: deps.networkPassphrase })
-    .addOperation(Operation.payment({ destination: treasury, asset: input.usdc, amount: stroopsToAmount(amount) }))
+    // Recreate the asset with this package's SDK copy. The web app can resolve a separate
+    // @stellar/stellar-sdk instance, and Operation.payment checks the Asset prototype.
+    .addOperation(Operation.payment({ destination: treasury, asset: new Asset(input.usdc.code, input.usdc.issuer), amount: stroopsToAmount(amount) }))
     .addMemo(Memo.id(memoId))
     .setTimeout(TimeoutInfinite)
     .build();
@@ -286,6 +288,10 @@ function buildClassicForward(deps: LandingDeps, landing: string, seq: bigint, in
 export async function createLandingAccount(deps: LandingDeps, input: LandingInput): Promise<LandingPlan> {
   const log = deps.log ?? (() => undefined);
   const passphrase = deps.networkPassphrase;
+  // Workspace packages may have separate node_modules trees. Normalize the
+  // caller's structurally compatible Asset to this module's SDK prototype so
+  // changeTrust/payment do not reject it at runtime.
+  const usdc = new Asset(input.usdc.code, input.usdc.issuer);
   const sponsorPub = deps.sponsor.publicKey();
   let landing: Keypair | null = deps.makeKeypair ? deps.makeKeypair() : Keypair.random();
   const landingPub = landing.publicKey();
@@ -301,7 +307,7 @@ export async function createLandingAccount(deps: LandingDeps, input: LandingInpu
         new TransactionBuilder(sponsorAccount, { fee: "1000", networkPassphrase: passphrase })
           .addOperation(Operation.beginSponsoringFutureReserves({ sponsoredId: landingPub }))
           .addOperation(Operation.createAccount({ destination: landingPub, startingBalance: input.feeBufferXlm ?? "0" }))
-          .addOperation(Operation.changeTrust({ asset: input.usdc, source: landingPub }))
+          .addOperation(Operation.changeTrust({ asset: usdc, source: landingPub }))
           .addOperation(Operation.endSponsoringFutureReserves({ source: landingPub }))
           .setTimeout(300)
           .build(),
@@ -337,7 +343,7 @@ export async function createLandingAccount(deps: LandingDeps, input: LandingInpu
         try {
           const sponsorNow = await deps.server.getAccount(sponsorPub);
           const undo = new TransactionBuilder(sponsorNow, { fee: "1000", networkPassphrase: passphrase })
-            .addOperation(Operation.changeTrust({ asset: input.usdc, limit: "0", source: landingPub }))
+            .addOperation(Operation.changeTrust({ asset: usdc, limit: "0", source: landingPub }))
             .addOperation(Operation.accountMerge({ destination: sponsorPub, source: landingPub }))
             .setTimeout(300)
             .build();
@@ -362,7 +368,7 @@ export async function createLandingAccount(deps: LandingDeps, input: LandingInpu
         ? await buildSorobanForward(deps, landingPub, seq, input, kind.destinationContract, kind.amountStroops)
         : buildClassicForward(deps, landingPub, seq, input, kind.treasury, kind.memoId, kind.amountStroops);
     const cleanupTx = new TransactionBuilder(new Account(landingPub, (seq + 1n).toString()), { fee: "1000", networkPassphrase: passphrase })
-      .addOperation(Operation.changeTrust({ asset: input.usdc, limit: "0" }))
+      .addOperation(Operation.changeTrust({ asset: usdc, limit: "0" }))
       .addOperation(Operation.accountMerge({ destination: sponsorPub }))
       .setTimeout(TimeoutInfinite)
       .build();
@@ -371,7 +377,7 @@ export async function createLandingAccount(deps: LandingDeps, input: LandingInpu
     let abortTx: Transaction | null = null;
     if (input.abortable) {
       abortTx = new TransactionBuilder(new Account(landingPub, seq.toString()), { fee: "1000", networkPassphrase: passphrase })
-        .addOperation(Operation.changeTrust({ asset: input.usdc, limit: "0" }))
+        .addOperation(Operation.changeTrust({ asset: usdc, limit: "0" }))
         .addOperation(Operation.accountMerge({ destination: sponsorPub }))
         .setTimeout(TimeoutInfinite)
         .build();
