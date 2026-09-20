@@ -34,7 +34,7 @@ export function toastError(title: string, err: unknown) {
 }
 
 /**
- * One passkey-signed action with a status machine: building the transaction, waiting for Face ID, submitting,
+ * One passkey-signed action with a status machine: building the transaction, waiting for the passkey, submitting,
  * then success or a recoverable cancel. `run` takes a builder so the prompt only opens once the tx is ready.
  */
 export function usePasskeyAction() {

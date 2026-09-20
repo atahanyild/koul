@@ -19,7 +19,7 @@ export interface FlowProps {
 
 export const FLOW_META: Record<FlowKind, { title: string; description: string; sub: string; icon: LucideIcon; primary?: boolean }> = {
   deposit: { title: "Deposit lira", description: "From your bank, via FAST. Nothing to sign.", sub: "From your bank", icon: Landmark, primary: true },
-  withdraw: { title: "Withdraw lira", description: "To your bank, via FAST. One Face ID confirmation.", sub: "To your bank", icon: Banknote },
+  withdraw: { title: "Withdraw lira", description: "To your bank, via FAST. One passkey confirmation.", sub: "To your bank", icon: Banknote },
   receive: { title: "Receive crypto", description: "USDC and XLM on Stellar testnet.", sub: "Show your address", icon: QrCode },
   send: { title: "Send crypto", description: "To any Stellar address. Fees are covered.", sub: "To an address", icon: Send },
 };

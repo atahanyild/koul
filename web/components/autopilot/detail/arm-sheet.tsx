@@ -182,14 +182,14 @@ export function ArmSheet({ open, onOpenChange, ap, onArmed }: ArmSheetProps) {
           <ol className="grid gap-3">
             {canOpen && (
               <Step n={1} state={openState} title="Open your position">
-                <span className="inline-flex items-center gap-1"><PiggyBank className="size-3" aria-hidden /> One Face ID prompt supplies the <span className="num">{fmtUsdc(idle)} USDC</span> in your wallet to {openPool.name}. XOXNO creates the position and Koul reads its id, so the rules have an account to manage.</span>
+                <span className="inline-flex items-center gap-1"><PiggyBank className="size-3" aria-hidden /> One passkey prompt supplies the <span className="num">{fmtUsdc(idle)} USDC</span> in your wallet to {openPool.name}. XOXNO creates the position and Koul reads its id, so the rules have an account to manage.</span>
               </Step>
             )}
             <Step n={canOpen ? 2 : 1} state={grantState} title={keyActive ? "Grant Koul's key (already done)" : "Grant Koul's key"}>
-              <span className="inline-flex items-center gap-1"><KeyRound className="size-3" aria-hidden /> {keyActive ? "An active key is on your smart account, so this prompt is skipped." : `One Face ID prompt adds the keeper's key to your smart account, restricted by the Koul policy, for ${days} day${days === 1 ? "" : "s"}.`}</span>
+              <span className="inline-flex items-center gap-1"><KeyRound className="size-3" aria-hidden /> {keyActive ? "An active key is on your smart account, so this prompt is skipped." : `One passkey prompt adds the keeper's key to your smart account, restricted by the Koul policy, for ${days} day${days === 1 ? "" : "s"}.`}</span>
             </Step>
             <Step n={canOpen ? 3 : 2} state={rulesState} title="Save the rules on-chain">
-              <span className="inline-flex items-center gap-1"><ScrollText className="size-3" aria-hidden /> One Face ID prompt writes the rules to the router. Koul starts checking them within a few minutes.</span>
+              <span className="inline-flex items-center gap-1"><ScrollText className="size-3" aria-hidden /> One passkey prompt writes the rules to the router. Koul starts checking them within a few minutes.</span>
             </Step>
           </ol>
         </section>

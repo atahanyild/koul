@@ -13,7 +13,7 @@ import { ResponsiveSheet } from "@/components/koul/responsive-sheet";
 import { Mark } from "./brand";
 
 const PHASE_TEXT: Partial<Record<PasskeyPhase, { title: string; body: string }>> = {
-  prompt: { title: "Waiting for Face ID", body: "Your device is asking you to confirm. Nothing happens on-chain until you approve." },
+  prompt: { title: "Waiting for your passkey", body: "Your device is asking you to confirm. Nothing happens on-chain until you approve." },
   deploying: { title: "Creating your wallet on Stellar", body: "Deploying a smart account tied to your passkey. About ten seconds." },
   funding: { title: "Adding test XLM", body: "Friendbot is topping up the new wallet so you can try everything." },
   submitting: { title: "Almost there", body: "Waiting for the network to confirm." },
@@ -31,8 +31,8 @@ export function ConnectPanel({ className, onDone, compact = false }: { className
           <div className="mb-5 flex items-center gap-3">
             <div className="flex size-11 items-center justify-center rounded-full bg-clay-soft text-clay"><ScanFace className="size-5" aria-hidden /></div>
             <div>
-              <h2 className="display text-2xl leading-tight">Sign in with your face</h2>
-              <p className="text-sm text-muted-foreground">Face ID or Touch ID creates the wallet. Nothing to write down.</p>
+              <h2 className="display text-2xl leading-tight">Sign in with your passkey</h2>
+              <p className="text-sm text-muted-foreground">Your passkey creates the wallet, with whatever your device uses: a face, a fingerprint or a password manager. Nothing to write down.</p>
             </div>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row">

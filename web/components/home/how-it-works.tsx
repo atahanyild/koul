@@ -8,7 +8,7 @@ const STEPS: { n: string; text: React.ReactNode }[] = [
     n: "1",
     text: (
       <>
-        Face ID creates{" "}
+        Your passkey creates{" "}
         <Term detail="OpenZeppelin smart account deployed with a WebAuthn (secp256r1) passkey as rule 0. There is no seed phrase to lose.">your wallet</Term>, nothing to write down.
       </>
     ),

@@ -74,7 +74,7 @@ export function WithdrawFlow({ onLockedChange, onClose }: FlowProps) {
           renderExtra={(s, i) => {
             if (s.id !== "approve") return null;
             if (s.state === "active") return <ApproveStep amountUsdc={t.amountUsdc} ready={!!t.unsignedTransfer} action={runner.approveAction} onApprove={() => void runner.approve()} />;
-            if (s.state === "done") return <div className="text-xs text-muted-foreground">Signed with Face ID · {fmtUsdc(t.amountUsdc)} USDC left your wallet</div>;
+            if (s.state === "done") return <div className="text-xs text-muted-foreground">Signed with your passkey · {fmtUsdc(t.amountUsdc)} USDC left your wallet</div>;
             void i;
             return null;
           }}
@@ -115,7 +115,7 @@ export function WithdrawFlow({ onLockedChange, onClose }: FlowProps) {
         </p>
       </div>
       <QuoteLine amount={amountTry} currency="TRY" fx={fx} />
-      <p className="text-sm leading-relaxed text-muted-foreground">One Face ID confirmation moves the USDC out. The rest runs on its own and ends with lira in your bank.</p>
+      <p className="text-sm leading-relaxed text-muted-foreground">One passkey confirmation moves the USDC out. The rest runs on its own and ends with lira in your bank.</p>
       <Button type="submit" size="lg" className="min-h-12 w-full text-[15px]" disabled={!canStart}>
         Start withdrawal <ArrowRight data-icon="inline-end" aria-hidden />
       </Button>
@@ -129,7 +129,7 @@ function ApproveStep({ amountUsdc, ready, action, onApprove }: { amountUsdc: num
   return (
     <div className="flex flex-col gap-2">
       <PasskeyButton phase={phase} onClick={onApprove} disabled={!ready} className="w-full sm:w-auto">
-        <span className="inline-flex items-center gap-2"><ScanFace className="size-4" aria-hidden /> Approve with Face ID</span>
+        <span className="inline-flex items-center gap-2"><ScanFace className="size-4" aria-hidden /> Approve with your passkey</span>
       </PasskeyButton>
       <PasskeyHint phase={phase} onRetry={onApprove} />
       {phase === "idle" && <p className="text-xs text-muted-foreground">Sends <span className="num text-foreground">{fmtUsdc(amountUsdc)} USDC</span> to the receiving account. Nothing else is signed.</p>}

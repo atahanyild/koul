@@ -12,7 +12,7 @@ export const DEPOSIT_STEPS: StepDef[] = [
 
 export const WITHDRAW_STEPS: StepDef[] = [
   { id: "quote", title: "Locking your rate", detail: "The anchor quotes today's rate for your USDC.", technical: "Landing account created; SEP-10 as the landing account, SEP-12 with your IBAN, SEP-38 sell quote, SEP-6 withdraw-exchange." },
-  { id: "approve", title: "Approve with Face ID", detail: "One confirmation moves the USDC out of your wallet. The rest runs on its own.", technical: "Passkey-signed USDC SAC transfer from the smart account to the landing account.", waitsOn: "you" },
+  { id: "approve", title: "Approve with your passkey", detail: "One confirmation moves the USDC out of your wallet. The rest runs on its own.", technical: "Passkey-signed USDC SAC transfer from the smart account to the landing account.", waitsOn: "you" },
   { id: "paying", title: "Bank partner is paying your lira", detail: "The anchor sends lira to your IBAN via FAST.", technical: "Pre-authorised classic payment to the anchor treasury with the memo, fee-bumped by the keeper; anchor status polled.", waitsOn: "the anchor" },
   { id: "done", title: "Lira is in your bank", detail: "Done. You will see the FAST reference on your statement.", technical: "Anchor status completed; landing account cleaned up and merged." },
 ];

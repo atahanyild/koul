@@ -119,7 +119,7 @@ function TabEmpty({ tab, drafts, onShowDrafts }: { tab: TabKey; drafts: number; 
       <EmptyState
         icon={Compass}
         title="Nothing is running for you yet"
-        description={drafts ? "You have a draft ready. Arm it and Koul starts checking its rules every few minutes." : "Write what you want in a sentence and Koul turns it into rules you can read, then arm it with Face ID."}
+        description={drafts ? "You have a draft ready. Arm it and Koul starts checking its rules every few minutes." : "Write what you want in a sentence and Koul turns it into rules you can read, then arm it with your passkey."}
         action={
           drafts ? (
             <Button variant="outline" size="lg" className="min-h-11" onClick={onShowDrafts}>See drafts <span className="num text-muted-foreground">{drafts}</span></Button>
