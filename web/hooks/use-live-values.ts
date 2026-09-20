@@ -11,8 +11,9 @@ export function useLiveValues(): { live: LiveValues; loading: boolean; fxUpdated
   const fx = useFx();
   const pf = usePortfolio();
   const live = useMemo<LiveValues>(() => ({
-    rateA: poolById(pools.pools, "A")?.supplyApy ?? null,
-    rateB: poolById(pools.pools, "B")?.supplyApy ?? null,
+    // The router compares the pool's raw annualised rates, so rules are evaluated against APR, not the compounded APY.
+    rateA: poolById(pools.pools, "A")?.supplyApr ?? null,
+    rateB: poolById(pools.pools, "B")?.supplyApr ?? null,
     healthFactor: pf.health.factor,
     hasLoan: pf.health.hasLoan,
     fx: fx.loading ? null : fx.fx.tryPerUsd,

@@ -68,7 +68,7 @@ export interface Autopilot {
 }
 
 export const CONDITION_LABELS: Record<ConditionKind, { subject: string; unit: string; technical: string }> = {
-  rate_gap: { subject: "the better pool pays more by", unit: "pts", technical: "|deposit_rate(hub_b) − deposit_rate(hub_a)| in basis points, annualised" },
+  rate_gap: { subject: "the better hub pays more by", unit: "pts", technical: "|deposit_rate(hub_b) − deposit_rate(hub_a)| in basis points, the pool's annualised simple rate (APR, not the compounded APY XOXNO shows)" },
   health_factor: { subject: "my loan health", unit: "", technical: "XOXNO controller get_health_factor (WAD); liquidation at 1.00" },
   fx_price: { subject: "USD/TRY", unit: "", technical: "Reflector-shaped oracle lastprice(TRY), USD per TRY with 14 decimals, inverted" },
   idle_usdc: { subject: "idle USDC in my wallet", unit: "USDC", technical: "USDC SAC balance of the smart account" },

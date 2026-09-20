@@ -6,8 +6,12 @@ export interface Pool {
   name: string;
   hub: number;
   technical: string;
-  supplyApy: number; // percent
-  borrowApy: number; // percent
+  /** Annualised deposit rate straight from the pool (APR, percent). The router's rate-gap rule compares these. */
+  supplyApr: number;
+  borrowApr: number;
+  /** The same rates compounded, as XOXNO's app shows them (APY, percent). */
+  supplyApy: number;
+  borrowApy: number;
   utilization: number; // 0..1
   availableUsdc: number; // liquid cash the pool can release
   totalSuppliedUsdc: number;

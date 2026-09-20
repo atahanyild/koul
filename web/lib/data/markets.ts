@@ -4,6 +4,8 @@ export interface Market {
   name: string;
   /** Plain label with the hub, e.g. "USDC · Secondary hub". */
   label: string;
+  /** What the market trades, as people read it: "USDC", "XLM/USDC LP". */
+  pair: string;
   hub: number;
   hubName: string;
   asset: string;
@@ -14,7 +16,7 @@ export interface Market {
 
 export const XOXNO_APP = "https://staging.xoxno.com";
 const HUB_NAMES: Record<number, string> = { 1: "Main", 2: "Secondary", 3: "Aquarius" };
-const market = (name: string, hub: number, asset: string, code = name): Market => ({ name, label: `${code} · ${HUB_NAMES[hub] ?? `Hub ${hub}`} hub`, hub, hubName: HUB_NAMES[hub] ?? `Hub ${hub}`, asset, decimals: 7, url: `${XOXNO_APP}/defi/lending/${asset}` });
+const market = (name: string, hub: number, asset: string, code = name): Market => ({ name, pair: code, label: `${code} · ${HUB_NAMES[hub] ?? `Hub ${hub}`} hub`, hub, hubName: HUB_NAMES[hub] ?? `Hub ${hub}`, asset, decimals: 7, url: `${XOXNO_APP}/defi/lending/${asset}` });
 
 export const MARKETS: Market[] = [
   market("USDC", 1, "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA"),

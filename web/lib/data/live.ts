@@ -13,6 +13,8 @@ import type { ActivityItem, FxPrice, Health, Pool, Positions } from "./types";
 
 export const reader = new KoulReader(READ_CONFIG);
 const RAY = 1e27;
+/** The pool returns an annualised simple rate; XOXNO's app shows it compounded. `e^apr - 1`, both in percent. */
+export const toApy = (aprPercent: number) => Math.expm1(aprPercent / 100) * 100;
 const WAD = 1e18;
 const LEDGER_MS = 5000;
 
@@ -25,14 +27,17 @@ export async function readPools(): Promise<Pool[]> {
     const suppliedN = fromUnits(h.supplied);
     const borrowedN = fromUnits(h.borrowed);
     const util = suppliedN > 0 ? borrowedN / suppliedN : 0;
-    const supplyApy = Number(h.depositRate) / RAY * 100;
+    const supplyApr = Number(h.depositRate) / RAY * 100;
     // The pool exposes the deposit rate; the borrow rate is derived from utilisation.
-    const borrowApy = util > 0 ? supplyApy / util : 0;
-    return { ...POOLS[id], supplyApy, borrowApy, utilization: util, availableUsdc: fromUnits(h.cash), totalSuppliedUsdc: suppliedN };
+    const borrowApr = util > 0 ? supplyApr / util : 0;
+    return { ...POOLS[id], supplyApr, borrowApr, supplyApy: toApy(supplyApr), borrowApy: toApy(borrowApr), utilization: util, availableUsdc: fromUnits(h.cash), totalSuppliedUsdc: suppliedN };
   });
 }
 
 export interface MarketReading extends Market {
+  /** Annualised simple rates from the pool (APR, percent) and the compounded rates XOXNO shows (APY). */
+  supplyApr: number;
+  borrowApr: number;
   supplyApy: number;
   borrowApy: number;
   utilization: number;
@@ -66,7 +71,9 @@ export async function readMarkets(): Promise<MarketReading[]> {
     ]);
     const suppliedN = fromUnits(supplied);
     const borrowedN = fromUnits(borrowed);
-    return { ...m, supplyApy: Number(rate) / RAY * 100, borrowApy: Number(borrowRate) / RAY * 100, utilization: suppliedN > 0 ? borrowedN / suppliedN : 0, supplied: suppliedN, borrowed: borrowedN, cash: fromUnits(sync.state.cash) };
+    const supplyApr = Number(rate) / RAY * 100;
+    const borrowApr = Number(borrowRate) / RAY * 100;
+    return { ...m, supplyApr, borrowApr, supplyApy: toApy(supplyApr), borrowApy: toApy(borrowApr), utilization: suppliedN > 0 ? borrowedN / suppliedN : 0, supplied: suppliedN, borrowed: borrowedN, cash: fromUnits(sync.state.cash) };
   }));
 }
 

@@ -36,9 +36,9 @@ export function useFx(): FxState {
 }
 
 export const poolById = (pools: Pool[], id: "A" | "B") => pools.find((p) => p.id === id) ?? null;
-export const bestPool = (pools: Pool[]): Pool | null => (pools.length ? pools.reduce((a, b) => (b.supplyApy > a.supplyApy ? b : a)) : null);
+export const bestPool = (pools: Pool[]): Pool | null => (pools.length ? pools.reduce((a, b) => (b.supplyApr > a.supplyApr ? b : a)) : null);
 export const rateGap = (pools: Pool[]) => {
   const a = poolById(pools, "A");
   const b = poolById(pools, "B");
-  return a && b ? Math.abs(b.supplyApy - a.supplyApy) : 0;
+  return a && b ? Math.abs(b.supplyApr - a.supplyApr) : 0;
 };
