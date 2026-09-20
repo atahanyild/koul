@@ -4,6 +4,12 @@ Read this first in every session. Update the checklist and the "Where we are" li
 
 ## Where we are
 
+Deployed: https://koul-atahanyilds-projects.vercel.app, Vercel project `koul` in `atahanyilds-projects`, linked to
+the GitHub repo, root directory `web`, production branch `master`, so every push redeploys. Vercel authentication on
+the deployment is off so the link opens for anyone. Environment set there: `ANTHROPIC_API_KEY`,
+`FUNDS_ALLOW_PRODUCTION=1`, `ANCHOR_HOME_DOMAINS`. Deliberately not set: `KEEPER_SECRET`, which the Funds routes need;
+add it in the Vercel dashboard to enable lira deposit and withdrawal on the hosted app.
+
 2026-09-20 (Circle faucet UI): the wallet menu has **Get test USDC** beside test XLM. A development-only route sponsors a classic G account with a Circle USDC trustline, and the menu provides its address for Circle's Stellar Testnet faucet. Status polling forwards the faucet's 20 USDC through the existing pre-authorized landing-account bridge to the smart wallet. The browser retains the transfer ID so polling can resume. The Circle CAPTCHA and request remain on Circle's site. This flow builds and typechecks, but a live faucet request has not been completed yet.
 
 2026-09-20 (frontend, latest): the teammate's UI (`web/`, commit "ui impel v0") is merged and wired to the v2 stack. Sample data and the demo switch are gone (`lib/data/mock.ts`, `use-demo-mode.ts`, `DemoChip`); every hook reads testnet through `@koul/core` (`lib/data/live.ts`): pools, USD/TRY, portfolio + position NFT (the NFT gives the XOXNO account id), chain autopilots, `Fired` events. `lib/model/autopilot.ts` maps UI rules to the router's `Autopilot` (`toCoreAutopilot` / `fromCoreAutopilot`); `use-autopilots.ts` arms through `buildGrantAgent` + `buildSetAutopilot` and can `clear`. The Funds runner drives the real funds routes (new `POST /api/funds/:id/simulate` for the sandbox bank leg; `FundsService.simulateBankTransfer`). `@koul/core` is a `link:` dependency in web and keeper; core imports lost their `.js` suffixes for Turbopack. `next build` passes; home, portfolio, autopilots and funds render live in Chrome with an empty wallet. Still stubs: `app/autopilots/new` (sentence box + builder) and `app/autopilots/[id]` (rule cards, arm sheet); their components exist under `components/autopilot/`. Next: build those two pages on `useAutopilotEditor` / `useArmAutopilot` and the `/api/autopilot/parse` route, then a live end-to-end run with a browser passkey wallet.

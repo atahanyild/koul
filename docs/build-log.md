@@ -340,3 +340,18 @@ The page shows a note as "Worth knowing" when rules did come back, and keeps the
 built. After the changes the four sample sentences return clean rules: "60% a year" is 4700 bps, "once an hour" is
 720 ledgers, "wait a day" is 17280, the lira exit is `FxPrice(TRY, Below, 2000000000000)`, and the impossible ask
 returns no autopilot with one sentence saying why. Tests: 14, including an OpenAI-compatible tool call.
+
+## Deployed (2026-09-20)
+
+https://koul-atahanyilds-projects.vercel.app, Vercel project `koul`, linked to the GitHub repo with root directory
+`web` and production branch `master`, so a push redeploys. The pnpm workspace builds as is once the stale per-package
+lockfiles are gone and one lockfile remains at the root. Vercel authentication on the deployment was switched off, or
+the link would ask every visitor to log into Vercel.
+
+Checked on the live URL: all five pages answer 200, the markets row reads the pool contract from the browser, and
+`POST /api/autopilot/parse` returned two correct rules for "put my idle usdc to work when it is over 5, and pull
+everything out if the lira passes 55" with no notes.
+
+Not set there on purpose: `KEEPER_SECRET`, so the Funds routes answer 503 on the hosted app until someone adds it in
+the dashboard. The keeper itself still runs on a laptop; it serves every wallet the router lists, including wallets
+created on the hosted app.
