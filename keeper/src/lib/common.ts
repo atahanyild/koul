@@ -26,12 +26,16 @@ export const LEDGERS_PER_DAY = 17280;
 const ROOT = fileURLToPath(new URL("../../", import.meta.url));
 const STATE_PATH = `${ROOT}.phase0-state.json`;
 
+/** `keeper/.env` locally, the real environment in CI. Values already in the environment win. */
 export function loadEnv(): Record<string, string> {
   const out: Record<string, string> = {};
-  for (const line of readFileSync(`${ROOT}.env`, "utf8").split("\n")) {
-    const m = line.match(/^([A-Z_0-9]+)=(.*)$/);
-    if (m) out[m[1]!] = m[2]!;
+  if (existsSync(`${ROOT}.env`)) {
+    for (const line of readFileSync(`${ROOT}.env`, "utf8").split("\n")) {
+      const m = line.match(/^([A-Z_0-9]+)=(.*)$/);
+      if (m) out[m[1]!] = m[2]!;
+    }
   }
+  for (const [k, v] of Object.entries(process.env)) if (/^[A-Z_0-9]+$/.test(k) && v) out[k] = v;
   return out;
 }
 

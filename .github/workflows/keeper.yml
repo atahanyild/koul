@@ -1,0 +1,38 @@
+# The keeper, on a schedule. It holds no user funds and decides nothing: it reads the users and autopilots from the
+# router, simulates `tick`, and submits only when the router returns an action. Everything it may sign is confined
+# on-chain by koul_agent_policy, so the worst a stolen run can do is what the user's own rules already allow.
+name: keeper
+
+on:
+  schedule:
+    # Every five minutes, the shortest GitHub allows. Nothing breaks at a longer gap; rules simply fire later.
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: keeper
+  cancel-in-progress: false
+
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 8
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: One pass over every user and autopilot
+        working-directory: keeper
+        env:
+          KEEPER_SECRET: ${{ secrets.KEEPER_SECRET }}
+          AGENT_SECRET: ${{ secrets.AGENT_SECRET }}
+          ROUTER_V1: ${{ vars.ROUTER_V1 || 'CBHRTWXARGZCUDBE7IX4SZV7GDFA6PRQICZQPUSOUPN3YDCVPXQBMT2P' }}
+          KOUL_POLICY: ${{ vars.KOUL_POLICY || 'CBDQPSGJDJUGLUIYTLAVH7C7FQE3ZN2HXOKYELNPEEUHFPV52QRI5AR2' }}
+          MOCK_FX: ${{ vars.MOCK_FX || 'CB6VNXADXR3XHCS4EKV5ZR5UJUZYQ5BZTPRHCNQE3XMKQMB4LJG6MKW2' }}
+        run: pnpm keeper:once
