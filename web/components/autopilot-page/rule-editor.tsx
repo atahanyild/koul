@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Label, PillButton, Tile } from "@/components/signal";
 import { RuleLine } from "@/components/rules/rule-line";
-import { COOLDOWN_OPTIONS, POOLS, type Action, type Comparator, type Condition, type ConditionKind, type LiveValues, type Rule } from "@/lib/model/autopilot";
+import { POOLS, type Action, type Comparator, type Condition, type ConditionKind, type LiveValues, type Rule } from "@/lib/model/autopilot";
 import { ACTION_CHOICES, CONDITION_SUBJECTS, agoShort, cooldownShort, liveLabel, observedLabel } from "@/lib/model/labels";
 import type { LiveRule } from "@/hooks/use-autopilot-live";
 import type { Editor } from "./use-editor";
@@ -98,7 +98,9 @@ function ActionPickers({ action, onChange }: { action: Action; onChange: (next: 
   );
 }
 
-const WAITS = COOLDOWN_OPTIONS.filter((o) => o.value >= 60);
+/** The waits a person picks from; a rule read back from the chain keeps whatever it has, listed alongside. */
+const WAITS: { value: number; label: string }[] = [60, 300, 600, 1800, 3600, 21600, 43200, 86400].map((value) => ({ value, label: cooldownShort(value) }));
+const waitsFor = (current: number) => (WAITS.some((o) => o.value === current) ? WAITS : [...WAITS, { value: current, label: cooldownShort(current) }].sort((a, b) => a.value - b.value));
 
 export function RuleEditor({ editor, liveRules, live, now, onAdd }: { editor: Editor; liveRules: LiveRule[]; live: LiveValues; now: number; onAdd: () => void }) {
   const [dragging, setDragging] = React.useState<number | null>(null);
@@ -167,9 +169,9 @@ export function RuleEditor({ editor, liveRules, live, now, onAdd }: { editor: Ed
                   </div>
                   <div className="grid gap-2">
                     <Label>Wait between runs</Label>
-                    <Select value={String(rule.cooldownSec)} onValueChange={(v) => v && editor.update(rule.id, { cooldownSec: Number(v) })} items={WAITS.map((o) => ({ value: String(o.value), label: cooldownShort(o.value) }))}>
+                    <Select value={String(rule.cooldownSec)} onValueChange={(v) => v && editor.update(rule.id, { cooldownSec: Number(v) })} items={waitsFor(rule.cooldownSec).map((o) => ({ value: String(o.value), label: o.label }))}>
                       <SelectTrigger className={cn(pill, "w-fit")} aria-label="Wait between runs"><SelectValue /></SelectTrigger>
-                      <SelectContent className={popup}>{WAITS.map((o) => <SelectItem key={o.value} value={String(o.value)} className={item}>{cooldownShort(o.value)}</SelectItem>)}</SelectContent>
+                      <SelectContent className={popup}>{waitsFor(rule.cooldownSec).map((o) => <SelectItem key={o.value} value={String(o.value)} className={item}>{o.label}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
                 </div>
