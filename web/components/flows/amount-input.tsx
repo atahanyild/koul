@@ -31,7 +31,8 @@ export function AmountInput({ value, onChange, unit, label = "You send", placeho
           autoComplete="off"
           autoFocus={autoFocus}
           placeholder={placeholder}
-          className={cn("t-hero num min-w-0 flex-1 bg-transparent text-text outline-none placeholder:text-dim", value.length > 9 && "text-[40px] md:text-[64px]")}
+          size={1}
+          className={cn("t-hero num w-0 min-w-0 flex-1 bg-transparent text-text outline-none placeholder:text-dim", value.length > 9 && "text-[40px] md:text-[64px]")}
         />
         <span className="pb-2 text-[24px] font-extrabold text-dim md:text-[28px]">{unit}</span>
       </div>

@@ -23,7 +23,7 @@ export function FlowFrame({ title, back = "/", method, onMethod, children, actio
         <h1 className="t-title truncate">{title}</h1>
       </div>
       {method && onMethod && <Segmented label="Method" value={method} onChange={onMethod} options={METHOD_OPTIONS} className="mt-2 mb-4" />}
-      <div className="grid gap-4">{children}</div>
+      <div className="grid gap-4 [&>*]:min-w-0">{children}</div>
       {action && (
         <div className="fixed inset-x-4 bottom-0 z-30 mb-[max(16px,env(safe-area-inset-bottom))] md:static md:mt-4 md:mb-0">
           {action}
