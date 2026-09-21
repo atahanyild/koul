@@ -19,6 +19,7 @@ import { Label, PillButton, Sk, StatusPill, type StatusKind } from "@/components
 import { AccessChip } from "@/components/autopilot-page/access";
 import { Chat } from "@/components/autopilot-page/chat";
 import type { ChatDraft } from "@/lib/chat/reducer";
+import { describeChanges, diffRules, type RuleChange } from "@/lib/chat/diff";
 import type { LiveContext } from "@/lib/chat/schema";
 import { RulesHeader, RulesList } from "@/components/autopilot-page/rules-list";
 import { RuleEditor, pairingProblem, ruleTemplate } from "@/components/autopilot-page/rule-editor";
@@ -53,6 +54,17 @@ export default function AutopilotPage() {
   // The chat: what Koul may quote, and what happens when a draft is accepted.
   const chatLive = React.useMemo<LiveContext>(() => ({ fx: values.live.fx, healthFactor: values.live.healthFactor, hasLoan: values.live.hasLoan, rateA: values.live.rateA, rateB: values.live.rateB, idleUsdc: values.live.idleUsdc }), [values.live]);
   const [highlight, setHighlight] = React.useState<string | null>(null);
+  // What the chat changed while editing: the rows get CHANGED · UNDO until the change is undone or saved.
+  const [chatChanges, setChatChanges] = React.useState<RuleChange[]>([]);
+  const onEdit = React.useCallback((draft: ChatDraft): string | null => {
+    const changes = diffRules(editor.rules, draft.rules);
+    const rule = draft.rules[draft.position - 1];
+    editor.replace(draft.rules, editor.open && draft.rules.some((r) => r.id === editor.open) ? editor.open : null);
+    setChatChanges(changes);
+    setHighlight(changes.some((c) => c.kind === "added") ? rule?.id ?? null : null);
+    return describeChanges(changes);
+  }, [editor]);
+  const undoChat = React.useCallback(() => { editor.undo(); setChatChanges([]); }, [editor]);
   const onAccept = React.useCallback((draft: ChatDraft, how: "add" | "adjust") => {
     const rule = draft.rules[draft.position - 1];
     editor.replace(draft.rules, how === "adjust" && rule ? rule.id : null);
@@ -84,6 +96,7 @@ export default function AutopilotPage() {
     await live.refresh();
     editor.discard();
     setHighlight(null);
+    setChatChanges([]);
   }, [live, editor]);
 
   const submit = React.useCallback(async () => {
@@ -149,13 +162,13 @@ export default function AutopilotPage() {
       </div>
       <Label className="sm:hidden">{summary}</Label>
 
-      <Chat mode={editor.editing ? "editing" : "live"} rules={rules} live={chatLive} onAccept={onAccept} chips={4} />
+      <Chat mode={editor.editing ? "editing" : "live"} rules={rules} live={chatLive} onAccept={onAccept} onEdit={onEdit} chips={4} />
 
       {editor.editing ? (
         <>
-          <RulesHeader hint="Top to bottom · first match runs" action={editor.canUndo ? <PillButton variant="ghost" size="sm" onClick={editor.undo}>Undo</PillButton> : undefined} />
-          <RuleEditor editor={editor} liveRules={live.rules} live={values.live} now={now} highlight={highlight} onAdd={() => editor.add(ruleTemplate())} />
-          <SaveBar changes={editor.changes} confirmations={confirmations} blocker={editor.changes === 0 ? null : blocker} error={saveError} ask={ask} busy={busy} busyLabel={busyLabel} onDiscard={() => { editor.discard(); setHighlight(null); setSaveError(null); setAsking(false); }} onSave={() => void onSave()} />
+          <RulesHeader hint="Top to bottom · first match runs" action={editor.canUndo ? <PillButton variant="ghost" size="sm" onClick={undoChat}>Undo</PillButton> : undefined} />
+          <RuleEditor editor={editor} liveRules={live.rules} live={values.live} now={now} highlight={highlight} changes={chatChanges} onUndo={undoChat} onAdd={() => editor.add(ruleTemplate())} />
+          <SaveBar changes={editor.changes} confirmations={confirmations} blocker={editor.changes === 0 ? null : blocker} error={saveError} ask={ask} busy={busy} busyLabel={busyLabel} onDiscard={() => { editor.discard(); setHighlight(null); setChatChanges([]); setSaveError(null); setAsking(false); }} onSave={() => void onSave()} />
         </>
       ) : live.status === "off" ? (
         <Templates onAdd={(rule) => editor.add(rule)} />

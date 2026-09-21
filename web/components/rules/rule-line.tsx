@@ -21,8 +21,10 @@ export interface RuleLineProps {
   current?: boolean;
   /** Overrides the right column entirely (the ON / OFF word on the Autopilot page). */
   trailing?: React.ReactNode;
-  /** Overrides the NOW column text, e.g. "IN BEST HUB". */
-  nowOverride?: string | null;
+  /** Overrides the NOW column, e.g. "IN BEST HUB" or the CHANGED · UNDO mark. */
+  nowOverride?: React.ReactNode;
+  /** A level a chat edit changed: the old one struck through beside the new one. */
+  strike?: { from: string; to: string } | null;
   dimmed?: boolean;
   /** The draft row in the chat has no place yet, so no number. */
   hideNumber?: boolean;
@@ -37,16 +39,20 @@ export function RuleNumber({ index, current, className }: { index: number; curre
   );
 }
 
-export function RuleLine({ index, rule, now, ranAgo, current, trailing, nowOverride, dimmed, hideNumber, className }: RuleLineProps) {
+export function RuleLine({ index, rule, now, ranAgo, current, trailing, nowOverride, strike, dimmed, hideNumber, className }: RuleLineProps) {
   const status = nowOverride ?? (ranAgo ? `RAN ${ranAgo} AGO` : now ? `NOW ${now}` : null);
   const statusTone = ranAgo && !nowOverride ? "text-lime" : "text-muted";
+  const compact = conditionsCompact(rule);
+  // "USD/TRY > 50.00" with 50.00 changed to 51.00 reads "USD/TRY > ~~50.00~~ 51.00".
+  const at = strike ? compact.lastIndexOf(strike.to) : -1;
+  const condition = strike && at >= 0 ? <>{compact.slice(0, at)}<s className="text-dim">{strike.from}</s> <span className="text-lime">{strike.to}</span>{compact.slice(at + strike.to.length)}</> : compact;
   return (
     <div className={cn("grid gap-x-4 gap-y-1 py-4 md:grid-cols-[auto_auto_minmax(0,1fr)_auto_minmax(0,1.2fr)_auto_auto] md:items-center", dimmed && "opacity-50", className)}>
       {/* Phone row 1: number, IF condition, status. Desktop: the same items flow into the grid columns. */}
       <div className="flex items-center gap-3 md:contents">
         {hideNumber ? <span className="hidden md:inline" aria-hidden /> : <RuleNumber index={index} current={current} />}
         <span className="mono text-dim">IF</span>
-        <span className="mono min-w-0 flex-1 truncate">{conditionsCompact(rule)}</span>
+        <span className="mono min-w-0 flex-1 truncate">{condition}</span>
         <span className={cn("mono ml-auto shrink-0 md:hidden", statusTone)}>{trailing ?? status}</span>
       </div>
       <div className="flex items-center gap-2 pl-9 md:contents md:pl-0">

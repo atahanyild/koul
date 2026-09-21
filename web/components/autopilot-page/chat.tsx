@@ -99,7 +99,7 @@ export function Chat({ mode, rules, live, onAccept, onEdit, chips = SUGGESTIONS.
           // Editing: the answer changes the draft rules straight away; the conversation ends with a note.
           const note = edit({ rules: reply.rules, position: reply.position });
           dispatch({ type: "reply", id, reply });
-          dispatch({ type: "accept", note });
+          dispatch({ type: "accept", note: note ? `${note} · You said: ${next.lastSent}` : null });
           return;
         }
         dispatch({ type: "reply", id, reply });

@@ -20,6 +20,7 @@ import { ACTION_CHOICES, CONDITION_SUBJECTS, agoShort, cooldownShort, liveLabel,
 import type { LiveRule } from "@/hooks/use-autopilot-live";
 import type { Editor } from "./use-editor";
 import { pairingProblem } from "@/lib/model/pairing";
+import type { RuleChange } from "@/lib/chat/diff";
 import { cn } from "@/lib/utils";
 
 const pill = "h-11 rounded-full border-0 bg-surface-2 px-4 mono text-text data-[size=default]:h-11 hover:brightness-110 [&_svg]:text-muted";
@@ -116,7 +117,7 @@ function Handle({ index, attributes, listeners, setActivatorNodeRef }: { index: 
   );
 }
 
-function SortableRule({ rule, i, shownIndex, editor, lr, live, now, dragging, highlighted }: { rule: Rule; i: number; shownIndex: number; editor: Editor; lr: LiveRule | undefined; live: LiveValues; now: number; dragging: boolean; highlighted: boolean }) {
+function SortableRule({ rule, i, shownIndex, editor, lr, live, now, dragging, highlighted, change, onUndo }: { rule: Rule; i: number; shownIndex: number; editor: Editor; lr: LiveRule | undefined; live: LiveValues; now: number; dragging: boolean; highlighted: boolean; change?: RuleChange; onUndo?: () => void }) {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id: rule.id });
   const open = editor.open === rule.id;
   const first = rule.conditions[0]!;
@@ -127,7 +128,7 @@ function SortableRule({ rule, i, shownIndex, editor, lr, live, now, dragging, hi
   return (
     <Tile
       ref={setNodeRef}
-      tone={open || highlighted ? "outlined" : "surface"}
+      tone={open || highlighted || !!change ? "outlined" : "surface"}
       padded={false}
       data-dragging={isDragging || undefined}
       className={cn("px-4 md:px-6", isDragging && "relative z-10 scale-[1.02] border border-lime shadow-[0_12px_40px_rgba(0,0,0,0.35)]", dragging && !isDragging && "transition-transform")}
@@ -144,6 +145,8 @@ function SortableRule({ rule, i, shownIndex, editor, lr, live, now, dragging, hi
             current={lr?.current}
             ranAgo={lr?.current && lr.lastRunAt ? agoShort(lr.lastRunAt, now) : null}
             now={nowText}
+            nowOverride={change ? <span className="text-lime">CHANGED · <span role="button" tabIndex={0} onClick={(e) => { e.stopPropagation(); onUndo?.(); }} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); onUndo?.(); } }} className="cursor-pointer underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-lime rounded">UNDO</span></span> : undefined}
+            strike={change?.fromValue && change.toValue ? { from: change.fromValue, to: change.toValue } : null}
             dimmed={!rule.enabled}
             trailing={<span className={cn(rule.enabled ? "text-lime" : "text-dim")}>{rule.enabled ? "ON" : "OFF"}</span>}
             className="py-4 md:py-5"
@@ -196,7 +199,7 @@ function SortableRule({ rule, i, shownIndex, editor, lr, live, now, dragging, hi
   );
 }
 
-export function RuleEditor({ editor, liveRules, live, now, highlight, onAdd }: { editor: Editor; liveRules: LiveRule[]; live: LiveValues; now: number; highlight?: string | null; onAdd: () => void }) {
+export function RuleEditor({ editor, liveRules, live, now, highlight, changes, onUndo, onAdd }: { editor: Editor; liveRules: LiveRule[]; live: LiveValues; now: number; highlight?: string | null; /** What the chat changed, for the CHANGED · UNDO marks. */ changes?: RuleChange[]; onUndo?: () => void; onAdd: () => void }) {
   const byId = new Map(liveRules.map((r) => [r.rule.id, r] as const));
   const ids = editor.rules.map((r) => r.id);
   // While a row is held, `order` is where the rows would land, so the numbers follow the drag.
@@ -230,7 +233,7 @@ export function RuleEditor({ editor, liveRules, live, now, highlight, onAdd }: {
       <SortableContext items={ids} strategy={verticalListSortingStrategy}>
         <div className="grid gap-3">
           {editor.rules.map((rule, i) => (
-            <SortableRule key={rule.id} rule={rule} i={i} shownIndex={shown.indexOf(rule.id)} editor={editor} lr={byId.get(rule.id)} live={live} now={now} dragging={order !== null} highlighted={highlight === rule.id} />
+            <SortableRule key={rule.id} rule={rule} i={i} shownIndex={shown.indexOf(rule.id)} editor={editor} lr={byId.get(rule.id)} live={live} now={now} dragging={order !== null} highlighted={highlight === rule.id} change={changes?.find((c) => c.id === rule.id && c.kind === "changed")} onUndo={onUndo} />
           ))}
           <button type="button" onClick={onAdd} className="flex min-h-14 w-full items-center justify-center gap-2 rounded-[var(--radius-tile)] border-2 border-dashed border-line text-[16px] font-bold text-text transition-colors hover:border-muted active:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime">
             <Plus className="size-5" aria-hidden /> Add rule
