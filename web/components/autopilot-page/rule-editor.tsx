@@ -134,7 +134,7 @@ export function RuleEditor({ editor, liveRules, live, now, onAdd }: { editor: Ed
                   <button type="button" aria-label={`Move rule ${i + 1} down`} disabled={i === editor.rules.length - 1} onClick={() => editor.move(rule.id, 1)} className="inline-flex size-6 items-center justify-center rounded-full text-muted hover:text-text disabled:opacity-30 focus-visible:outline-2 focus-visible:outline-lime"><ChevronDown className="size-4" /></button>
                 </span>
               </div>
-              <button type="button" onClick={() => editor.setOpen(open ? null : rule.id)} aria-expanded={open} className="min-w-0 flex-1 text-left focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-lime rounded-lg">
+              <button type="button" onClick={() => editor.setOpen(open ? null : rule.id)} aria-expanded={open} className="min-w-0 flex-1 rounded-lg text-left transition-opacity hover:opacity-90 active:opacity-75 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-lime">
                 <RuleLine
                   index={i + 1}
                   rule={rule}
@@ -188,7 +188,7 @@ export function RuleEditor({ editor, liveRules, live, now, onAdd }: { editor: Ed
           </Tile>
         );
       })}
-      <button type="button" onClick={onAdd} className="flex min-h-14 w-full items-center justify-center gap-2 rounded-[var(--radius-tile)] border-2 border-dashed border-line text-[16px] font-bold text-text transition-colors hover:border-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime">
+      <button type="button" onClick={onAdd} className="flex min-h-14 w-full items-center justify-center gap-2 rounded-[var(--radius-tile)] border-2 border-dashed border-line text-[16px] font-bold text-text transition-colors hover:border-muted active:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime">
         <Plus className="size-5" aria-hidden /> Add rule
       </button>
     </div>

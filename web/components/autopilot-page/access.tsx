@@ -39,7 +39,7 @@ export function AccessChip({ className }: { className?: string }) {
         <span className="label mr-2 text-text">{label}</span>
         <PopoverPrimitive.Trigger
           aria-label="What Koul's access allows"
-          className="mono inline-flex size-9 items-center justify-center rounded-full bg-surface-2 text-text transition-colors hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime"
+          className="mono inline-flex size-9 items-center justify-center rounded-full bg-surface-2 text-text transition-[filter] hover:brightness-110 active:brightness-125 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime"
         >
           ?
         </PopoverPrimitive.Trigger>

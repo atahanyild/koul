@@ -20,7 +20,7 @@ export function Segmented<T extends string>({ options, value, onChange, label, c
             onClick={() => onChange(o.value)}
             className={cn(
               "h-11 rounded-full px-4 text-[15px] font-bold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime",
-              on ? "bg-text text-background" : "text-muted hover:text-text",
+              on ? "bg-text text-background" : "text-muted hover:text-text active:text-text active:bg-surface-2",
             )}
           >
             {o.label}
@@ -44,7 +44,7 @@ export function TextSegmented<T extends string>({ options, value, onChange, labe
             role="radio"
             aria-checked={on}
             onClick={() => onChange(o.value)}
-            className={cn("label min-h-11 min-w-11 rounded-full px-2 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime", on ? "text-text font-medium" : "text-dim hover:text-muted")}
+            className={cn("label min-h-11 min-w-11 rounded-full px-2 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime", on ? "text-text font-medium" : "text-dim hover:text-muted active:text-text")}
           >
             {o.label}
           </button>

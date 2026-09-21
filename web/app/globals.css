@@ -142,6 +142,11 @@
   ::selection { background: var(--lime); color: var(--on-lime); }
   :focus-visible { outline: 2px solid var(--lime); outline-offset: 2px; }
   input, textarea, select, button { font: inherit; }
+  /* Everything that answers a click shows a hand; what cannot be used says so; handles say they can be held. */
+  button, a[href], [role="button"], [role="tab"], [role="switch"], [role="radio"], [role="combobox"], [role="option"], [role="menuitem"], label[for], select, summary, input[type="checkbox"], input[type="radio"] { cursor: pointer; }
+  button:disabled, a[aria-disabled="true"], [role="button"][aria-disabled="true"], [aria-disabled="true"][role="switch"], [data-disabled], input:disabled { cursor: not-allowed; }
+  [data-drag-handle] { cursor: grab; touch-action: none; }
+  [data-drag-handle]:active, [data-dragging="true"] [data-drag-handle] { cursor: grabbing; }
   input[type="number"]::-webkit-outer-spin-button,
   input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
   input[type="number"] { -moz-appearance: textfield; appearance: textfield; }

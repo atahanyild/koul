@@ -21,7 +21,7 @@ export function BottomTabs() {
                 aria-current={on ? "page" : undefined}
                 className={cn(
                   "flex min-h-16 flex-col items-center justify-center gap-1 rounded-[20px] text-[11px] font-bold transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-lime",
-                  on ? "text-lime" : "text-muted hover:text-text",
+                  on ? "text-lime" : "text-muted hover:text-text active:bg-surface-2",
                 )}
               >
                 <Icon className="size-5" strokeWidth={on ? 2.25 : 2} aria-hidden />
