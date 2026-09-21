@@ -1,6 +1,6 @@
 "use client";
 
-import { Row, RowList, SkRows, Tile, TileLabel } from "@/components/signal";
+import { EmptyState, Row, RowList, SkRows, Tile, TileLabel } from "@/components/signal";
 import { fmtPct, fmtUsdc } from "@/lib/format";
 import type { Pool, Positions } from "@/lib/data/types";
 import { POOLS, type PoolId } from "@/lib/model/autopilot";
@@ -21,12 +21,12 @@ export function positionRows(positions: Positions, pools: Pool[]): { key: string
   return rows;
 }
 
-export function PositionsTile({ positions, pools, loading, className }: { positions: Positions; pools: Pool[]; loading: boolean; empty?: boolean; className?: string }) {
+export function PositionsTile({ positions, pools, loading, empty, className }: { positions: Positions; pools: Pool[]; loading: boolean; empty: boolean; className?: string }) {
   return (
     <Tile className={className}>
       <TileLabel>Positions</TileLabel>
       <div className="mt-2">
-        {loading ? <SkRows rows={3} /> : (
+        {loading ? <SkRows rows={3} /> : empty ? <EmptyState title="No positions yet" line="Deposit, then put it to work" /> : (
           <RowList>
             {positionRows(positions, pools).map((r) => <Row key={r.key} title={r.title} value={r.value} />)}
           </RowList>

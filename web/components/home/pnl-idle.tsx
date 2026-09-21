@@ -37,7 +37,9 @@ export function IdleTile({ idle, loading, target, onPutToWork, busy }: { idle: n
         <div className="mt-4 min-h-11">
           {loading ? <Sk className="h-11 w-32 rounded-full" /> : can ? (
             <PillButton variant="ghost" size="md" onClick={onPutToWork} disabled={busy} aria-busy={busy}>{busy ? "Confirm with your passkey" : "Put to work"}</PillButton>
-          ) : null}
+          ) : (
+            <Label>Nothing idle</Label>
+          )}
         </div>
       </div>
     </Tile>

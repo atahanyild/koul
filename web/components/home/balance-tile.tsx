@@ -5,6 +5,7 @@ import { fmtLira, fmtUsdc } from "@/lib/format";
 
 /** The lime tile: total USDC (wallet plus XOXNO, minus debt), the lira equivalent, Deposit and Withdraw. */
 export function BalanceTile({ balance, lira, loading }: { balance: number | null; lira: number | null; loading: boolean }) {
+  const canWithdraw = (balance ?? 0) > 0;
   return (
     <Tile tone="lime" className="flex min-h-[380px] flex-col p-6 md:p-8">
       <div className="flex items-center justify-between">
@@ -19,7 +20,7 @@ export function BalanceTile({ balance, lira, loading }: { balance: number | null
       </div>
       <div className="flex gap-3">
         <PillButton variant="onLime" size="lg" href="/deposit">Deposit</PillButton>
-        <PillButton variant="onLimeOutline" size="lg" href="/withdraw">Withdraw</PillButton>
+        <PillButton variant="onLimeOutline" size="lg" href="/withdraw" disabled={!canWithdraw}>Withdraw</PillButton>
       </div>
     </Tile>
   );

@@ -26,6 +26,7 @@ export function ChartTile({ balance, loading, className }: { balance: number | n
   const [range, setRange] = React.useState<Range>("30D");
   const days = range === "7D" ? 7 : range === "30D" ? 30 : 60;
   const mocked = MOCK_HISTORY && balance !== null && balance > 0 ? mockedHistory(balance, days) : null;
+  const empty = !loading && (balance === null || balance <= 0);
   return (
     <Tile className={className}>
       <div className="flex items-center justify-between">
@@ -35,7 +36,7 @@ export function ChartTile({ balance, loading, className }: { balance: number | n
       <div className="mt-4 flex h-24 items-center justify-center">
         {loading ? <Sk className="h-24 w-full rounded-xl" /> : mocked ? <Line points={mocked.series} /> : (
           <div className="flex w-full flex-col items-center gap-3">
-            <Label>No chart yet</Label>
+            <Label>{empty ? "Deposit to start the chart" : "No chart yet"}</Label>
             <span aria-hidden className="w-full border-t border-dashed border-line" />
           </div>
         )}
