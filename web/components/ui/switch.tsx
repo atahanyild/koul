@@ -17,7 +17,7 @@ function Switch({ className, size = "default", ...props }: SwitchPrimitive.Root.
       className={cn(
         "group/switch relative inline-flex shrink-0 items-center rounded-full p-0.5 transition-colors outline-none",
         "after:absolute after:-inset-x-2 after:-inset-y-2",
-        "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime",
+        "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text",
         "data-checked:bg-lime data-unchecked:bg-surface-2 data-disabled:opacity-50",
         size === "default" ? "h-7 w-12" : "h-5 w-9",
         className,

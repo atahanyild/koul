@@ -17,7 +17,7 @@ export function PnlTile({ balance, loading }: { balance: number | null; loading:
       <TileLabel>PNL</TileLabel>
       <Loadable loading={loading} skeleton={skeleton} className="mt-auto">
         {mocked && pnl !== null ? (
-          <div className={cn(fitValueClass(`${pnl >= 0 ? "+" : "−"}${fmtUsdc(Math.abs(pnl))}`), mocked.pnl >= 0 ? "text-lime" : "text-danger")}>{pnl >= 0 ? "+" : "−"}{fmtUsdc(Math.abs(pnl))}</div>
+          <div className={cn(fitValueClass(`${pnl >= 0 ? "+" : "−"}${fmtUsdc(Math.abs(pnl))}`), mocked.pnl >= 0 ? "text-accent-text" : "text-danger")}>{pnl >= 0 ? "+" : "−"}{fmtUsdc(Math.abs(pnl))}</div>
         ) : (
           <div className="flex h-9 items-center md:h-12"><span aria-label="No value" className="block h-1.5 w-12 rounded-full bg-dim" /></div>
         )}

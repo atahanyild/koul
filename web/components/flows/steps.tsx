@@ -16,8 +16,8 @@ export function Steps({ labels, active, failed }: { labels: string[]; active: nu
           const now = i === current && active < labels.length;
           return (
             <li key={l} className="flex items-center gap-2">
-              <motion.span aria-hidden layout className={cn("inline-block size-3 rounded-full", done ? "bg-lime" : now ? (failed ? "border-2 border-danger" : "border-2 border-lime") : "border-2 border-dim")} initial={false} animate={{ scale: done ? [1, 1.3, 1] : 1 }} transition={tween()} />
-              <Label tone={done || now ? "text" : "dim"}>{l}</Label>
+              <motion.span aria-hidden layout className={cn("inline-block size-3 rounded-full", done ? "bg-accent-text" : now ? (failed ? "border-2 border-danger" : "border-2 border-accent-text") : "border-2 border-dim")} initial={false} animate={{ scale: done ? [1, 1.3, 1] : 1 }} transition={tween()} />
+              <Label tone={done || now ? "text" : "muted"}>{l}</Label>
             </li>
           );
         })}
@@ -27,7 +27,7 @@ export function Steps({ labels, active, failed }: { labels: string[]; active: nu
           {labels.map((l, i) => (
             <span key={l} className="relative h-1.5 overflow-hidden rounded-full bg-surface-2">
               {(i < active || (i === current && active < labels.length)) && (
-                <motion.span className={cn("absolute inset-0 origin-left rounded-full", i < active ? "bg-lime" : failed ? "bg-danger" : "bg-lime/50")} initial={{ scaleX: 0 }} animate={{ scaleX: 1 }} transition={tween()} />
+                <motion.span className={cn("absolute inset-0 origin-left rounded-full", i < active ? "bg-accent-text" : failed ? "bg-danger" : "bg-accent-text/50")} initial={{ scaleX: 0 }} animate={{ scaleX: 1 }} transition={tween()} />
               )}
             </span>
           ))}

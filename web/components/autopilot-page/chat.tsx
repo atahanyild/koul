@@ -67,7 +67,7 @@ function DraftRow({ draft }: { draft: ChatDraft }) {
   if (!rule) return null;
   return (
     <motion.div layout layoutId={`rule-${rule.id}`} {...rise(8)} className="rounded-[var(--radius-group)] bg-surface-2 px-4 py-1">
-      <RuleLine index={draft.position} rule={rule} hideNumber nowOverride={`WAIT ${cooldownShort(rule.cooldownSec).toUpperCase()}`} trailing={<span className="text-lime">DRAFT · RULE {draft.position}</span>} className="py-3" />
+      <RuleLine index={draft.position} rule={rule} hideNumber nowOverride={`WAIT ${cooldownShort(rule.cooldownSec).toUpperCase()}`} trailing={<span className="text-accent-text">DRAFT · RULE {draft.position}</span>} className="py-3" />
     </motion.div>
   );
 }
@@ -132,7 +132,7 @@ export function Chat({ mode, rules, live, onAccept, onEdit, chips = SUGGESTIONS.
         placeholder={placeholder}
         aria-label="Tell Koul what to do"
         disabled={sending}
-        className="min-w-0 flex-1 resize-none bg-transparent py-2 text-[16px] font-medium leading-6 text-text outline-none placeholder:text-dim disabled:opacity-60 md:text-[17px]"
+        className="min-w-0 flex-1 resize-none bg-transparent py-2 text-[16px] font-medium leading-6 text-text outline-none placeholder:text-muted disabled:opacity-60 md:text-[17px]"
       />
       {sending ? (
         <IconButton type="button" variant="white" size="md" aria-label="Stop" onClick={stop} className="size-12"><Square className="size-4 fill-current" /></IconButton>
@@ -147,8 +147,8 @@ export function Chat({ mode, rules, live, onAccept, onEdit, chips = SUGGESTIONS.
     if (mode === "editing") {
       return (
         <div className="grid gap-2">
-          <div className="rounded-full border-[3px] border-lime bg-background p-1">{input("slim")}</div>
-          {s.note && <Label className="px-4"><span className="text-lime">Koul</span> · {s.note}</Label>}
+          <div className="rounded-full border-[3px] border-accent-text bg-background p-1">{input("slim")}</div>
+          {s.note && <Label className="px-4"><span className="text-accent-text">Koul</span> · {s.note}</Label>}
         </div>
       );
     }
@@ -166,7 +166,7 @@ export function Chat({ mode, rules, live, onAccept, onEdit, chips = SUGGESTIONS.
 
   // Working, asking, proposing, declining or failing: the dark panel with the conversation.
   return (
-    <motion.div layout layoutId={mode === "editing" ? undefined : "koul-composer"} transition={tween(DUR.slow)} className={cn("rounded-[var(--radius-tile)] border border-lime bg-surface p-5 md:p-7", mode === "editing" && "p-4 md:p-5")} role="region" aria-label="Koul">
+    <motion.div layout layoutId={mode === "editing" ? undefined : "koul-composer"} transition={tween(DUR.slow)} className={cn("rounded-[var(--radius-tile)] border border-accent-text bg-surface p-5 md:p-7", mode === "editing" && "p-4 md:p-5")} role="region" aria-label="Koul">
       <div className="grid gap-4">
         <AnimatePresence initial={false}>
         {s.messages.map((m, i) => <Bubble key={`${i}-${m.role}`} m={m} />)}

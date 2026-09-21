@@ -47,7 +47,7 @@ export function WithdrawCrypto({ method, onMethod }: { method: Method; onMethod:
             <KeyValue label="To" value={`${sent.to.slice(0, 6)}…${sent.to.slice(-6)}`} />
             <KeyValue label="Network" value="STELLAR" />
           </div>
-          <a href={explorerTx(sent.hash)} target="_blank" rel="noopener noreferrer" className="label inline-flex min-h-11 items-center gap-1 text-lime hover:brightness-110">View the transaction <ArrowUpRight className="size-4" /></a>
+          <a href={explorerTx(sent.hash)} target="_blank" rel="noopener noreferrer" className="label inline-flex min-h-11 items-center gap-1 text-accent-text hover:brightness-110">View the transaction <ArrowUpRight className="size-4" /></a>
         </Tile>
       </FlowFrame>
     );
@@ -65,7 +65,7 @@ export function WithdrawCrypto({ method, onMethod }: { method: Method; onMethod:
           autoFocus
           trailing={<>
             <Label tone={tooMuch ? "danger" : "muted"}>{available === null ? "Available —" : `Available ${fmtUsdc(available)}`}</Label>
-            <button type="button" className="label min-h-11 rounded-full px-2 text-lime hover:brightness-110 focus-visible:outline-2 focus-visible:outline-lime" onClick={() => available !== null && setAmount(String(Math.floor(available * 100) / 100))} disabled={available === null || available <= 0}>Max</button>
+            <button type="button" className="label min-h-11 rounded-full px-2 text-accent-text hover:brightness-110 focus-visible:outline-2 focus-visible:outline-accent-text" onClick={() => available !== null && setAmount(String(Math.floor(available * 100) / 100))} disabled={available === null || available <= 0}>Max</button>
           </>}
         />
         <div>
@@ -78,7 +78,7 @@ export function WithdrawCrypto({ method, onMethod }: { method: Method; onMethod:
             autoComplete="off"
             spellCheck={false}
             aria-invalid={dest.length > 0 && !destOk}
-            className="mono mt-3 h-14 w-full rounded-full border border-line bg-transparent px-5 text-[15px] text-text outline-none placeholder:text-dim focus-visible:border-lime"
+            className="mono mt-3 h-14 w-full rounded-full border border-line bg-transparent px-5 text-[15px] text-text outline-none placeholder:text-muted focus-visible:border-accent-text"
           />
           {dest.length > 0 && !destOk && <Label tone="danger" className="mt-2 block">Not a Stellar address</Label>}
         </div>

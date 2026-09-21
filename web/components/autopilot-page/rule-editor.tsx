@@ -110,7 +110,7 @@ function Handle({ index, attributes, listeners, setActivatorNodeRef }: { index: 
       ref={setActivatorNodeRef}
       data-drag-handle
       aria-label={`Drag to reorder rule ${index + 1}`}
-      className="inline-flex size-11 shrink-0 items-center justify-center rounded-full text-dim hover:bg-surface-2 hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime"
+      className="inline-flex size-11 shrink-0 items-center justify-center rounded-full text-muted hover:bg-surface-2 hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text"
       {...attributes}
       {...listeners}
     >
@@ -135,24 +135,24 @@ function SortableRule({ rule, i, shownIndex, editor, lr, live, now, dragging, hi
       tone={open || highlighted || !!change ? "outlined" : "surface"}
       padded={false}
       data-dragging={isDragging || undefined}
-      className={cn("px-4 md:px-6", isDragging && "relative z-10 scale-[1.02] border border-lime shadow-[0_12px_40px_rgba(0,0,0,0.35)]", dragging && !isDragging && "transition-transform")}
+      className={cn("px-4 md:px-6", isDragging && "relative z-10 scale-[1.02] border border-accent-text shadow-[0_12px_40px_rgba(0,0,0,0.35)]", dragging && !isDragging && "transition-transform")}
       style={{ transform: CSS.Transform.toString(transform), transition }}
     >
       <div className="flex items-start gap-2 md:items-center">
         <div className="flex items-center pt-2 md:pt-0">
           <Handle index={i} attributes={attributes as React.HTMLAttributes<HTMLButtonElement>} listeners={listeners as Record<string, unknown> | undefined} setActivatorNodeRef={setActivatorNodeRef} />
         </div>
-        <button type="button" onClick={() => editor.setOpen(open ? null : rule.id)} aria-expanded={open} className="min-w-0 flex-1 rounded-lg text-left transition-opacity hover:opacity-90 active:opacity-75 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-lime">
+        <button type="button" onClick={() => editor.setOpen(open ? null : rule.id)} aria-expanded={open} className="min-w-0 flex-1 rounded-lg text-left transition-opacity hover:opacity-90 active:opacity-75 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent-text">
           <RuleLine
             index={shownIndex + 1}
             rule={rule}
             current={lr?.current}
             ranAgo={lr?.current && lr.lastRunAt ? agoShort(lr.lastRunAt, now) : null}
             now={nowText}
-            nowOverride={change ? <span className="text-lime">CHANGED · <span role="button" tabIndex={0} onClick={(e) => { e.stopPropagation(); onUndo?.(); }} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); onUndo?.(); } }} className="cursor-pointer underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-lime rounded">UNDO</span></span> : undefined}
+            nowOverride={change ? <span className="text-accent-text">CHANGED · <span role="button" tabIndex={0} onClick={(e) => { e.stopPropagation(); onUndo?.(); }} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); onUndo?.(); } }} className="cursor-pointer underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-accent-text rounded">UNDO</span></span> : undefined}
             strike={change?.fromValue && change.toValue ? { from: change.fromValue, to: change.toValue } : null}
             dimmed={!rule.enabled}
-            trailing={<span className={cn(rule.enabled ? "text-lime" : "text-dim")}>{rule.enabled ? "ON" : "OFF"}</span>}
+            trailing={<span className={cn(rule.enabled ? "text-accent-text" : "text-muted")}>{rule.enabled ? "ON" : "OFF"}</span>}
             className="py-4 md:py-5"
           />
         </button>
@@ -246,7 +246,7 @@ export function RuleEditor({ editor, liveRules, live, now, highlight, changes, o
             <SortableRule key={rule.id} rule={rule} i={i} shownIndex={shown.indexOf(rule.id)} editor={editor} lr={byId.get(rule.id)} live={live} now={now} dragging={order !== null} highlighted={highlight === rule.id} change={changes?.find((c) => c.id === rule.id && c.kind === "changed")} onUndo={onUndo} />
           ))}
           </AnimatePresence>
-          <button type="button" onClick={onAdd} className="flex min-h-14 w-full items-center justify-center gap-2 rounded-[var(--radius-tile)] border-2 border-dashed border-line text-[16px] font-bold text-text transition-colors hover:border-muted active:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime">
+          <button type="button" onClick={onAdd} className="flex min-h-14 w-full items-center justify-center gap-2 rounded-[var(--radius-tile)] border-2 border-dashed border-line text-[16px] font-bold text-text transition-colors hover:border-muted active:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text">
             <Plus className="size-5" aria-hidden /> Add rule
           </button>
         </div>

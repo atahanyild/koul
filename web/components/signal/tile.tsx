@@ -17,7 +17,7 @@ export function Tile({ tone = "surface", padded = true, className, children, ref
         tone === "surface" && "bg-surface",
         tone === "lime" && "bg-lime text-on-lime",
         tone === "dashed" && "border-2 border-dashed border-line bg-transparent",
-        tone === "outlined" && "border border-lime bg-surface",
+        tone === "outlined" && "border border-accent-text bg-surface",
         tone === "flat" && "bg-transparent",
         className,
       )}

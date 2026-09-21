@@ -19,12 +19,12 @@ const variants: Record<PillVariant, string> = {
   /** The primary action anywhere on a dark surface. */
   lime: "bg-lime text-on-lime hover:brightness-95 active:brightness-90",
   /** The primary action on a lime tile: ink on lime. */
-  onLime: "bg-on-lime text-lime hover:opacity-90 active:opacity-80",
+  onLime: "bg-on-lime text-accent-text hover:opacity-90 active:opacity-80",
   onLimeOutline: "border border-on-lime text-on-lime hover:bg-on-lime/10 active:bg-on-lime/20",
   outline: "border border-line text-text hover:bg-surface-2 active:bg-surface-2 active:brightness-110",
   ghost: "bg-surface-2 text-text hover:brightness-110 active:brightness-125",
   /** The selected filter pill. */
-  white: "bg-text text-background hover:opacity-90 active:opacity-80",
+  white: "bg-text text-surface hover:opacity-90 active:opacity-80",
 };
 
 const sizes: Record<PillSize, string> = {
@@ -42,7 +42,7 @@ export function PillButton(props: ButtonProps | LinkProps) {
   const { variant = "lime", size = "md", full, className, children } = props;
   const cls = cn(
     "inline-flex shrink-0 items-center justify-center gap-2 rounded-full font-bold whitespace-nowrap transition-[filter,opacity,background-color] select-none",
-    "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime disabled:opacity-40 disabled:hover:brightness-100 disabled:hover:opacity-40 aria-disabled:opacity-40 aria-disabled:hover:opacity-40",
+    "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text disabled:opacity-40 disabled:hover:brightness-100 disabled:hover:opacity-40 aria-disabled:opacity-40 aria-disabled:hover:opacity-40",
     variants[variant],
     sizes[size],
     full && "w-full",
@@ -74,7 +74,7 @@ export function IconButton({ variant = "ghost", size = "md", className, children
       type="button"
       {...(rest.disabled ? {} : PRESS)}
       className={cn(
-        "inline-flex shrink-0 items-center justify-center rounded-full transition-[filter,opacity,background-color] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime disabled:opacity-40 disabled:hover:brightness-100",
+        "inline-flex shrink-0 items-center justify-center rounded-full transition-[filter,opacity,background-color] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text disabled:opacity-40 disabled:hover:brightness-100",
         size === "md" ? "size-11" : "size-14",
         variants[variant],
         className,

@@ -40,7 +40,7 @@ export function AutopilotTile({ ap, now }: { ap: AutopilotLiveState; now: number
   const more = ap.rules.length - SHOWN;
   const paused = ap.status === "paused";
   return (
-    <Link href="/autopilot" className="block animate-fade-in rounded-[var(--radius-tile)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime" aria-label="Autopilot">
+    <Link href="/autopilot" className="block animate-fade-in rounded-[var(--radius-tile)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text" aria-label="Autopilot">
       <Tile className="grid gap-6 transition-colors hover:bg-surface-2/60 md:grid-cols-[minmax(0,1fr)_minmax(0,2.4fr)]">
         <div>
           <TileLabel>Autopilot</TileLabel>
@@ -57,7 +57,7 @@ export function AutopilotTile({ ap, now }: { ap: AutopilotLiveState; now: number
           {more > 0 && (
             <div className={cn("flex items-center justify-between pt-4")}>
               <Label tone="lime">+{more} more {more === 1 ? "rule" : "rules"}</Label>
-              <ArrowRight className="size-4 text-lime" aria-hidden />
+              <ArrowRight className="size-4 text-accent-text" aria-hidden />
             </div>
           )}
         </div>

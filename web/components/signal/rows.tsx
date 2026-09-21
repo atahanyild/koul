@@ -30,7 +30,7 @@ export function Row({ title, sub, value, trailing, className, ...rest }: React.H
 
 /** A mono key and a mono value on one line, for quotes and details: YOU GET · ≈ 102.40 USDC. */
 export function KeyValue({ label, value, tone = "text", className }: { label: React.ReactNode; value: React.ReactNode; tone?: "text" | "lime" | "muted" | "dim"; className?: string }) {
-  const t = { text: "text-text", lime: "text-lime", muted: "text-muted", dim: "text-dim" }[tone];
+  const t = { text: "text-text", lime: "text-accent-text", muted: "text-muted", dim: "text-dim" }[tone];
   return (
     <div className={cn("flex min-h-11 items-center justify-between gap-4 py-2", className)}>
       <span className="label shrink-0 text-muted">{label}</span>

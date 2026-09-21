@@ -21,7 +21,7 @@ export function Templates({ onAdd }: { onAdd: (rule: Rule) => void }) {
           return (
             <Tile key={t.id} className="flex flex-col gap-4">
               <div className="text-[20px] font-bold">{t.title}</div>
-              <div className="mono text-muted"><span className="text-dim">IF</span> {conditionsCompact(rule)} <span className="text-lime">→</span> {actionShort(rule.action)}</div>
+              <div className="mono text-muted"><span className="text-muted">IF</span> {conditionsCompact(rule)} <span className="text-accent-text">→</span> {actionShort(rule.action)}</div>
               <div className="mt-auto"><PillButton variant="ghost" size="md" onClick={() => onAdd(t.make())}>Add</PillButton></div>
             </Tile>
           );

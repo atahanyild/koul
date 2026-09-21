@@ -26,7 +26,7 @@ export function Chip({ tone = "surface2", mono = false, className, children, ...
     "inline-flex h-10 shrink-0 items-center gap-2 rounded-full px-4 whitespace-nowrap",
     mono ? "label" : "text-[14px] font-bold",
     tones[tone],
-    interactive && "transition-[filter,opacity,background-color] hover:brightness-110 active:brightness-125 disabled:opacity-40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime",
+    interactive && "transition-[filter,opacity,background-color] hover:brightness-110 active:brightness-125 disabled:opacity-40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text",
     className,
   );
   if (interactive) {
@@ -47,8 +47,8 @@ export function FilterChip({ selected, className, ...rest }: MotionSafe<React.Bu
       {...PRESS}
       aria-pressed={selected}
       className={cn(
-        "inline-flex h-11 items-center rounded-full px-5 text-[15px] font-bold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime",
-        selected ? "bg-text text-background" : "bg-surface-2 text-muted hover:text-text active:brightness-125",
+        "inline-flex h-11 items-center rounded-full px-5 text-[15px] font-bold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text",
+        selected ? "bg-text text-surface" : "bg-surface-2 text-muted hover:text-text active:brightness-125",
         className,
       )}
       {...rest}

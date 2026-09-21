@@ -17,7 +17,7 @@ export function FlowFrame({ title, back = "/", method, onMethod, children, actio
   return (
     <div className={cn("mx-auto w-full max-w-[600px]", action && "pb-24 md:pb-0")}>
       <div className="flex items-center gap-4 py-2 md:py-4">
-        <Link href={back} aria-label="Back" className="inline-flex size-11 shrink-0 items-center justify-center rounded-full bg-surface text-text transition-colors hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime">
+        <Link href={back} aria-label="Back" className="inline-flex size-11 shrink-0 items-center justify-center rounded-full bg-surface text-text transition-colors hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text">
           <ArrowLeft className="size-5" />
         </Link>
         <h1 className="t-title truncate">{title}</h1>

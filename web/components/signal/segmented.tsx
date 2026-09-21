@@ -22,8 +22,8 @@ export function Segmented<T extends string>({ options, value, onChange, label, c
             aria-checked={on}
             onClick={() => onChange(o.value)}
             className={cn(
-              "relative h-11 rounded-full px-4 text-[15px] font-bold transition-colors duration-[240ms] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime",
-              on ? "text-background" : "text-muted hover:text-text active:text-text",
+              "relative h-11 rounded-full px-4 text-[15px] font-bold transition-colors duration-[240ms] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text",
+              on ? "text-surface" : "text-muted hover:text-text active:text-text",
             )}
           >
             {on && <motion.span layoutId={`${id}-pill`} transition={SPRING} className="absolute inset-0 rounded-full bg-text" aria-hidden />}
@@ -48,7 +48,7 @@ export function TextSegmented<T extends string>({ options, value, onChange, labe
             role="radio"
             aria-checked={on}
             onClick={() => onChange(o.value)}
-            className={cn("label min-h-11 min-w-11 rounded-full px-2 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime", on ? "text-text font-medium" : "text-dim hover:text-muted active:text-text")}
+            className={cn("label min-h-11 min-w-11 rounded-full px-2 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text", on ? "text-text font-medium" : "text-muted hover:text-text active:text-text")}
           >
             {o.label}
           </button>

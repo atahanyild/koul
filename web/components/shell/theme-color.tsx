@@ -4,7 +4,8 @@
 import * as React from "react";
 import { useTheme } from "next-themes";
 
-const COLORS = { dark: "#000000", light: "#f4f4f0" } as const;
+/** The two grounds, the same values as --background in globals.css; a meta tag cannot read a CSS variable. */
+const COLORS = { dark: "#000000", light: "#f2f2ed" } as const;
 
 export function ThemeColor() {
   const { resolvedTheme } = useTheme();

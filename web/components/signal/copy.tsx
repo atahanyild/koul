@@ -21,7 +21,7 @@ export function CopyAction({ value, label = "Copy", className }: { value: string
       onClick={copy}
       aria-label={`${label}: ${value}`}
       aria-live="polite"
-      className={cn("label -mr-2 inline-flex min-h-11 shrink-0 items-center rounded-full px-2 text-lime transition-[filter,background-color] hover:bg-surface-2 hover:brightness-110 active:brightness-125 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime", className)}
+      className={cn("label -mr-2 inline-flex min-h-11 shrink-0 items-center rounded-full px-2 text-accent-text transition-[filter,background-color] hover:bg-surface-2 hover:brightness-110 active:brightness-125 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text", className)}
     >
       {copied ? "COPIED" : "COPY"}
     </button>

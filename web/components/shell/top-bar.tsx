@@ -9,7 +9,7 @@ import { TABS } from "./nav";
 
 export function Wordmark({ className }: { className?: string }) {
   return (
-    <Link href="/" aria-label="Koul home" className={cn("inline-flex h-11 items-center text-[20px] font-extrabold tracking-[-0.04em] text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime", className)}>
+    <Link href="/" aria-label="Koul home" className={cn("inline-flex h-11 items-center text-[20px] font-extrabold tracking-[-0.04em] text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text", className)}>
       KOUL
     </Link>
   );
@@ -36,7 +36,7 @@ export function TopBar({ connected, className }: { connected: boolean; className
                     key={t.href}
                     href={t.href}
                     aria-current={on ? "page" : undefined}
-                    className={cn("t-tab rounded-md py-1 transition-colors duration-[240ms] ease-out focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-lime", on ? "text-text" : "text-dim hover:text-muted active:text-text")}
+                    className={cn("t-tab rounded-md py-1 transition-colors duration-[240ms] ease-out focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent-text", on ? "text-text" : "text-dim hover:text-muted active:text-text")}
                   >
                     {t.label}
                   </Link>

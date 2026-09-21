@@ -131,7 +131,7 @@ export function DepositBank({ method, onMethod }: { method: Method; onMethod: (m
         <div className="divide-y divide-line">
           <KeyValue label="You get" value={usdc === null ? (lira ? <Sk className="h-4 w-24" /> : "—") : `≈ ${fmtUsdc(usdc)} USDC`} />
           <KeyValue label="Rate" value={rate === null ? <Sk className="h-4 w-16" /> : fmtFx(rate)} />
-          <KeyValue label="Anchor fee" value="—" tone="dim" />
+          <KeyValue label="Anchor fee" value="—" tone="muted" />
           <KeyValue label="Network fee" value="FREE" />
         </div>
         {t?.status === "failed" && <Label tone="danger">{t.steps.find((s) => s.state === "failed")?.detail ?? "The transfer stopped"}</Label>}
