@@ -14,11 +14,12 @@ import { useWallet } from "@/hooks/use-wallet";
 import { chainUiId, useArmAutopilot } from "@/hooks/use-autopilots";
 import { invalidate } from "@/lib/data/store";
 import { newId, toCoreAutopilot, type Autopilot } from "@/lib/model/autopilot";
-import { Label, PillButton, Sk, StatusPill, type StatusKind } from "@/components/signal";
+import { Label, Sk, StatusPill, type StatusKind } from "@/components/signal";
 import { useAgentAccess } from "@/hooks/use-agent-access";
 import { RulesHeader, RulesList } from "@/components/autopilot-page/rules-list";
 import { RuleEditor, pairingProblem, ruleTemplate } from "@/components/autopilot-page/rule-editor";
 import { SaveBar } from "@/components/autopilot-page/save-bar";
+import { Templates } from "@/components/autopilot-page/templates";
 import { useEditor } from "@/components/autopilot-page/use-editor";
 
 const ACCESS_DAYS = 30;
@@ -117,7 +118,7 @@ export default function AutopilotPage() {
           <SaveBar changes={editor.changes} confirmations={confirmations} blocker={editor.changes === 0 ? null : blocker} busy={busy} busyLabel={busyLabel} onDiscard={() => editor.discard()} onSave={() => void onSave()} />
         </>
       ) : live.status === "off" ? (
-        <div className="px-2"><PillButton variant="ghost" onClick={() => editor.add(ruleTemplate())}>Add rule</PillButton></div>
+        <Templates onAdd={(rule) => editor.add(rule)} />
       ) : (
         <RulesList rules={live.rules} now={now} onEdit={editor.begin} />
       )}
