@@ -118,7 +118,7 @@ export function Chat({ mode, rules, live, onAccept, onEdit, chips = SUGGESTIONS.
   const retry = () => { const next = chatReducer(s, { type: "retry" }); if (next !== s && s.lastSent) { dispatch({ type: "discard" }); queueMicrotask(() => send(s.lastSent!)); } };
   const onKey = (e: React.KeyboardEvent<HTMLTextAreaElement>) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } };
   const sending = s.phase === "sending";
-  const placeholder = s.phase === "draft" ? "Reply to change it, for example: make it 51" : s.phase === "clarify" ? "Or type a level" : sending ? "Koul is working. You can stop it." : mode === "editing" ? "Tell Koul a new rule, or change one" : PLACEHOLDER;
+  const placeholder = s.phase === "draft" ? "Reply to change it, e.g. make it 51" : s.phase === "clarify" ? "Or type a level" : sending ? "Koul is working…" : mode === "editing" ? "A new rule, or a change" : PLACEHOLDER;
 
   const input = (variant: "large" | "slim" | "panel") => (
     <div className={cn("flex items-center rounded-full pl-6 pr-2", variant === "large" ? "h-16 bg-surface" : variant === "panel" ? "h-14 bg-background" : "h-14 bg-background")}>
@@ -132,7 +132,8 @@ export function Chat({ mode, rules, live, onAccept, onEdit, chips = SUGGESTIONS.
         placeholder={placeholder}
         aria-label="Tell Koul what to do"
         disabled={sending}
-        className="min-w-0 flex-1 resize-none bg-transparent py-2 text-[16px] font-medium leading-6 text-text outline-none placeholder:text-muted disabled:opacity-60 md:text-[17px]"
+        // One line like an input (Shift+Enter still breaks a line); a long sentence scrolls sideways instead of wrapping.
+        className="no-scrollbar min-w-0 flex-1 resize-none overflow-x-auto overflow-y-hidden whitespace-pre bg-transparent py-2 text-[16px] font-medium leading-6 text-text outline-none placeholder:text-muted disabled:opacity-60 md:text-[17px]"
       />
       {sending ? (
         <IconButton type="button" variant="white" size="md" aria-label="Stop" onClick={stop} className="size-12"><Square className="size-4 fill-current" /></IconButton>
