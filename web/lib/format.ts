@@ -80,3 +80,9 @@ export const fmtDateTime = (d: Date | number) => dateTimeFormatter.format(d);
 /** Ledgers are ~5 s apart on testnet. */
 export const LEDGER_SECONDS = 5;
 export const ledgersToSeconds = (ledgers: number) => ledgers * LEDGER_SECONDS;
+
+const liraFormatter = new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+/** "₺60,987.50": the lira sign with the grouping the design uses. */
+export const fmtLira = (n: number) => `₺${liraFormatter.format(n)}`;
+/** "5,000" for whole lira amounts in titles. */
+export const fmtLiraWhole = (n: number) => `₺${new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(n)}`;
