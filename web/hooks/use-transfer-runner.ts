@@ -83,10 +83,13 @@ function stageIndex(f: FundsPublic): number {
   return 2;
 }
 
+/** The keys anchors use for the transfer reference; the TR mock anchor sends `external_transfer_memo`. */
+export const REFERENCE_KEYS = ["external_transfer_memo", "reference", "memo", "payment_reference", "description"];
+
 /** The reference the user puts in the bank transfer, whichever key the anchor used for it. */
 function referenceOf(instructions: FundsPublic["instructions"]): string | null {
   if (!instructions) return null;
-  for (const key of ["reference", "memo", "payment_reference", "description"]) {
+  for (const key of REFERENCE_KEYS) {
     const v = instructions[key]?.value;
     if (v) return v;
   }
@@ -129,8 +132,8 @@ export function useTransferRunner() {
   useEffect(() => clear, []);
   useEffect(() => { if (address && transfer) saveTransfer(address, transfer); }, [address, transfer]);
 
-  const poll = useCallback(async (id: string) => {
-    const t = current.current;
+  const poll = useCallback(async (id: string, from?: Transfer) => {
+    const t = from ?? current.current;
     if (!t || t.transferId !== id || t.status !== "running") return;
     try {
       const f = await call<FundsPublic>(`/api/funds/${id}`, { headers: stateHeader(t.serverState) });
@@ -237,13 +240,17 @@ export function useTransferRunner() {
     };
     setTransfer(t);
     clear();
-    timer.current = setTimeout(() => void poll(saved.transferId), 300);
+    // Straight away, from this transfer: a timer set inside a mount effect is cleared by the development
+    // double-mount before it fires, and the ref still holds the previous render's value.
+    void poll(saved.transferId, t);
     return true;
   }, [address, poll]);
 
   const reset = useCallback(() => { clear(); setTransfer(null); approveAction.reset(); if (address) { try { window.localStorage.removeItem(savedKey(address)); } catch { /* ignore */ } } }, [approveAction, address]);
+  /** Ask the server again right now, for a details row that has not filled in. */
+  const retry = useCallback(() => { const t = current.current; if (!t?.transferId) return; clear(); void poll(t.transferId); }, [poll]);
   const activeIndex = transfer ? transfer.steps.findIndex((s) => s.state === "active") : -1;
-  return { transfer, start, simulateBank, approve, approveAction, reset, resume, activeIndex, busy };
+  return { transfer, start, simulateBank, approve, approveAction, reset, resume, retry, activeIndex, busy };
 }
 
 function failAt(t: Transfer, err: unknown): Transfer {

@@ -9,7 +9,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { CopyRow, KeyValue, Label, PillButton, Sk, Tile } from "@/components/signal";
 import { useFx } from "@/hooks/use-market";
-import { useTransferRunner } from "@/hooks/use-transfer-runner";
+import { REFERENCE_KEYS, useTransferRunner } from "@/hooks/use-transfer-runner";
 import { fmtFx, fmtLira, fmtLiraWhole, fmtUsdc } from "@/lib/format";
 import type { Transfer } from "@/lib/data/types";
 import { AmountInput, parseAmount } from "./amount-input";
@@ -17,6 +17,23 @@ import { FlowFrame, type Method } from "./flow-frame";
 import { Steps } from "./steps";
 
 const STEP_LABELS = ["Verified", "Send", "Convert", "Arrives"];
+/** How long a details row may stay a skeleton before the page says the anchor has not answered. */
+const DETAILS_TIMEOUT_MS = 15_000;
+
+/** True once `ms` have passed while `waiting` has stayed true; a new wait starts a new count. */
+function useTimedOut(waiting: boolean, ms: number): boolean {
+  // Each time waiting turns on, the generation moves; the timer reports which generation it fired for.
+  const [prev, setPrev] = React.useState(waiting);
+  const [gen, setGen] = React.useState(0);
+  if (waiting !== prev) { setPrev(waiting); if (waiting) setGen((g) => g + 1); }
+  const [fired, setFired] = React.useState(-1);
+  React.useEffect(() => {
+    if (!waiting) return;
+    const t = setTimeout(() => setFired(gen), ms);
+    return () => clearTimeout(t);
+  }, [waiting, gen, ms]);
+  return waiting && fired === gen;
+}
 
 /** The anchor names its instruction fields; find the IBAN and the reference whatever they are called. */
 function pick(instructions: Transfer["instructions"], keys: string[]): string | null {
@@ -26,6 +43,11 @@ function pick(instructions: Transfer["instructions"], keys: string[]): string | 
     if (v) return v;
   }
   return null;
+}
+
+/** A details row the anchor has not filled in after the timeout. */
+function DetailsMissing({ label }: { label: string }) {
+  return <div className="flex min-h-14 items-center gap-4 px-4"><Label className="w-24 shrink-0">{label}</Label><span className="label text-danger">Not received</span></div>;
 }
 
 export function DepositBank({ method, onMethod }: { method: Method; onMethod: (m: Method) => void }) {
@@ -46,12 +68,16 @@ export function DepositBank({ method, onMethod }: { method: Method; onMethod: (m
   }, [runner]);
 
   const t = runner.transfer;
+  // The anchor answers the IBAN with the transfer; a row still empty after 15 s is an error, not a wait.
+  const detailsLate = useTimedOut(!!t && t.direction === "in" && t.status === "running" && !t.instructions, DETAILS_TIMEOUT_MS);
   if (t && t.direction === "in") {
     const active = t.steps.findIndex((s) => s.state === "active");
     const stepIndex = t.status === "done" ? STEP_LABELS.length : t.status === "failed" ? Math.max(0, active) : Math.max(1, active);
     const iban = pick(t.instructions, ["bank_account_number", "iban", "account_number"]);
-    const reference = t.reference ?? pick(t.instructions, ["reference", "memo", "payment_reference", "description"]);
+    const reference = t.reference ?? pick(t.instructions, REFERENCE_KEYS);
     const bank = pick(t.instructions, ["bank_name"]);
+    // An anchor may send bank details without any reference key. Say so instead of waiting for one.
+    const noReference = t.instructions !== null && !reference;
     const waiting = t.status === "running" && active === 1;
     const converting = t.status === "running" && active >= 2;
     return (
@@ -63,12 +89,20 @@ export function DepositBank({ method, onMethod }: { method: Method; onMethod: (m
           <Steps labels={STEP_LABELS} active={stepIndex} failed={t.status === "failed"} />
           {t.status !== "done" && (
             <div className="divide-y divide-line rounded-[var(--radius-group)] border border-line">
-              {iban ? <CopyRow label="IBAN" value={iban} /> : <div className="flex min-h-14 items-center gap-4 px-4"><Label className="w-24">IBAN</Label><Sk className="h-4 w-48" /></div>}
-              {reference ? <CopyRow label="Reference" value={reference} /> : <div className="flex min-h-14 items-center gap-4 px-4"><Label className="w-24">Reference</Label><Sk className="h-4 w-32" /></div>}
+              {iban ? <CopyRow label="IBAN" value={iban} /> : detailsLate ? <DetailsMissing label="IBAN" /> : <div className="flex min-h-14 items-center gap-4 px-4"><Label className="w-24">IBAN</Label><Sk className="h-4 w-48" /></div>}
+              {reference ? <CopyRow label="Reference" value={reference} /> : noReference ? (
+                <div className="flex min-h-14 items-center gap-4 px-4"><Label className="w-24 shrink-0">Reference</Label><span className="label text-muted">None · the anchor gave no reference</span></div>
+              ) : detailsLate ? <DetailsMissing label="Reference" /> : <div className="flex min-h-14 items-center gap-4 px-4"><Label className="w-24">Reference</Label><Sk className="h-4 w-32" /></div>}
               <CopyRow label="Amount" value={t.amountTry.toFixed(2)} display={fmtLira(t.amountTry)} />
             </div>
           )}
           {bank && t.status !== "done" && <Label>{bank}</Label>}
+          {detailsLate && t.status !== "done" && (
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <Label tone="danger">The anchor has not sent the bank details</Label>
+              <PillButton variant="outline" size="sm" onClick={() => runner.retry()}>Retry</PillButton>
+            </div>
+          )}
           <div role="status" aria-live="polite" className="grid gap-2">
             {waiting && <Label tone="lime">Waiting for your transfer</Label>}
             {converting && <Label tone="lime" className="animate-blink">Lira received · converting to USDC</Label>}
