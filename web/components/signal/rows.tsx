@@ -32,8 +32,8 @@ export function KeyValue({ label, value, tone = "text", className }: { label: Re
   const t = { text: "text-text", lime: "text-lime", muted: "text-muted", dim: "text-dim" }[tone];
   return (
     <div className={cn("flex min-h-11 items-center justify-between gap-4 py-2", className)}>
-      <span className="label text-muted">{label}</span>
-      <span className={cn("mono num text-right", t)}>{value}</span>
+      <span className="label shrink-0 text-muted">{label}</span>
+      <span className={cn("mono num min-w-0 break-words text-right", t)}>{value}</span>
     </div>
   );
 }

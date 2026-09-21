@@ -150,7 +150,8 @@
 @layer utilities {
   /* Type scale from the design: tabs 32/800, tile values 48/700, hero balance 96/800 (56 on phones). */
   .t-tab { font-size: 32px; font-weight: 800; letter-spacing: -0.02em; line-height: 1; }
-  .t-value { font-size: 48px; font-weight: 700; letter-spacing: -0.03em; line-height: 1; font-variant-numeric: tabular-nums; }
+  .t-value { font-size: 36px; font-weight: 700; letter-spacing: -0.03em; line-height: 1; font-variant-numeric: tabular-nums; }
+  @media (min-width: 768px) { .t-value { font-size: 48px; } }
   .t-hero { font-size: 56px; font-weight: 800; letter-spacing: -0.04em; line-height: 0.95; font-variant-numeric: tabular-nums; }
   @media (min-width: 768px) { .t-hero { font-size: 96px; } }
   .t-title { font-size: 40px; font-weight: 800; letter-spacing: -0.03em; line-height: 1; }

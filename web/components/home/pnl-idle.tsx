@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Label, PillButton, Sk, Tile, TileLabel } from "@/components/signal";
+import { FitValue, fitValueClass, Label, PillButton, Sk, Tile, TileLabel } from "@/components/signal";
 import { fmtUsdc } from "@/lib/format";
 import { MOCK_HISTORY, mockedHistory } from "@/lib/mock";
 import { cn } from "@/lib/utils";
@@ -14,7 +14,7 @@ export function PnlTile({ balance, loading }: { balance: number | null; loading:
       <TileLabel>PNL</TileLabel>
       <div className="mt-auto">
         {loading ? <Sk className="h-12 w-32 rounded-xl" /> : mocked ? (
-          <div className={cn("t-value num", mocked.pnl >= 0 ? "text-lime" : "text-danger")}>{mocked.pnl >= 0 ? "+" : "−"}{fmtUsdc(Math.abs(mocked.pnl))}</div>
+          <div className={cn(fitValueClass(`${mocked.pnl >= 0 ? "+" : "−"}${fmtUsdc(Math.abs(mocked.pnl))}`), mocked.pnl >= 0 ? "text-lime" : "text-danger")}>{mocked.pnl >= 0 ? "+" : "−"}{fmtUsdc(Math.abs(mocked.pnl))}</div>
         ) : (
           <div className="flex h-12 items-center"><span aria-label="No value" className="block h-1.5 w-12 rounded-full bg-dim" /></div>
         )}
@@ -33,7 +33,7 @@ export function IdleTile({ idle, loading, target, onPutToWork, busy }: { idle: n
     <Tile className="flex min-h-[196px] flex-col">
       <TileLabel>Idle</TileLabel>
       <div className="mt-auto">
-        {loading || idle === null ? <Sk className="h-12 w-32 rounded-xl" /> : <div className="t-value num">{fmtUsdc(idle)}</div>}
+        {loading || idle === null ? <Sk className="h-12 w-32 rounded-xl" /> : <FitValue text={fmtUsdc(idle)} />}
         <div className="mt-4 min-h-11">
           {loading ? <Sk className="h-11 w-32 rounded-full" /> : can ? (
             <PillButton variant="ghost" size="md" onClick={onPutToWork} disabled={busy} aria-busy={busy}>{busy ? "Confirm with your passkey" : "Put to work"}</PillButton>
