@@ -1,15 +1,31 @@
 "use client";
 
 /**
- * The Autopilot page: the rules are the page. This is the live view: the status, how long Koul's key still works,
- * and the rules with their live values. Editing, templates, the access popover and the composer follow.
+ * The Autopilot page: the rules are the page. LIVE shows them read-only with live values; EDITING keeps a draft
+ * until one passkey saves it on the router; OFF offers the composer and three templates. Access (Koul's limited
+ * key) is granted with the first save and shown in the chip at the top.
  */
 import * as React from "react";
+import { usePortfolio } from "@/hooks/use-portfolio";
 import { useAutopilotLive } from "@/hooks/use-autopilot-live";
+import { useLiveValues } from "@/hooks/use-live-values";
+import { bestPool, usePools } from "@/hooks/use-market";
+import { useWallet } from "@/hooks/use-wallet";
+import { chainUiId, useArmAutopilot } from "@/hooks/use-autopilots";
+import { invalidate } from "@/lib/data/store";
+import { newId, toCoreAutopilot, type Autopilot } from "@/lib/model/autopilot";
+import { Label, PillButton, Sk, StatusPill, type StatusKind } from "@/components/signal";
 import { useAgentAccess } from "@/hooks/use-agent-access";
-import { Label, Sk, StatusPill, type StatusKind } from "@/components/signal";
-import { RulesList } from "@/components/autopilot-page/rules-list";
+import { RulesHeader, RulesList } from "@/components/autopilot-page/rules-list";
+import { RuleEditor, pairingProblem, ruleTemplate } from "@/components/autopilot-page/rule-editor";
+import { SaveBar } from "@/components/autopilot-page/save-bar";
+import { useEditor } from "@/components/autopilot-page/use-editor";
 
+const ACCESS_DAYS = 30;
+const OPEN_WITH_USDC = 1_0000000n;
+const MAX_CONTRACT_RULES = 8;
+
+/** The access chip: how long Koul's key still works. The popover behind it comes next. */
 function AccessLabel() {
   const agent = useAgentAccess();
   const text = !agent.loaded ? "Access" : agent.active ? (agent.daysLeft === null ? "Access" : `Access ${agent.daysLeft}d`) : "No access yet";
@@ -26,23 +42,62 @@ function useMinute(): number {
 }
 
 export default function AutopilotPage() {
+  const w = useWallet();
   const live = useAutopilotLive();
+  const pf = usePortfolio();
+  const pools = usePools();
+  const values = useLiveValues();
+  const armer = useArmAutopilot();
   const now = useMinute();
+  const saved = React.useMemo(() => live.rules.map((r) => r.rule), [live.rules]);
+  const editor = useEditor(w.address, saved);
 
-  if (live.loading && live.status === "off") {
+  // Saving
+  const rules = editor.rules;
+  const contractCount = React.useMemo(() => toCoreAutopilot({ rules }, 0n).autopilot.rules.length, [rules]);
+  const problem = rules.map(pairingProblem).find((p) => p !== null) ?? null;
+  const needsPosition = pf.loaded && pf.accountId === null;
+  const idle = pf.positions.idleUsdc;
+  const openHub = bestPool(pools.pools)?.hub ?? 1;
+  const blocker = problem
+    ?? (rules.length === 0 && live.status === "off" ? "Add at least one rule" : null)
+    ?? (rules.length > 0 && contractCount > MAX_CONTRACT_RULES ? `The router holds at most ${MAX_CONTRACT_RULES} rules on-chain and this list becomes ${contractCount}` : null)
+    ?? (rules.length > 0 && needsPosition && idle < 1 ? "Deposit at least 1 USDC first: the first save opens your XOXNO position" : null)
+    ?? (rules.length > 0 && toCoreAutopilot({ rules }, 0n).unsupported.length ? "One rule is not something the router can run" : null);
+  const confirmations = rules.length === 0 ? 1 : 1 + (live.access.active ? 0 : 1) + (needsPosition ? 1 : 0);
+  const busy = armer.openAction.busy || armer.grantAction.busy || armer.rulesAction.busy;
+  const busyLabel = armer.openAction.busy ? "Opening your position" : armer.grantAction.busy ? "Giving access" : armer.rulesAction.busy ? "Saving rules" : null;
+
+  const onSave = React.useCallback(async () => {
+    if (blocker) return;
+    if (rules.length === 0) {
+      if (live.chainId === null) return;
+      const res = await armer.clear(chainUiId(live.chainId));
+      if (res) { editor.discard(); invalidate("check:"); invalidate("tick:"); invalidate("events:"); await live.refresh(); }
+      return;
+    }
+    const ap: Autopilot = { id: live.chainId !== null ? chainUiId(live.chainId) : newId("ap"), name: "Autopilot", description: "", rules, status: "draft", createdAt: Date.now(), armedUntil: null, agentRuleId: null, runs: 0, lastRunAt: null };
+    const res = await armer.arm(ap, { days: ACCESS_DAYS, accountId: pf.accountId, openWith: needsPosition ? { hub: openHub, units: OPEN_WITH_USDC } : undefined });
+    if (res.ok) { editor.discard(); invalidate("check:"); invalidate("tick:"); invalidate("events:"); await live.refresh(); }
+  }, [blocker, rules, live, armer, editor, pf.accountId, needsPosition, openHub]);
+
+  if (live.loading && live.status === "off" && !editor.editing) {
     return (
       <div className="grid gap-4">
         <div className="flex items-center justify-between"><Sk className="h-11 w-28 rounded-full" /><Sk className="h-11 w-36 rounded-full" /></div>
+        <Sk className="h-[220px] rounded-[var(--radius-tile)]" />
         <Sk className="h-[320px] rounded-[var(--radius-tile)]" />
       </div>
     );
   }
 
-  const kind: StatusKind = live.status === "live" ? "live" : "off";
+  const kind: StatusKind = editor.editing ? "editing" : live.status === "live" ? "live" : "off";
   const onCount = live.rules.filter((r) => r.rule.enabled).length;
-  const summary = live.status === "live"
-    ? (live.nowOn !== null ? `${onCount} ${onCount === 1 ? "rule" : "rules"} · now on rule ${live.nowOn}` : `${onCount} ${onCount === 1 ? "rule" : "rules"} · nothing to do right now`)
-    : live.status === "paused" ? "Rules saved · no access" : "No rules yet";
+  const summary = editor.editing
+    ? (live.status === "off" ? "Nothing runs until you save" : "Live rules keep running until you save")
+    : live.status === "live"
+      ? (live.nowOn !== null ? `${onCount} ${onCount === 1 ? "rule" : "rules"} · now on rule ${live.nowOn}` : `${onCount} ${onCount === 1 ? "rule" : "rules"} · nothing to do right now`)
+      : live.status === "paused" ? "Rules saved · no access" : "No rules yet";
 
   return (
     <div className="grid gap-4 md:gap-5">
@@ -54,7 +109,18 @@ export default function AutopilotPage() {
         <AccessLabel />
       </div>
       <Label className="sm:hidden">{summary}</Label>
-      {live.status === "off" ? <Label className="px-2">Nothing to show until the first rule is saved.</Label> : <RulesList rules={live.rules} now={now} onEdit={() => undefined} />}
+
+      {editor.editing ? (
+        <>
+          <RulesHeader hint="Top to bottom · first match runs" />
+          <RuleEditor editor={editor} liveRules={live.rules} live={values.live} now={now} onAdd={() => editor.add(ruleTemplate())} />
+          <SaveBar changes={editor.changes} confirmations={confirmations} blocker={editor.changes === 0 ? null : blocker} busy={busy} busyLabel={busyLabel} onDiscard={() => editor.discard()} onSave={() => void onSave()} />
+        </>
+      ) : live.status === "off" ? (
+        <div className="px-2"><PillButton variant="ghost" onClick={() => editor.add(ruleTemplate())}>Add rule</PillButton></div>
+      ) : (
+        <RulesList rules={live.rules} now={now} onEdit={editor.begin} />
+      )}
     </div>
   );
 }
