@@ -6,6 +6,8 @@
  */
 import * as React from "react";
 import { ArrowRight } from "lucide-react";
+import { motion } from "motion/react";
+import { SPRING_SOFT } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { actionShort, conditionsCompact } from "@/lib/model/labels";
 import type { Rule } from "@/lib/model/autopilot";
@@ -31,10 +33,15 @@ export interface RuleLineProps {
   className?: string;
 }
 
-export function RuleNumber({ index, current, className }: { index: number; current?: boolean; className?: string }) {
+/**
+ * The number, and on the rule a tick would run now a filled lime disc behind it. The disc is one shared layout
+ * element (`layoutId`), so when the current rule changes it slides from the old row to the new one.
+ */
+export function RuleNumber({ index, current, className, markerId = "current-rule" }: { index: number; current?: boolean; className?: string; markerId?: string }) {
   return (
-    <span className={cn("mono inline-flex size-6 shrink-0 items-center justify-center rounded-full font-medium", current ? "bg-lime text-on-lime" : "text-lime", className)} aria-label={current ? `Rule ${index}, running now` : `Rule ${index}`}>
-      {index}
+    <span className={cn("mono relative inline-flex size-6 shrink-0 items-center justify-center rounded-full font-medium", current ? "text-on-lime" : "text-lime", className)} aria-label={current ? `Rule ${index}, running now` : `Rule ${index}`}>
+      {current && <motion.span layoutId={markerId} className="absolute inset-0 rounded-full bg-lime" transition={SPRING_SOFT} aria-hidden />}
+      <span className="relative">{index}</span>
     </span>
   );
 }
@@ -45,7 +52,7 @@ export function RuleLine({ index, rule, now, ranAgo, current, trailing, nowOverr
   const compact = conditionsCompact(rule);
   // "USD/TRY > 50.00" with 50.00 changed to 51.00 reads "USD/TRY > ~~50.00~~ 51.00".
   const at = strike ? compact.lastIndexOf(strike.to) : -1;
-  const condition = strike && at >= 0 ? <>{compact.slice(0, at)}<s className="text-dim">{strike.from}</s> <span className="text-lime">{strike.to}</span>{compact.slice(at + strike.to.length)}</> : compact;
+  const condition = strike && at >= 0 ? <>{compact.slice(0, at)}<s className="text-dim">{strike.from}</s> <span className="animate-flash text-lime">{strike.to}</span>{compact.slice(at + strike.to.length)}</> : compact;
   return (
     <div className={cn("grid gap-x-4 gap-y-1 py-4 md:grid-cols-[auto_auto_minmax(0,1fr)_auto_minmax(0,1.2fr)_auto_auto] md:items-center", dimmed && "opacity-50", className)}>
       {/* Phone row 1: number, IF condition, status. Desktop: the same items flow into the grid columns. */}

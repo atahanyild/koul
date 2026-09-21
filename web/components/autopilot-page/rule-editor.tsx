@@ -11,6 +11,8 @@ import { ChevronDown, ChevronUp, GripVertical, Plus } from "lucide-react";
 import { DndContext, KeyboardSensor, PointerSensor, TouchSensor, closestCenter, useSensor, useSensors, type DragEndEvent, type DragOverEvent, type DragStartEvent } from "@dnd-kit/core";
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { AnimatePresence, motion } from "motion/react";
+import { DUR, SPRING_SOFT, tween } from "@/lib/motion";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Label, PillButton, Tile } from "@/components/signal";
@@ -118,7 +120,8 @@ function Handle({ index, attributes, listeners, setActivatorNodeRef }: { index: 
 }
 
 function SortableRule({ rule, i, shownIndex, editor, lr, live, now, dragging, highlighted, change, onUndo }: { rule: Rule; i: number; shownIndex: number; editor: Editor; lr: LiveRule | undefined; live: LiveValues; now: number; dragging: boolean; highlighted: boolean; change?: RuleChange; onUndo?: () => void }) {
-  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id: rule.id });
+  // dnd-kit moves the row while it is held; the wrapper's layout animation moves it once the order has changed.
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id: rule.id, animateLayoutChanges: () => false, transition: { duration: 250, easing: "cubic-bezier(0.22, 1, 0.36, 1)" } });
   const open = editor.open === rule.id;
   const first = rule.conditions[0]!;
   const problem = pairingProblem(rule);
@@ -126,6 +129,7 @@ function SortableRule({ rule, i, shownIndex, editor, lr, live, now, dragging, hi
   const nowText = lr && lr.observed !== null ? observedLabel(first.kind, lr.observed) : liveLabel(first, live);
   const count = editor.rules.length;
   return (
+    <motion.div layout={!dragging} layoutId={`rule-${rule.id}`} transition={SPRING_SOFT} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.98 }} className="min-w-0">
     <Tile
       ref={setNodeRef}
       tone={open || highlighted || !!change ? "outlined" : "surface"}
@@ -152,9 +156,11 @@ function SortableRule({ rule, i, shownIndex, editor, lr, live, now, dragging, hi
             className="py-4 md:py-5"
           />
         </button>
-        <ChevronDown className={cn("mt-5 size-4 shrink-0 text-muted transition-transform md:mt-0", open && "rotate-180")} aria-hidden />
+        <motion.span className="mt-5 inline-flex shrink-0 md:mt-0" animate={{ rotate: open ? 180 : 0 }} transition={tween(DUR.base)} aria-hidden><ChevronDown className="size-4 text-muted" /></motion.span>
       </div>
+      <AnimatePresence initial={false}>
       {open && (
+        <motion.div key="panel" initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={tween(DUR.base)} className="overflow-hidden">
         <div className="grid gap-5 border-t border-line py-5 md:grid-cols-[minmax(0,2fr)_minmax(0,1.3fr)_auto] md:items-start md:gap-8">
           <div className="grid gap-2">
             <Label>If</Label>
@@ -194,8 +200,11 @@ function SortableRule({ rule, i, shownIndex, editor, lr, live, now, dragging, hi
           </div>
           {problem && <Label tone="danger" className="md:col-span-3">{problem}</Label>}
         </div>
+        </motion.div>
       )}
+      </AnimatePresence>
     </Tile>
+    </motion.div>
   );
 }
 
@@ -232,9 +241,11 @@ export function RuleEditor({ editor, liveRules, live, now, highlight, changes, o
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={onDragStart} onDragOver={onDragOver} onDragEnd={onDragEnd} onDragCancel={() => setOrder(null)} accessibility={{ announcements, screenReaderInstructions: { draggable: "Press space to pick up a rule, the arrow keys to move it, space again to drop it, or Escape to cancel." } }}>
       <SortableContext items={ids} strategy={verticalListSortingStrategy}>
         <div className="grid gap-3">
+          <AnimatePresence initial={false}>
           {editor.rules.map((rule, i) => (
             <SortableRule key={rule.id} rule={rule} i={i} shownIndex={shown.indexOf(rule.id)} editor={editor} lr={byId.get(rule.id)} live={live} now={now} dragging={order !== null} highlighted={highlight === rule.id} change={changes?.find((c) => c.id === rule.id && c.kind === "changed")} onUndo={onUndo} />
           ))}
+          </AnimatePresence>
           <button type="button" onClick={onAdd} className="flex min-h-14 w-full items-center justify-center gap-2 rounded-[var(--radius-tile)] border-2 border-dashed border-line text-[16px] font-bold text-text transition-colors hover:border-muted active:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime">
             <Plus className="size-5" aria-hidden /> Add rule
           </button>
