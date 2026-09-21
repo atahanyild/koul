@@ -10,7 +10,9 @@ import { createLocalStore } from "@/lib/data/store";
 import { countChanges, moveItem, moveTo } from "@/lib/model/edit";
 import { newId, type Rule } from "@/lib/model/autopilot";
 
-interface Draft { rules: Rule[]; open: string | null }
+/** `past` holds the lists before each change that can be undone (a drop, a chat edit), newest last. */
+interface Draft { rules: Rule[]; open: string | null; past?: Rule[][] }
+const UNDO_DEPTH = 10;
 const drafts = createLocalStore<Record<string, Draft>>("koul.autopilot.draft", {});
 
 export interface Editor {
@@ -29,6 +31,15 @@ export interface Editor {
   toggle: (id: string) => void;
   move: (id: string, dir: -1 | 1) => void;
   moveTo: (from: number, to: number) => void;
+  /** Replace the whole list as one undoable change (a drop, a sentence that edited a rule). */
+  replace: (rules: Rule[], open?: string | null) => void;
+  canUndo: boolean;
+  undo: () => void;
+}
+
+/** The draft with `next` as its list and the current list pushed onto the undo stack. */
+function remember(d: Draft, next: Rule[]): Draft {
+  return { ...d, rules: next, past: [...(d.past ?? []), d.rules].slice(-UNDO_DEPTH) };
 }
 
 export function useEditor(address: string | null, saved: Rule[]): Editor {
@@ -54,7 +65,10 @@ export function useEditor(address: string | null, saved: Rule[]): Editor {
     update: (id, patch) => set((d) => ({ ...d, rules: d.rules.map((r) => (r.id === id ? (typeof patch === "function" ? patch(r) : { ...r, ...patch }) : r)) })),
     remove: (id) => set((d) => ({ rules: d.rules.filter((r) => r.id !== id), open: d.open === id ? null : d.open })),
     toggle: (id) => set((d) => ({ ...d, rules: d.rules.map((r) => (r.id === id ? { ...r, enabled: !r.enabled } : r)) })),
-    move: (id, dir) => set((d) => { const i = d.rules.findIndex((r) => r.id === id); return i < 0 ? d : { ...d, rules: moveItem(d.rules, i, dir) }; }),
-    moveTo: (from, to) => set((d) => ({ ...d, rules: moveTo(d.rules, from, to) })),
+    move: (id, dir) => set((d) => { const i = d.rules.findIndex((r) => r.id === id); return i < 0 ? d : remember(d, moveItem(d.rules, i, dir)); }),
+    moveTo: (from, to) => set((d) => (from === to ? d : remember(d, moveTo(d.rules, from, to)))),
+    replace: (next, open) => set((d) => ({ ...remember(d, next), open: open === undefined ? d.open : open })),
+    canUndo: (draft?.past?.length ?? 0) > 0,
+    undo: () => set((d) => { const past = d.past ?? []; const prev = past[past.length - 1]; return prev ? { ...d, rules: prev, past: past.slice(0, -1) } : d; }),
   }), [rules, draft, saved, set, clearDraft]);
 }

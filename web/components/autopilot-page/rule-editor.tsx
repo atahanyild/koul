@@ -2,11 +2,15 @@
 
 /**
  * The editing list: one tile per rule with a drag handle, the rule as a line, its live value, ON or OFF and a
- * chevron. The open rule shows its IF, THEN and WAIT BETWEEN RUNS groups, a RULE ON switch and Delete. Rows
- * reorder by drag on desktop and by the arrows next to the handle everywhere.
+ * chevron. The open rule shows its IF, THEN and WAIT BETWEEN RUNS groups, a RULE ON switch, Move up, Move down
+ * and Delete. Rows reorder by the handle: a 6 px pointer drag, a 150 ms press on touch, or space, arrows and space
+ * on the keyboard, with the numbers following the order live. A drop is one change, and Undo takes it back.
  */
 import * as React from "react";
 import { ChevronDown, ChevronUp, GripVertical, Plus } from "lucide-react";
+import { DndContext, KeyboardSensor, PointerSensor, TouchSensor, closestCenter, useSensor, useSensors, type DragEndEvent, type DragOverEvent, type DragStartEvent } from "@dnd-kit/core";
+import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Label, PillButton, Tile } from "@/components/signal";
@@ -102,95 +106,144 @@ function ActionPickers({ action, onChange }: { action: Action; onChange: (next: 
 const WAITS: { value: number; label: string }[] = [60, 300, 600, 1800, 3600, 21600, 43200, 86400].map((value) => ({ value, label: cooldownShort(value) }));
 const waitsFor = (current: number) => (WAITS.some((o) => o.value === current) ? WAITS : [...WAITS, { value: current, label: cooldownShort(current) }].sort((a, b) => a.value - b.value));
 
-export function RuleEditor({ editor, liveRules, live, now, onAdd }: { editor: Editor; liveRules: LiveRule[]; live: LiveValues; now: number; onAdd: () => void }) {
-  const [dragging, setDragging] = React.useState<number | null>(null);
-  const byId = new Map(liveRules.map((r) => [r.rule.id, r] as const));
+/** The drag handle: the only thing that starts a sort, on every pointer type. */
+function Handle({ index, attributes, listeners, setActivatorNodeRef }: { index: number; attributes: React.HTMLAttributes<HTMLButtonElement>; listeners: Record<string, unknown> | undefined; setActivatorNodeRef: (el: HTMLElement | null) => void }) {
   return (
-    <div className="grid gap-3">
-      {editor.rules.map((rule, i) => {
-        const open = editor.open === rule.id;
-        const lr = byId.get(rule.id);
-        const first = rule.conditions[0]!;
-        const problem = pairingProblem(rule);
-        // A rule copied from the chain keeps its live reading; a new or changed one reads the app's live values.
-        const nowText = lr && lr.observed !== null ? observedLabel(first.kind, lr.observed) : liveLabel(first, live);
-        return (
-          <Tile
-            key={rule.id}
-            tone={open ? "outlined" : "surface"}
-            padded={false}
-            className={cn("px-4 md:px-6", dragging === i && "opacity-60")}
-            draggable
-            onDragStart={(e) => { setDragging(i); e.dataTransfer.effectAllowed = "move"; }}
-            onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; }}
-            onDrop={(e) => { e.preventDefault(); if (dragging !== null) editor.moveTo(dragging, i); setDragging(null); }}
-            onDragEnd={() => setDragging(null)}
-          >
-            <div className="flex items-start gap-2 md:items-center">
-              <div className="flex flex-col items-center pt-4 md:flex-row md:pt-0">
-                <span className="hidden cursor-grab text-dim md:inline" aria-hidden><GripVertical className="size-4" /></span>
-                <span className="flex flex-col">
-                  <button type="button" aria-label={`Move rule ${i + 1} up`} disabled={i === 0} onClick={() => editor.move(rule.id, -1)} className="inline-flex size-6 items-center justify-center rounded-full text-muted hover:text-text disabled:opacity-30 focus-visible:outline-2 focus-visible:outline-lime"><ChevronUp className="size-4" /></button>
-                  <button type="button" aria-label={`Move rule ${i + 1} down`} disabled={i === editor.rules.length - 1} onClick={() => editor.move(rule.id, 1)} className="inline-flex size-6 items-center justify-center rounded-full text-muted hover:text-text disabled:opacity-30 focus-visible:outline-2 focus-visible:outline-lime"><ChevronDown className="size-4" /></button>
-                </span>
-              </div>
-              <button type="button" onClick={() => editor.setOpen(open ? null : rule.id)} aria-expanded={open} className="min-w-0 flex-1 rounded-lg text-left transition-opacity hover:opacity-90 active:opacity-75 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-lime">
-                <RuleLine
-                  index={i + 1}
-                  rule={rule}
-                  current={lr?.current}
-                  ranAgo={lr?.current && lr.lastRunAt ? agoShort(lr.lastRunAt, now) : null}
-                  now={nowText}
-                  dimmed={!rule.enabled}
-                  trailing={<span className={cn(rule.enabled ? "text-lime" : "text-dim")}>{rule.enabled ? "ON" : "OFF"}</span>}
-                  className="py-4 md:py-5"
-                />
-              </button>
-              <ChevronDown className={cn("mt-5 size-4 shrink-0 text-muted transition-transform md:mt-0", open && "rotate-180")} aria-hidden />
+    <button
+      type="button"
+      ref={setActivatorNodeRef}
+      data-drag-handle
+      aria-label={`Drag to reorder rule ${index + 1}`}
+      className="inline-flex size-11 shrink-0 items-center justify-center rounded-full text-dim hover:bg-surface-2 hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime"
+      {...attributes}
+      {...listeners}
+    >
+      <GripVertical className="size-4" aria-hidden />
+    </button>
+  );
+}
+
+function SortableRule({ rule, i, shownIndex, editor, lr, live, now, dragging }: { rule: Rule; i: number; shownIndex: number; editor: Editor; lr: LiveRule | undefined; live: LiveValues; now: number; dragging: boolean }) {
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id: rule.id });
+  const open = editor.open === rule.id;
+  const first = rule.conditions[0]!;
+  const problem = pairingProblem(rule);
+  // A rule copied from the chain keeps its live reading; a new or changed one reads the app's live values.
+  const nowText = lr && lr.observed !== null ? observedLabel(first.kind, lr.observed) : liveLabel(first, live);
+  const count = editor.rules.length;
+  return (
+    <Tile
+      ref={setNodeRef}
+      tone={open ? "outlined" : "surface"}
+      padded={false}
+      data-dragging={isDragging || undefined}
+      className={cn("px-4 md:px-6", isDragging && "relative z-10 scale-[1.02] border border-lime shadow-[0_12px_40px_rgba(0,0,0,0.35)]", dragging && !isDragging && "transition-transform")}
+      style={{ transform: CSS.Transform.toString(transform), transition }}
+    >
+      <div className="flex items-start gap-2 md:items-center">
+        <div className="flex items-center pt-2 md:pt-0">
+          <Handle index={i} attributes={attributes as React.HTMLAttributes<HTMLButtonElement>} listeners={listeners as Record<string, unknown> | undefined} setActivatorNodeRef={setActivatorNodeRef} />
+        </div>
+        <button type="button" onClick={() => editor.setOpen(open ? null : rule.id)} aria-expanded={open} className="min-w-0 flex-1 rounded-lg text-left transition-opacity hover:opacity-90 active:opacity-75 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-lime">
+          <RuleLine
+            index={shownIndex + 1}
+            rule={rule}
+            current={lr?.current}
+            ranAgo={lr?.current && lr.lastRunAt ? agoShort(lr.lastRunAt, now) : null}
+            now={nowText}
+            dimmed={!rule.enabled}
+            trailing={<span className={cn(rule.enabled ? "text-lime" : "text-dim")}>{rule.enabled ? "ON" : "OFF"}</span>}
+            className="py-4 md:py-5"
+          />
+        </button>
+        <ChevronDown className={cn("mt-5 size-4 shrink-0 text-muted transition-transform md:mt-0", open && "rotate-180")} aria-hidden />
+      </div>
+      {open && (
+        <div className="grid gap-5 border-t border-line py-5 md:grid-cols-[minmax(0,2fr)_minmax(0,1.3fr)_auto] md:items-start md:gap-8">
+          <div className="grid gap-2">
+            <Label>If</Label>
+            <div className="grid gap-2">
+              {rule.conditions.map((c, ci) => (
+                <div key={ci} className="flex flex-wrap items-center gap-2">
+                  {ci > 0 && <Label className="w-10">{rule.match === "all" ? "and" : "or"}</Label>}
+                  <ConditionPickers c={c} i={ci} onChange={(next) => editor.update(rule.id, (r) => ({ ...r, conditions: r.conditions.map((x, k) => (k === ci ? next : x)) }))} />
+                  {rule.conditions.length > 1 && <button type="button" onClick={() => editor.update(rule.id, (r) => ({ ...r, conditions: r.conditions.filter((_, k) => k !== ci) }))} className="label min-h-11 rounded-full px-3 text-muted hover:text-text">Remove</button>}
+                </div>
+              ))}
             </div>
-            {open && (
-              <div className="grid gap-5 border-t border-line py-5 md:grid-cols-[minmax(0,2fr)_minmax(0,1.3fr)_auto] md:items-start md:gap-8">
-                <div className="grid gap-2">
-                  <Label>If</Label>
-                  <div className="grid gap-2">
-                    {rule.conditions.map((c, ci) => (
-                      <div key={ci} className="flex flex-wrap items-center gap-2">
-                        {ci > 0 && <Label className="w-10">{rule.match === "all" ? "and" : "or"}</Label>}
-                        <ConditionPickers c={c} i={ci} onChange={(next) => editor.update(rule.id, (r) => ({ ...r, conditions: r.conditions.map((x, k) => (k === ci ? next : x)) }))} />
-                        {rule.conditions.length > 1 && <button type="button" onClick={() => editor.update(rule.id, (r) => ({ ...r, conditions: r.conditions.filter((_, k) => k !== ci) }))} className="label min-h-11 rounded-full px-3 text-muted hover:text-text">Remove</button>}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div className="grid gap-5">
-                  <div className="grid gap-2">
-                    <Label>Then</Label>
-                    <ActionPickers action={rule.action} onChange={(next) => editor.update(rule.id, { action: next })} />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label>Wait between runs</Label>
-                    <Select value={String(rule.cooldownSec)} onValueChange={(v) => v && editor.update(rule.id, { cooldownSec: Number(v) })} items={waitsFor(rule.cooldownSec).map((o) => ({ value: String(o.value), label: o.label }))}>
-                      <SelectTrigger className={cn(pill, "w-fit")} aria-label="Wait between runs"><SelectValue /></SelectTrigger>
-                      <SelectContent className={popup}>{waitsFor(rule.cooldownSec).map((o) => <SelectItem key={o.value} value={String(o.value)} className={item}>{o.label}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between gap-4 md:flex-col md:items-end">
-                  <label className="flex min-h-11 cursor-pointer items-center gap-3">
-                    <Label>Rule on</Label>
-                    <Switch checked={rule.enabled} onCheckedChange={() => editor.toggle(rule.id)} aria-label={`Rule ${i + 1} on`} />
-                  </label>
-                  <PillButton variant="outline" size="md" onClick={() => editor.remove(rule.id)}>Delete</PillButton>
-                </div>
-                {problem && <Label tone="danger" className="md:col-span-3">{problem}</Label>}
-              </div>
-            )}
-          </Tile>
-        );
-      })}
-      <button type="button" onClick={onAdd} className="flex min-h-14 w-full items-center justify-center gap-2 rounded-[var(--radius-tile)] border-2 border-dashed border-line text-[16px] font-bold text-text transition-colors hover:border-muted active:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime">
-        <Plus className="size-5" aria-hidden /> Add rule
-      </button>
-    </div>
+          </div>
+          <div className="grid gap-5">
+            <div className="grid gap-2">
+              <Label>Then</Label>
+              <ActionPickers action={rule.action} onChange={(next) => editor.update(rule.id, { action: next })} />
+            </div>
+            <div className="grid gap-2">
+              <Label>Wait between runs</Label>
+              <Select value={String(rule.cooldownSec)} onValueChange={(v) => v && editor.update(rule.id, { cooldownSec: Number(v) })} items={waitsFor(rule.cooldownSec).map((o) => ({ value: String(o.value), label: o.label }))}>
+                <SelectTrigger className={cn(pill, "w-fit")} aria-label="Wait between runs"><SelectValue /></SelectTrigger>
+                <SelectContent className={popup}>{waitsFor(rule.cooldownSec).map((o) => <SelectItem key={o.value} value={String(o.value)} className={item}>{o.label}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-4 md:flex-col md:items-end">
+            <label className="flex min-h-11 cursor-pointer items-center gap-3">
+              <Label>Rule on</Label>
+              <Switch checked={rule.enabled} onCheckedChange={() => editor.toggle(rule.id)} aria-label={`Rule ${i + 1} on`} />
+            </label>
+            <div className="flex gap-2">
+              <PillButton variant="outline" size="md" onClick={() => editor.move(rule.id, -1)} disabled={i === 0} aria-label={`Move rule ${i + 1} up`}><ChevronUp className="size-4" aria-hidden /> Move up</PillButton>
+              <PillButton variant="outline" size="md" onClick={() => editor.move(rule.id, 1)} disabled={i === count - 1} aria-label={`Move rule ${i + 1} down`}><ChevronDown className="size-4" aria-hidden /> Move down</PillButton>
+            </div>
+            <PillButton variant="outline" size="md" onClick={() => editor.remove(rule.id)}>Delete</PillButton>
+          </div>
+          {problem && <Label tone="danger" className="md:col-span-3">{problem}</Label>}
+        </div>
+      )}
+    </Tile>
+  );
+}
+
+export function RuleEditor({ editor, liveRules, live, now, onAdd }: { editor: Editor; liveRules: LiveRule[]; live: LiveValues; now: number; onAdd: () => void }) {
+  const byId = new Map(liveRules.map((r) => [r.rule.id, r] as const));
+  const ids = editor.rules.map((r) => r.id);
+  // While a row is held, `order` is where the rows would land, so the numbers follow the drag.
+  const [order, setOrder] = React.useState<string[] | null>(null);
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+  const onDragStart = (e: DragStartEvent) => { editor.setOpen(null); setOrder(ids.slice()); void e; };
+  const onDragOver = (e: DragOverEvent) => {
+    if (!e.over) return;
+    setOrder((o) => { const list = o ?? ids; const from = list.indexOf(String(e.active.id)); const to = list.indexOf(String(e.over!.id)); return from < 0 || to < 0 || from === to ? list : arrayMove(list, from, to); });
+  };
+  const onDragEnd = (e: DragEndEvent) => {
+    setOrder(null);
+    if (!e.over) return;
+    const from = ids.indexOf(String(e.active.id));
+    const to = ids.indexOf(String(e.over.id));
+    if (from >= 0 && to >= 0 && from !== to) editor.moveTo(from, to);
+  };
+  const announcements = {
+    onDragStart: ({ active }: { active: { id: string | number } }) => `Picked up rule ${ids.indexOf(String(active.id)) + 1} of ${ids.length}.`,
+    onDragOver: ({ active, over }: { active: { id: string | number }; over: { id: string | number } | null }) => (over ? `Rule ${ids.indexOf(String(active.id)) + 1} is over position ${(order ?? ids).indexOf(String(over.id)) + 1}.` : `Rule ${ids.indexOf(String(active.id)) + 1} is no longer over the list.`),
+    onDragEnd: ({ active, over }: { active: { id: string | number }; over: { id: string | number } | null }) => (over ? `Rule dropped at position ${(order ?? ids).indexOf(String(active.id)) + 1}.` : `Rule ${ids.indexOf(String(active.id)) + 1} returned to its place.`),
+    onDragCancel: ({ active }: { active: { id: string | number } }) => `Reordering cancelled. Rule ${ids.indexOf(String(active.id)) + 1} returned to its place.`,
+  };
+  const shown = order ?? ids;
+  return (
+    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={onDragStart} onDragOver={onDragOver} onDragEnd={onDragEnd} onDragCancel={() => setOrder(null)} accessibility={{ announcements, screenReaderInstructions: { draggable: "Press space to pick up a rule, the arrow keys to move it, space again to drop it, or Escape to cancel." } }}>
+      <SortableContext items={ids} strategy={verticalListSortingStrategy}>
+        <div className="grid gap-3">
+          {editor.rules.map((rule, i) => (
+            <SortableRule key={rule.id} rule={rule} i={i} shownIndex={shown.indexOf(rule.id)} editor={editor} lr={byId.get(rule.id)} live={live} now={now} dragging={order !== null} />
+          ))}
+          <button type="button" onClick={onAdd} className="flex min-h-14 w-full items-center justify-center gap-2 rounded-[var(--radius-tile)] border-2 border-dashed border-line text-[16px] font-bold text-text transition-colors hover:border-muted active:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime">
+            <Plus className="size-5" aria-hidden /> Add rule
+          </button>
+        </div>
+      </SortableContext>
+    </DndContext>
   );
 }

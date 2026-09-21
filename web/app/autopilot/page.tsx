@@ -16,7 +16,7 @@ import { chainUiId, useArmAutopilot } from "@/hooks/use-autopilots";
 import { invalidate } from "@/lib/data/store";
 import { newId, toCoreAutopilot, type Autopilot } from "@/lib/model/autopilot";
 import { buildParseContext, parseWithKoul } from "@/lib/parse";
-import { Label, Sk, StatusPill, type StatusKind } from "@/components/signal";
+import { Label, PillButton, Sk, StatusPill, type StatusKind } from "@/components/signal";
 import { AccessChip } from "@/components/autopilot-page/access";
 import { Composer } from "@/components/autopilot-page/composer";
 import { RulesHeader, RulesList } from "@/components/autopilot-page/rules-list";
@@ -167,7 +167,7 @@ export default function AutopilotPage() {
 
       {editor.editing ? (
         <>
-          <RulesHeader hint="Top to bottom · first match runs" />
+          <RulesHeader hint="Top to bottom · first match runs" action={editor.canUndo ? <PillButton variant="ghost" size="sm" onClick={editor.undo}>Undo</PillButton> : undefined} />
           <RuleEditor editor={editor} liveRules={live.rules} live={values.live} now={now} onAdd={() => editor.add(ruleTemplate())} />
           <SaveBar changes={editor.changes} confirmations={confirmations} blocker={editor.changes === 0 ? null : blocker} error={saveError} ask={ask} busy={busy} busyLabel={busyLabel} onDiscard={() => { editor.discard(); setNotes([]); setSaveError(null); setAsking(false); }} onSave={() => void onSave()} />
         </>
