@@ -15,7 +15,7 @@ import { chainUiId, useArmAutopilot } from "@/hooks/use-autopilots";
 import { invalidate } from "@/lib/data/store";
 import { newId, toCoreAutopilot, type Autopilot } from "@/lib/model/autopilot";
 import { Label, Sk, StatusPill, type StatusKind } from "@/components/signal";
-import { useAgentAccess } from "@/hooks/use-agent-access";
+import { AccessChip } from "@/components/autopilot-page/access";
 import { RulesHeader, RulesList } from "@/components/autopilot-page/rules-list";
 import { RuleEditor, pairingProblem, ruleTemplate } from "@/components/autopilot-page/rule-editor";
 import { SaveBar } from "@/components/autopilot-page/save-bar";
@@ -25,13 +25,6 @@ import { useEditor } from "@/components/autopilot-page/use-editor";
 const ACCESS_DAYS = 30;
 const OPEN_WITH_USDC = 1_0000000n;
 const MAX_CONTRACT_RULES = 8;
-
-/** The access chip: how long Koul's key still works. The popover behind it comes next. */
-function AccessLabel() {
-  const agent = useAgentAccess();
-  const text = !agent.loaded ? "Access" : agent.active ? (agent.daysLeft === null ? "Access" : `Access ${agent.daysLeft}d`) : "No access yet";
-  return <span className="inline-flex h-11 items-center rounded-full bg-surface px-4"><Label tone="text">{text}</Label></span>;
-}
 
 function useMinute(): number {
   const [now, setNow] = React.useState(() => Date.now());
@@ -107,7 +100,7 @@ export default function AutopilotPage() {
           <StatusPill kind={kind} />
           <Label className="hidden sm:inline">{summary}</Label>
         </div>
-        <AccessLabel />
+        <AccessChip />
       </div>
       <Label className="sm:hidden">{summary}</Label>
 
