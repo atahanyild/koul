@@ -3,16 +3,18 @@
 /**
  * Everything that touched the wallet, newest first: the router's runs (AUTO) and the user's own moves (YOU), all
  * from contract events within the node's retention window, plus "Wallet created" when this browser did it.
+ * Rows: deposits, sends, supplies and withdrawals (USDC transfers), autopilot runs (fired), rules saved and
+ * cleared, access given (koul_installed) and access revoked (the wallet's context_rule_removed for that rule).
  */
 import { useMemo } from "react";
 import { usePasskeyWallet } from "@sembol/passkey-react";
 import { usePoll } from "@/lib/data/store";
-import { readWalletEvents, type WalletEvent } from "@/lib/data/events";
+import { loadEventsSnapshot, readWalletEvents, type WalletEvent } from "@/lib/data/events";
 import { XOXNO } from "@/lib/koul";
 import { walletCreatedAt } from "./use-wallet";
 
 export type ActivityWho = "auto" | "you";
-export type ActivityKind = "run" | "rules_saved" | "rules_cleared" | "access_given" | "supplied" | "withdrew" | "deposited" | "sent" | "wallet_created";
+export type ActivityKind = "run" | "rules_saved" | "rules_cleared" | "access_given" | "access_revoked" | "supplied" | "withdrew" | "deposited" | "sent" | "wallet_created";
 
 export interface ActivityRow {
   id: string;
@@ -72,6 +74,8 @@ function fromTransfer(e: WalletEvent, wallet: string): ActivityRow | null {
 
 export function toRows(events: WalletEvent[], wallet: string): ActivityRow[] {
   const autoTx = new Set(events.filter((e) => e.kind === "fired").map((e) => e.txHash));
+  // A removed rule is "Access revoked" only when it is one Koul's policy was installed on; a passkey change is not.
+  const koulRules = new Set(events.filter((e) => e.kind === "koul_installed").map((e) => Number(e.value.context_rule_id)));
   const rows: ActivityRow[] = [];
   for (const e of events) {
     switch (e.kind) {
@@ -79,6 +83,7 @@ export function toRows(events: WalletEvent[], wallet: string): ActivityRow[] {
       case "autopilot_set": rows.push({ id: e.id, kind: "rules_saved", who: "you", at: e.at, txHash: e.txHash, title: `Rules saved, ${Number(e.value.rules)} ${Number(e.value.rules) === 1 ? "rule" : "rules"}` }); break;
       case "autopilot_cleared": rows.push({ id: e.id, kind: "rules_cleared", who: "you", at: e.at, txHash: e.txHash, title: "Rules cleared" }); break;
       case "koul_installed": rows.push({ id: e.id, kind: "access_given", who: "you", at: e.at, txHash: e.txHash, title: "Access given" }); break;
+      case "context_rule_removed": if (koulRules.has(Number(e.value.rule))) rows.push({ id: e.id, kind: "access_revoked", who: "you", at: e.at, txHash: e.txHash, title: "Access revoked" }); break;
       case "transfer": {
         // A transfer inside a router run is part of that run, not a move of the user's own.
         if (autoTx.has(e.txHash)) break;
@@ -93,7 +98,8 @@ export function toRows(events: WalletEvent[], wallet: string): ActivityRow[] {
 
 export function useActivity(): ActivityState {
   const { isConnected, address, txEpoch } = usePasskeyWallet();
-  const p = usePoll(isConnected && address ? `events:${address}` : null, () => readWalletEvents(address!), { intervalMs: 45_000, enabled: isConnected, deps: [txEpoch] });
+  // Stale while revalidating: the last answer paints at once, the node is asked again straight away.
+  const p = usePoll(isConnected && address ? `events:${address}` : null, () => readWalletEvents(address!), { intervalMs: 45_000, enabled: isConnected, deps: [txEpoch], initial: () => (address ? loadEventsSnapshot(address) : undefined) });
   return useMemo(() => {
     if (!isConnected || !address) return { rows: [], loading: false, error: null, connected: false, loaded: false, since: null, refresh: p.refresh };
     const loading = p.data === undefined && (p.loading || (!p.error && p.updatedAt === 0));
