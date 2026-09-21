@@ -4,6 +4,7 @@ import { EmptyState, Loadable, Row, RowList, SkRows, Tile, TileLabel } from "@/c
 import { fmtPct, fmtUsdc } from "@/lib/format";
 import type { Pool, Positions } from "@/lib/data/types";
 import { POOLS, type PoolId } from "@/lib/model/autopilot";
+import { cn } from "@/lib/utils";
 
 /** Where the USDC sits right now: one row per hub with its APY, the idle wallet, and any debt. */
 export function positionRows(positions: Positions, pools: Pool[]): { key: string; title: string; value: string }[] {
@@ -23,7 +24,7 @@ export function positionRows(positions: Positions, pools: Pool[]): { key: string
 
 export function PositionsTile({ positions, pools, loading, empty, className }: { positions: Positions; pools: Pool[]; loading: boolean; empty: boolean; className?: string }) {
   return (
-    <Tile className={className}>
+    <Tile className={cn("h-full", className)}>
       <TileLabel>Positions</TileLabel>
       <Loadable loading={loading} skeleton={<SkRows rows={3} />} className="mt-2">
         {empty ? <EmptyState title="No positions yet" line="Deposit, then put it to work" /> : (

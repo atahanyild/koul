@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { motion } from "motion/react";
 import { Label, Loadable, Sk, TextSegmented, Tile, TileLabel } from "@/components/signal";
 import { MOCK_HISTORY, mockedHistory, type HistoryPoint } from "@/lib/mock";
 
@@ -16,7 +17,8 @@ function Line({ points }: { points: HistoryPoint[] }) {
   const d = points.map((p, i) => `${(i / (points.length - 1)) * w},${h - ((p.v - min) / span) * (h - 6) - 3}`).join(" ");
   return (
     <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="h-24 w-full" role="img" aria-label="Balance over time">
-      <polyline points={d} fill="none" stroke="var(--lime)" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+      {/* The line draws itself from left to right in 700 ms when the series lands. */}
+      <motion.polyline points={d} fill="none" stroke="var(--lime)" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.7, ease: "easeOut" }} />
     </svg>
   );
 }
