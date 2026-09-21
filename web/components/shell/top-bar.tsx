@@ -36,7 +36,7 @@ export function TopBar({ connected, className }: { connected: boolean; className
                     key={t.href}
                     href={t.href}
                     aria-current={on ? "page" : undefined}
-                    className={cn("t-tab rounded-md py-1 transition-colors focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-lime", on ? "text-text" : "text-dim hover:text-muted active:text-text")}
+                    className={cn("t-tab rounded-md py-1 transition-colors duration-[240ms] ease-out focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-lime", on ? "text-text" : "text-dim hover:text-muted active:text-text")}
                   >
                     {t.label}
                   </Link>

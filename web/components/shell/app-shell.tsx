@@ -7,6 +7,8 @@
  */
 import * as React from "react";
 import { usePathname } from "next/navigation";
+import { motion } from "motion/react";
+import { rise } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { useWallet } from "@/hooks/use-wallet";
 import { Sk } from "@/components/signal";
@@ -48,7 +50,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <Frame className={cn(!flow && "pb-28 md:pb-12")}>
       <TopBar connected className={cn(flow && "hidden md:flex")} />
-      <main className={cn("animate-rise", flow && "pt-2 md:pt-0")}>{children}</main>
+      <motion.main key={pathname} {...rise(8)} className={cn(flow && "pt-2 md:pt-0")}>{children}</motion.main>
       {!flow && <BottomTabs />}
     </Frame>
   );
