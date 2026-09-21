@@ -61,11 +61,11 @@ export default function ActivityPage() {
                 const who = r.who === "auto" ? "AUTO" : "YOU";
                 return (
                   <li key={r.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 py-4 md:grid-cols-[112px_minmax(0,1fr)_auto_64px_44px] md:py-5">
-                    <span className="mono order-3 col-span-2 text-muted md:order-none md:col-span-1"><span className="md:hidden"><span className={cn(r.who === "auto" ? "text-lime" : "text-muted")}>{who}</span> · </span>{whenLabel(r.at, now)}</span>
-                    <span className="order-1 min-w-0 truncate text-[16px] font-bold">{r.title}</span>
-                    <span className="mono order-2 text-right md:order-none">{amount ?? ""}</span>
-                    <span className={cn("mono hidden text-right md:inline", r.who === "auto" ? "text-lime" : "text-muted")}>{who}</span>
-                    <span className="hidden justify-end md:flex">
+                    <span className="mono order-3 col-span-2 text-muted md:order-1 md:col-span-1"><span className="md:hidden"><span className={cn(r.who === "auto" ? "text-lime" : "text-muted")}>{who}</span> · </span>{whenLabel(r.at, now)}</span>
+                    <span className="order-1 min-w-0 truncate text-[16px] font-bold md:order-2">{r.title}</span>
+                    <span className="mono order-2 text-right md:order-3">{amount ?? ""}</span>
+                    <span className={cn("mono hidden text-right md:order-4 md:inline", r.who === "auto" ? "text-lime" : "text-muted")}>{who}</span>
+                    <span className="hidden justify-end md:order-5 md:flex">
                       {r.txHash && (
                         <a href={explorerTx(r.txHash)} target="_blank" rel="noopener noreferrer" aria-label="Open the transaction on stellar.expert" className="inline-flex size-11 items-center justify-center rounded-full text-muted transition-colors hover:bg-surface-2 hover:text-text focus-visible:outline-2 focus-visible:outline-lime">
                           <ArrowUpRight className="size-4" />
