@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
-import { Label, Sk, StatusDot, Tile, TileLabel } from "@/components/signal";
+import { Label, PillButton, Sk, StatusDot, Tile, TileLabel } from "@/components/signal";
 import { RuleLine } from "@/components/rules/rule-line";
 import type { AutopilotLiveState } from "@/hooks/use-autopilot-live";
 import { agoShort, observedLabel } from "@/lib/model/labels";
@@ -20,7 +20,19 @@ export function AutopilotTile({ ap, now }: { ap: AutopilotLiveState; now: number
       </Tile>
     );
   }
-  if (ap.status === "off") return null;
+  if (ap.status === "off") {
+    return (
+      <Tile tone="dashed" className="grid gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)_auto] md:items-center">
+        <div>
+          <TileLabel>Autopilot</TileLabel>
+          <div className="mt-2 flex items-center gap-3"><StatusDot on={false} size="md" /><span className="t-value">Off</span></div>
+          <Label className="mt-3 block">No rules yet</Label>
+        </div>
+        <p className="text-[22px] font-bold leading-tight md:text-[26px]">Set the rules once.<br />Koul does the rest.</p>
+        <PillButton href="/autopilot" size="lg" className="w-full md:w-auto">Set up autopilot</PillButton>
+      </Tile>
+    );
+  }
   const on = ap.rules.filter((r) => r.rule.enabled).length;
   const more = ap.rules.length - SHOWN;
   const paused = ap.status === "paused";
