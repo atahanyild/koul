@@ -149,7 +149,7 @@ export function RuleEditor({ editor, liveRules, live, now, onAdd }: { editor: Ed
               <ChevronDown className={cn("mt-5 size-4 shrink-0 text-muted transition-transform md:mt-0", open && "rotate-180")} aria-hidden />
             </div>
             {open && (
-              <div className="grid gap-5 border-t border-line py-5 md:grid-cols-[minmax(0,2fr)_minmax(0,1.3fr)_auto] md:items-end md:gap-8">
+              <div className="grid gap-5 border-t border-line py-5 md:grid-cols-[minmax(0,2fr)_minmax(0,1.3fr)_auto] md:items-start md:gap-8">
                 <div className="grid gap-2">
                   <Label>If</Label>
                   <div className="grid gap-2">
