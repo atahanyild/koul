@@ -35,6 +35,25 @@ export interface FundsPublic {
 
 const POLL_MS = 4000;
 
+/** A transfer in flight survives a reload: the ids and amounts are kept per wallet, the sealed state included. */
+interface SavedTransfer { direction: "in" | "out"; transferId: string; serverState: string | null; amountTry: number; amountUsdc: number; rate: number; startedAt: number }
+const savedKey = (address: string) => `koul.transfer:${address}`;
+function saveTransfer(address: string, t: Transfer) {
+  try {
+    if (!t.transferId || t.status !== "running") { window.localStorage.removeItem(savedKey(address)); return; }
+    const s: SavedTransfer = { direction: t.direction, transferId: t.transferId, serverState: t.serverState, amountTry: t.amountTry, amountUsdc: t.amountUsdc, rate: t.rate, startedAt: t.startedAt };
+    window.localStorage.setItem(savedKey(address), JSON.stringify(s));
+  } catch { /* ignore */ }
+}
+export function loadSavedTransfer(address: string): SavedTransfer | null {
+  try {
+    const raw = window.localStorage.getItem(savedKey(address));
+    return raw ? (JSON.parse(raw) as SavedTransfer) : null;
+  } catch {
+    return null;
+  }
+}
+
 const stateHeader = (state: string | null | undefined): Record<string, string> => (state ? { "x-koul-transfer-state": state } : {});
 
 /**
@@ -108,6 +127,7 @@ export function useTransferRunner() {
   current.current = transfer;
   const clear = () => { if (timer.current) clearTimeout(timer.current); timer.current = null; };
   useEffect(() => clear, []);
+  useEffect(() => { if (address && transfer) saveTransfer(address, transfer); }, [address, transfer]);
 
   const poll = useCallback(async (id: string) => {
     const t = current.current;
@@ -194,9 +214,36 @@ export function useTransferRunner() {
     return res;
   }, [kit, approveAction, poll]);
 
-  const reset = useCallback(() => { clear(); setTransfer(null); approveAction.reset(); }, [approveAction]);
+  /** Pick up a transfer this wallet left running, from local storage, and poll it. */
+  const resume = useCallback(() => {
+    if (!address || current.current) return false;
+    const saved = loadSavedTransfer(address);
+    if (!saved) return false;
+    const base: StepDef[] = saved.direction === "in" ? DEPOSIT_STEPS : WITHDRAW_STEPS;
+    const t: Transfer = {
+      id: `${saved.direction}-${saved.startedAt}`,
+      direction: saved.direction,
+      transferId: saved.transferId,
+      serverState: saved.serverState,
+      amountTry: saved.amountTry,
+      amountUsdc: saved.amountUsdc,
+      rate: saved.rate,
+      reference: null,
+      instructions: null,
+      unsignedTransfer: null,
+      startedAt: saved.startedAt,
+      status: "running",
+      steps: base.map((s, i) => ({ ...s, state: i === 0 ? "done" : i === 1 ? "active" : "pending", at: i <= 1 ? saved.startedAt : undefined })),
+    };
+    setTransfer(t);
+    clear();
+    timer.current = setTimeout(() => void poll(saved.transferId), 300);
+    return true;
+  }, [address, poll]);
+
+  const reset = useCallback(() => { clear(); setTransfer(null); approveAction.reset(); if (address) { try { window.localStorage.removeItem(savedKey(address)); } catch { /* ignore */ } } }, [approveAction, address]);
   const activeIndex = transfer ? transfer.steps.findIndex((s) => s.state === "active") : -1;
-  return { transfer, start, simulateBank, approve, approveAction, reset, activeIndex, busy };
+  return { transfer, start, simulateBank, approve, approveAction, reset, resume, activeIndex, busy };
 }
 
 function failAt(t: Transfer, err: unknown): Transfer {

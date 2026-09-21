@@ -6,7 +6,7 @@ import { contract } from "@stellar/stellar-sdk";
 import { KoulReader, type Autopilot as CoreAutopilot, type FiredEvent, type PositionNft, type RuleState } from "@koul/core";
 import type { ContextRule } from "smart-account-kit";
 import { MARKETS, type Market } from "./markets";
-import { MAX_PRICE_AGE_SECS, READ_CONFIG, XOXNO, usdPerTryToTryPerUsd } from "@/lib/koul";
+import { KOUL, MAX_PRICE_AGE_SECS, READ_CONFIG, XOXNO, usdPerTryToTryPerUsd } from "@/lib/koul";
 import { fromUnits } from "@/lib/format";
 import { POOLS, poolByHub, type PoolId } from "@/lib/model/autopilot";
 import type { ActivityItem, FxPrice, Health, Pool, Positions } from "./types";
@@ -155,4 +155,33 @@ export function firedToActivity(f: Fired): ActivityItem {
 /** Agent rules on the smart account: the rules that carry the keeper's Ed25519 key. */
 export function agentRulesOf(rules: ContextRule[], ed25519Verifier: string | undefined): ContextRule[] {
   return rules.filter((r) => r.signers.some((s) => s.tag === "External" && ed25519Verifier === s.values[0]));
+}
+
+// ---------------------------------------------------------------- the policy's own account of the key
+
+export interface AgentParams {
+  accountId: string;
+  /** [contract, function] pairs the key may call. */
+  allowedCalls: [string, string][];
+  transferRecipients: string[];
+  maxCallsPerWindow: number;
+  windowLedgers: number;
+}
+
+type PolicyClient = { get_params: (a: { smart_account: string; context_rule_id: number }) => Promise<contract.AssembledTransaction<unknown>> };
+let policyClient: Promise<PolicyClient> | null = null;
+const policyReader = () => (policyClient ??= contract.Client.from({ contractId: KOUL.policy, rpcUrl: READ_CONFIG.rpcUrl, networkPassphrase: READ_CONFIG.networkPassphrase, publicKey: READ_CONFIG.publicKey }) as unknown as Promise<PolicyClient>);
+
+/** `koul_agent_policy.get_params(smart_account, rule)`: what the installed key is allowed to do, from the chain. */
+export async function readAgentParams(address: string, ruleId: number): Promise<AgentParams | null> {
+  const p = await policyReader();
+  const raw = (await p.get_params({ smart_account: address, context_rule_id: ruleId })).result as { account_id: bigint; allowed_calls: [string, string][]; allowed_transfer_recipients: string[]; max_calls_per_window: number; window_ledgers: number } | undefined;
+  if (!raw) return null;
+  return {
+    accountId: String(raw.account_id),
+    allowedCalls: raw.allowed_calls.map(([c, f]) => [String(c), String(f)] as [string, string]),
+    transferRecipients: raw.allowed_transfer_recipients.map(String),
+    maxCallsPerWindow: Number(raw.max_calls_per_window),
+    windowLedgers: Number(raw.window_ledgers),
+  };
 }

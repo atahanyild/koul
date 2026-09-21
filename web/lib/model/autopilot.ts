@@ -415,9 +415,15 @@ function fromCoreCondition(c: CoreCondition): Condition {
 
 const RULE_NAMES: Record<ActionKind, string> = { supply_from_wallet: "Put it to work", move_to_best_pool: "Best rate", repay_from_wallet: "Stay safe", withdraw_to_wallet: "Lira exit" };
 
-/** Read the router's autopilot back into rule cards, folding the per-hub pairs back into one rule each. */
-export function fromCoreAutopilot(core: CoreAutopilot): Rule[] {
-  const out: Rule[] = [];
+export interface FoldedRules { rules: Rule[]; /** contract rule index -> index into `rules` */ contractToUi: number[] }
+
+/**
+ * Read the router's autopilot back into rule cards, folding the per-hub pairs back into one rule each, and keep
+ * the map from contract rule index to card so `check` states and `Fired` events land on the right row.
+ */
+export function foldCoreRules(core: CoreAutopilot): FoldedRules {
+  const rules: Rule[] = [];
+  const contractToUi: number[] = [];
   const shapes: string[] = [];
   core.rules.forEach((r, index) => {
     const kind: ActionKind = r.action.type === "MoveSupply" ? "move_to_best_pool" : r.action.type === "WithdrawToWallet" ? "withdraw_to_wallet" : r.action.type === "SupplyFromWallet" ? "supply_from_wallet" : "repay_from_wallet";
@@ -426,11 +432,16 @@ export function fromCoreAutopilot(core: CoreAutopilot): Rule[] {
     const pool: PoolId | undefined = r.action.type === "SupplyFromWallet" ? poolByHub(r.action.hub) : undefined;
     const shape = JSON.stringify([kind, conditions, amount, r.match_all, r.cooldown_ledgers, pool]);
     const prev = shapes.length ? shapes[shapes.length - 1] : null;
-    if (prev === shape) return;
+    if (prev === shape) { contractToUi.push(rules.length - 1); return; }
     shapes.push(shape);
-    out.push(makeRule({ id: `chain_${index}`, name: RULE_NAMES[kind], conditions, match: r.match_all ? "all" : "any", action: { kind, amount, ...(pool ? { pool } : {}) }, cooldownSec: r.cooldown_ledgers * LEDGER_SECONDS }));
+    contractToUi.push(rules.length);
+    rules.push(makeRule({ id: `chain_${index}`, name: RULE_NAMES[kind], conditions, match: r.match_all ? "all" : "any", action: { kind, amount, ...(pool ? { pool } : {}) }, cooldownSec: r.cooldown_ledgers * LEDGER_SECONDS }));
   });
-  return out;
+  return { rules, contractToUi };
+}
+
+export function fromCoreAutopilot(core: CoreAutopilot): Rule[] {
+  return foldCoreRules(core).rules;
 }
 
 /** The plain-language permission list the arm sheet shows, derived from the rules. */

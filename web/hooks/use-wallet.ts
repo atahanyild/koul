@@ -28,6 +28,21 @@ export function useWallet() {
   };
 }
 
+/** When this browser created the wallet, so Activity can show "Wallet created". Nothing on-chain says it. */
+export function walletCreatedAt(address: string): number | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const v = window.localStorage.getItem(`koul.walletCreated:${address}`);
+    return v ? Number(v) : null;
+  } catch {
+    return null;
+  }
+}
+
+function rememberWalletCreated(address: string) {
+  try { window.localStorage.setItem(`koul.walletCreated:${address}`, String(Date.now())); } catch { /* ignore */ }
+}
+
 export type PasskeyPhase = "idle" | "prompt" | "deploying" | "funding" | "submitting" | "success" | "cancelled" | "error";
 
 /**
@@ -45,11 +60,12 @@ export function useWalletOnboarding() {
     try {
       if (which === "create") {
         const res = await create.createWallet({ userName: "Koul wallet", nickname: "Koul" });
+        rememberWalletCreated(res.contractId);
         setPhase("success");
         return res;
       }
       const res = await connect.connect({ fresh: true });
-      if (!res) { setPhase("error"); setError(toSembolError(new Error("No wallet found for that passkey"))); return null; }
+      if (!res) { setPhase("error"); setError(toSembolError(new Error("No wallet found for that passkey on this site"))); return null; }
       setPhase("success");
       return res;
     } catch (err) {

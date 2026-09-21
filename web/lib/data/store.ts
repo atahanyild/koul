@@ -75,7 +75,7 @@ export interface PollState<T> {
 export function usePoll<T>(key: string | null, fetcher: () => Promise<T>, opts: { intervalMs?: number; enabled?: boolean; deps?: unknown[] } = {}): PollState<T> {
   const { intervalMs = 0, enabled = true } = opts;
   const fetcherRef = useRef(fetcher);
-  fetcherRef.current = fetcher;
+  useEffect(() => { fetcherRef.current = fetcher; }, [fetcher]);
   const k = key ?? "__disabled__";
   const subscribe = useCallback((cb: () => void) => { const e = entry<T>(k); e.listeners.add(cb); return () => { e.listeners.delete(cb); }; }, [k]);
   const getSnap = useCallback(() => entry<T>(k).snap, [k]);
@@ -92,7 +92,6 @@ export function usePoll<T>(key: string | null, fetcher: () => Promise<T>, opts: 
     if (!intervalMs) return () => { cancelled = true; };
     const t = setInterval(run, intervalMs);
     return () => { cancelled = true; clearInterval(t); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, enabled, intervalMs, depsKey]);
 
   const refresh = useCallback(() => (key ? refreshKey(key, () => fetcherRef.current()) : Promise.resolve()), [key]);

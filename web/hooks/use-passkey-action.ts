@@ -3,7 +3,7 @@
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
 import { toSembolError, usePasskeyWallet, type SembolError } from "@sembol/passkey-react";
-import type { AssembledTransaction, TransactionSuccess } from "smart-account-kit";
+import type { AssembledTransaction, SmartAccountKit, TransactionSuccess } from "smart-account-kit";
 import { explorerTx, KOUL } from "@/lib/koul";
 import { invalidate } from "@/lib/data/store";
 import { shortHash } from "@/lib/format";
@@ -12,16 +12,31 @@ export type ActionPhase = "idle" | "building" | "prompt" | "signed" | "submittin
 
 /**
  * A browser allows one WebAuthn ceremony at a time: starting a second one aborts the first, and both come back as
- * "the operation was not allowed" or "sent an abort signal". Arming runs up to three prompts in a row, so the lock
- * is module-wide rather than per hook.
+ * "the operation was not allowed" or "sent an abort signal". Saving rules can run up to three prompts in a row, so
+ * the lock is module-wide rather than per hook.
  */
-let ceremonyOpen = false;
+const ceremony = { open: false };
+const acquireCeremony = (): boolean => { if (ceremony.open) return false; ceremony.open = true; return true; };
+const releaseCeremony = () => { ceremony.open = false; };
 
 /** A dismissed, timed out or aborted prompt is the user saying no, not a failure worth a red toast. */
 function isDismissed(err: unknown): boolean {
   const name = (err as { name?: unknown } | null)?.name;
   const text = `${name ?? ""} ${err instanceof Error ? err.message : String(err)}`;
   return /NotAllowedError|AbortError|abort signal|timed out or was not allowed|user_cancelled|cancell?ed/i.test(text);
+}
+
+/**
+ * The kit gives no progress callback, but its order is fixed: sign, re-simulate, send. Wrapping the two RPC calls
+ * for the duration of one submit turns that into phases. Returns the function that restores the originals.
+ */
+function instrumentRpc(kit: SmartAccountKit, on: { signed: () => void; submitting: () => void }): () => void {
+  const rpc = kit.rpc as unknown as { simulateTransaction: (...a: unknown[]) => Promise<unknown>; sendTransaction: (...a: unknown[]) => Promise<unknown> };
+  const originalSimulate = rpc.simulateTransaction.bind(kit.rpc);
+  const originalSend = rpc.sendTransaction.bind(kit.rpc);
+  rpc.simulateTransaction = async (...a: unknown[]) => { on.signed(); return originalSimulate(...a); };
+  rpc.sendTransaction = async (...a: unknown[]) => { on.submitting(); return originalSend(...a); };
+  return () => { rpc.simulateTransaction = originalSimulate; rpc.sendTransaction = originalSend; };
 }
 
 export interface ActionState {
@@ -63,50 +78,36 @@ export function usePasskeyAction() {
   const [error, setError] = useState<SembolError | null>(null);
   const [hash, setHash] = useState<string | null>(null);
 
-  /**
-   * The kit gives no progress callback, but its order is fixed: sign, re-simulate, send. Wrapping the two RPC calls
-   * for the duration of the submit turns that into phases, so the moment the fingerprint is accepted the button and
-   * the toast both say what is happening instead of sitting still for several seconds.
-   */
-  const run = useCallback(async <T,>(build: () => Promise<AssembledTransaction<T>>, opts: { title: string; description?: string; invalidatePrefixes?: string[] } ): Promise<TransactionSuccess | null> => {
+  const run = useCallback(async <T,>(build: () => Promise<AssembledTransaction<T>>, opts: { title: string; description?: string; invalidatePrefixes?: string[]; quiet?: boolean }): Promise<TransactionSuccess | null> => {
     if (!kit) { toast.error("Wallet not ready"); return null; }
-    if (ceremonyOpen) {
+    if (!acquireCeremony()) {
       toast("One at a time", { description: "A passkey prompt is already open. Finish or dismiss it first." });
       return null;
     }
-    ceremonyOpen = true;
     setError(null); setHash(null); setPhase("building");
-    const toastId = toast.loading("Preparing the transaction…", { description: opts.title });
-    const rpc = kit.rpc as unknown as { simulateTransaction: (...a: unknown[]) => Promise<unknown>; sendTransaction: (...a: unknown[]) => Promise<unknown> };
-    const originalSimulate = rpc.simulateTransaction.bind(kit.rpc);
-    const originalSend = rpc.sendTransaction.bind(kit.rpc);
-    const restore = () => { rpc.simulateTransaction = originalSimulate; rpc.sendTransaction = originalSend; };
+    const toastId = toast.loading("Preparing the transaction", { description: opts.title });
+    let restore: (() => void) | null = null;
     try {
       const tx = await build();
       setPhase("prompt");
       toast.loading("Waiting for your passkey", { id: toastId, description: "Your device is asking you to confirm." });
-      rpc.simulateTransaction = async (...a: unknown[]) => {
-        setPhase("signed");
-        toast.loading("Signed. Checking with the network…", { id: toastId, description: opts.title });
-        return originalSimulate(...a);
-      };
-      rpc.sendTransaction = async (...a: unknown[]) => {
-        setPhase("submitting");
-        toast.loading("Sending to Stellar…", { id: toastId, description: "A few seconds while the ledger closes." });
-        return originalSend(...a);
-      };
+      restore = instrumentRpc(kit, {
+        signed: () => { setPhase("signed"); toast.loading("Signed. Checking with the network", { id: toastId, description: opts.title }); },
+        submitting: () => { setPhase("submitting"); toast.loading("Sending to Stellar", { id: toastId, description: "A few seconds while the ledger closes." }); },
+      });
       const res = await kit.signAndSubmit(tx);
       restore();
+      restore = null;
       setPhase("submitting");
       if (!res.success) throw new Error(describeFailure(res.error));
       setHash(res.hash);
       setPhase("success");
       toast.dismiss(toastId);
-      toastTx(opts.title, res.hash, opts.description);
+      if (!opts.quiet) toastTx(opts.title, res.hash, opts.description);
       for (const p of opts.invalidatePrefixes ?? []) invalidate(p);
       return res;
     } catch (err) {
-      restore();
+      if (restore) restore();
       toast.dismiss(toastId);
       const e = toSembolError(err);
       setError(e);
@@ -116,7 +117,7 @@ export function usePasskeyAction() {
       else toastError(`${opts.title} failed`, err);
       return null;
     } finally {
-      ceremonyOpen = false;
+      releaseCeremony();
     }
   }, [kit]);
 
