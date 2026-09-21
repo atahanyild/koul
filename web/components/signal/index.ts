@@ -7,3 +7,4 @@ export { RowList, Row, KeyValue } from "./rows";
 export { EmptyState } from "./empty";
 export { Sk, SkValue, SkRows } from "./skeleton";
 export { CopyAction, CopyRow } from "./copy";
+export type { StatusKind } from "./status";
