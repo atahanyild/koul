@@ -1,7 +1,8 @@
 /**
  * Everything that touched the wallet, read from contract events within the RPC's retention window (about seven
  * days on testnet). Six topic filters across three contracts, walked in 5000-ledger windows from the newest ledger
- * back, because the node answers a wider range with an empty list instead of an error.
+ * back, because the node answers a wider range with an empty list instead of an error. A window that has closed
+ * never changes, so its rows are kept in memory and only the newest window is asked again on each poll.
  *
  *   router   fired { autopilot_id, rule_index, kind, amount, from_hub, to_hub, observed[] }   -> AUTO
  *   router   autopilot_set { autopilot_id, account_id, rules } / autopilot_cleared            -> YOU
@@ -31,6 +32,9 @@ const WINDOW = 5000;
 const PAGE = 200;
 const server = new rpc.Server(KOUL.rpcUrl);
 const sym = (s: string) => xdr.ScVal.scvSymbol(s).toXDR("base64");
+
+/** Rows of windows that have fully closed, keyed by wallet and window start. Never invalidated: the past is fixed. */
+const closed = new Map<string, WalletEvent[]>();
 
 function decodeValue(v: xdr.ScVal): Record<string, unknown> {
   const native = scValToNative(v) as unknown;
@@ -67,30 +71,40 @@ async function page(filters: rpc.Api.EventFilter[], startLedger: number, endLedg
   } while (cursor);
 }
 
-/**
- * Newest first. Stops after `limit` rows or at the oldest ledger the node still has. Two requests per window:
- * the RPC takes at most five filters, and there are six.
- */
+/** One window, both requests: the RPC takes at most five filters per call and there are six. */
+async function readWindow(filters: [rpc.Api.EventFilter[], rpc.Api.EventFilter[]], start: number, end: number): Promise<WalletEvent[]> {
+  const chunk: WalletEvent[] = [];
+  await page(filters[0], start, end, chunk);
+  await page(filters[1], start, end, chunk);
+  return chunk;
+}
+
+/** Newest first. Stops after `limit` rows or at the oldest ledger the node still has. */
 export async function readWalletEvents(address: string, limit = 80): Promise<{ events: WalletEvent[]; oldestLedger: number; latestLedger: number }> {
   const health = await server.getHealth();
   const latest = health.latestLedger;
   const oldest = Math.max(1, (health.oldestLedger ?? 1) + 1);
   const wallet = new Address(address).toScVal().toXDR("base64");
-  const routerAndPolicy: rpc.Api.EventFilter[] = [
-    { type: "contract", contractIds: [KOUL.router], topics: [[sym("fired"), wallet], [sym("autopilot_set"), wallet], [sym("autopilot_cleared"), wallet]] },
-    { type: "contract", contractIds: [KOUL.policy], topics: [[sym("koul_installed"), wallet]] },
+  const filters: [rpc.Api.EventFilter[], rpc.Api.EventFilter[]] = [
+    [
+      { type: "contract", contractIds: [KOUL.router], topics: [[sym("fired"), wallet], [sym("autopilot_set"), wallet], [sym("autopilot_cleared"), wallet]] },
+      { type: "contract", contractIds: [KOUL.policy], topics: [[sym("koul_installed"), wallet]] },
+    ],
+    [{ type: "contract", contractIds: [XOXNO.usdc], topics: [[sym("transfer"), wallet, "*", "*"], [sym("transfer"), "*", wallet, "*"]] }],
   ];
-  const transfers: rpc.Api.EventFilter[] = [
-    { type: "contract", contractIds: [XOXNO.usdc], topics: [[sym("transfer"), wallet, "*", "*"], [sym("transfer"), "*", wallet, "*"]] },
-  ];
+  // Windows are aligned to fixed boundaries so a closed window's key stays the same on every call.
   const out: WalletEvent[] = [];
-  for (let end = latest; end >= oldest && out.length < limit; end -= WINDOW) {
-    const start = Math.max(oldest, end - WINDOW + 1);
-    const chunk: WalletEvent[] = [];
-    await Promise.all([page(routerAndPolicy, start, end, chunk), page(transfers, start, end, chunk)]);
-    out.push(...chunk);
+  for (let start = Math.floor(latest / WINDOW) * WINDOW; start + WINDOW > oldest && out.length < limit; start -= WINDOW) {
+    const from = Math.max(oldest, start);
+    const to = Math.min(latest, start + WINDOW - 1);
+    const key = `${address}:${start}`;
+    const done = closed.get(key);
+    if (done) { out.push(...done); continue; }
+    const rows = await readWindow(filters, from, to);
+    // Closed for good once the newest ledger has moved past it and the node still had its first ledger.
+    if (to < latest && from === start) closed.set(key, rows);
+    out.push(...rows);
   }
-  // Ledger order, then a stable tiebreak so a transfer and its `fired` event keep a fixed order.
   out.sort((a, b) => b.ledger - a.ledger || b.id.localeCompare(a.id));
   return { events: out.slice(0, limit), oldestLedger: oldest, latestLedger: latest };
 }
