@@ -14,7 +14,7 @@ export function DepositCrypto({ method, onMethod }: { method: Method; onMethod: 
   return (
     <FlowFrame title="Deposit" method={method} onMethod={onMethod} action={<PillButton variant="outline" size="lg" full className="md:hidden" onClick={() => router.push("/")}>Done</PillButton>}>
       <Tile className="grid justify-items-center gap-5">
-        <div className="rounded-[var(--radius-group)] bg-white p-4">
+        <div className="rounded-[var(--radius-group)] border border-line bg-white p-4">
           {address ? <QRCodeSVG value={address} size={168} bgColor="#ffffff" fgColor="#000000" level="M" /> : <Sk className="size-[168px]" />}
         </div>
         <Label tone="lime">Only USDC on Stellar</Label>

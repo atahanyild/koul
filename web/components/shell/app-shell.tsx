@@ -12,6 +12,7 @@ import { useWallet } from "@/hooks/use-wallet";
 import { Sk } from "@/components/signal";
 import { TopBar } from "./top-bar";
 import { BottomTabs } from "./bottom-tabs";
+import { ThemeColor } from "./theme-color";
 import { isFlowRoute } from "./nav";
 import { Welcome } from "@/components/welcome/welcome";
 
@@ -54,5 +55,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 }
 
 function Frame({ className, children }: { className?: string; children: React.ReactNode }) {
-  return <div className={cn("mx-auto w-full max-w-[1280px] px-4 pb-8 md:px-8", className)}>{children}</div>;
+  return (
+    <div className={cn("mx-auto w-full max-w-[1280px] px-4 pb-8 md:px-8", className)}>
+      <ThemeColor />
+      {children}
+    </div>
+  );
 }
