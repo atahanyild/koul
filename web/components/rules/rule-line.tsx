@@ -8,6 +8,7 @@ import * as React from "react";
 import { ArrowRight } from "lucide-react";
 import { motion } from "motion/react";
 import { SPRING_SOFT } from "@/lib/motion";
+import { Rolling } from "@/components/signal/rolling";
 import { cn } from "@/lib/utils";
 import { actionShort, conditionsCompact } from "@/lib/model/labels";
 import type { Rule } from "@/lib/model/autopilot";
@@ -60,12 +61,12 @@ export function RuleLine({ index, rule, now, ranAgo, current, trailing, nowOverr
         {hideNumber ? <span className="hidden md:inline" aria-hidden /> : <RuleNumber index={index} current={current} />}
         <span className="mono text-dim">IF</span>
         <span className="mono min-w-0 flex-1 truncate">{condition}</span>
-        <span className={cn("mono ml-auto shrink-0 md:hidden", statusTone)}>{trailing ?? status}</span>
+        <span className={cn("mono ml-auto shrink-0 md:hidden", statusTone)}>{trailing ?? (typeof status === "string" ? <Rolling text={status} /> : status)}</span>
       </div>
       <div className="flex items-center gap-2 pl-9 md:contents md:pl-0">
         <ArrowRight className="size-4 shrink-0 text-lime" aria-hidden />
         <span className="min-w-0 truncate text-[16px] font-bold">{actionShort(rule.action)}</span>
-        <span className={cn("mono hidden shrink-0 text-right md:inline", statusTone)}>{status}</span>
+        <span className={cn("mono hidden shrink-0 text-right md:inline", statusTone)}>{typeof status === "string" ? <Rolling text={status} /> : status}</span>
         <span className="mono hidden shrink-0 md:inline">{trailing}</span>
       </div>
     </div>

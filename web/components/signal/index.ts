@@ -8,5 +8,6 @@ export { EmptyState } from "./empty";
 export { Sk, SkValue, SkRows } from "./skeleton";
 export { FitValue, fitValueClass } from "./fit-value";
 export { Loadable, useDelayed } from "./loadable";
+export { Rolling } from "./rolling";
 export { CopyAction, CopyRow } from "./copy";
 export type { StatusKind } from "./status";

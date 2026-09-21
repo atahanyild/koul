@@ -6,6 +6,7 @@
  * key) is granted with the first save and shown in the chip at the top.
  */
 import * as React from "react";
+import { AnimatePresence } from "motion/react";
 import { toast } from "sonner";
 import { usePortfolio } from "@/hooks/use-portfolio";
 import { useAutopilotLive } from "@/hooks/use-autopilot-live";
@@ -90,10 +91,15 @@ export default function AutopilotPage() {
   const [saveError, setSaveError] = React.useState<string | null>(null);
   const [asking, setAsking] = React.useState(false);
 
+  const [justSaved, setJustSaved] = React.useState(false);
   /** The chain does the work; the page only leaves editing once the chain read shows the saved rules. */
   const settle = React.useCallback(async () => {
     invalidate("check:"); invalidate("tick:"); invalidate("events:");
     await live.refresh();
+    // The bar turns accent with a check for a moment, then the page leaves editing and the bar slides away.
+    setJustSaved(true);
+    await new Promise((r) => setTimeout(r, 1200));
+    setJustSaved(false);
     editor.discard();
     setHighlight(null);
     setChatChanges([]);
@@ -168,7 +174,9 @@ export default function AutopilotPage() {
         <>
           <RulesHeader hint="Top to bottom · first match runs" action={editor.canUndo ? <PillButton variant="ghost" size="sm" onClick={undoChat}>Undo</PillButton> : undefined} />
           <RuleEditor editor={editor} liveRules={live.rules} live={values.live} now={now} highlight={highlight} changes={chatChanges} onUndo={undoChat} onAdd={() => editor.add(ruleTemplate())} />
-          <SaveBar changes={editor.changes} confirmations={confirmations} blocker={editor.changes === 0 ? null : blocker} error={saveError} ask={ask} busy={busy} busyLabel={busyLabel} onDiscard={() => { editor.discard(); setHighlight(null); setChatChanges([]); setSaveError(null); setAsking(false); }} onSave={() => void onSave()} />
+          <AnimatePresence>
+          <SaveBar key="save-bar" changes={editor.changes} confirmations={confirmations} blocker={editor.changes === 0 ? null : blocker} error={saveError} ask={ask} saved={justSaved} busy={busy} busyLabel={busyLabel} onDiscard={() => { editor.discard(); setHighlight(null); setChatChanges([]); setSaveError(null); setAsking(false); }} onSave={() => void onSave()} />
+          </AnimatePresence>
         </>
       ) : live.status === "off" ? (
         <Templates onAdd={(rule) => editor.add(rule)} />
