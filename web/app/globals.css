@@ -5,175 +5,115 @@
 @custom-variant dark (&:is(.dark *));
 
 /* ------------------------------------------------------------------
-   Koul design tokens. "Terracotta on bone": bone paper, ink text and one
-   burnt clay accent for anything you can act on and for a rule that is
-   true right now. Green for earning, red for risk, amber for a warning.
-   Light is the hero; dark is the same room at night.
+   Koul "Signal" tokens. Black ground, filled tiles, one lime accent
+   reserved for the balance tile, the composer, primary buttons, switches,
+   the current-rule marker, positive PNL and the send button. Dark is the
+   default; light derives from the same names with the accent darkened.
+   Every colour a component uses comes from these variables.
    ------------------------------------------------------------------ */
 
 @theme inline {
-  --font-sans: var(--font-sans-family), ui-sans-serif, system-ui, sans-serif;
-  --font-display: var(--font-display-family), var(--font-sans-family), ui-sans-serif, sans-serif;
-  --font-mono: var(--font-mono-family), ui-monospace, "SF Mono", Menlo, monospace;
-  --font-heading: var(--font-display);
+  --font-sans: var(--font-grotesk), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, "SF Mono", Menlo, monospace;
+  --font-heading: var(--font-sans);
 
+  /* Signal palette, by the names the design uses */
   --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
-
-  /* Koul semantic colours */
-  --color-clay: var(--clay);
-  --color-clay-foreground: var(--clay-foreground);
-  --color-clay-soft: var(--clay-soft);
-  --color-positive: var(--positive);
-  --color-positive-soft: var(--positive-soft);
-  --color-negative: var(--negative);
-  --color-negative-soft: var(--negative-soft);
-  --color-warning: var(--warning);
-  --color-warning-soft: var(--warning-soft);
-  --color-surface-1: var(--surface-1);
+  --color-foreground: var(--text);
+  --color-surface: var(--surface);
   --color-surface-2: var(--surface-2);
-  --color-surface-3: var(--surface-3);
-  --color-hairline: var(--hairline);
+  --color-line: var(--line);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-dim: var(--dim);
+  --color-lime: var(--lime);
+  --color-on-lime: var(--on-lime);
+  --color-danger: var(--danger);
 
-  --color-sidebar: var(--surface-1);
-  --color-sidebar-foreground: var(--foreground);
-  --color-sidebar-primary: var(--primary);
-  --color-sidebar-primary-foreground: var(--primary-foreground);
+  /* shadcn names, mapped onto the same tokens so its components fit */
+  --color-card: var(--surface);
+  --color-card-foreground: var(--text);
+  --color-popover: var(--surface);
+  --color-popover-foreground: var(--text);
+  --color-primary: var(--lime);
+  --color-primary-foreground: var(--on-lime);
+  --color-secondary: var(--surface-2);
+  --color-secondary-foreground: var(--text);
+  --color-muted-foreground: var(--muted);
+  --color-accent: var(--surface-2);
+  --color-accent-foreground: var(--text);
+  --color-destructive: var(--danger);
+  --color-border: var(--line);
+  --color-input: var(--surface-2);
+  --color-ring: var(--lime);
+  --color-sidebar: var(--surface);
+  --color-sidebar-foreground: var(--text);
+  --color-sidebar-primary: var(--lime);
+  --color-sidebar-primary-foreground: var(--on-lime);
   --color-sidebar-accent: var(--surface-2);
-  --color-sidebar-accent-foreground: var(--foreground);
-  --color-sidebar-border: var(--border);
-  --color-sidebar-ring: var(--ring);
+  --color-sidebar-accent-foreground: var(--text);
+  --color-sidebar-border: var(--line);
+  --color-sidebar-ring: var(--lime);
+  --color-chart-1: var(--lime);
+  --color-chart-2: var(--muted);
+  --color-chart-3: var(--dim);
+  --color-chart-4: var(--text);
+  --color-chart-5: var(--line);
 
-  --color-chart-1: var(--clay);
-  --color-chart-2: var(--positive);
-  --color-chart-3: var(--negative);
-  --color-chart-4: var(--muted-foreground);
-  --color-chart-5: var(--foreground);
+  /* Shape: tiles 24, inner groups 16, everything clickable fully round */
+  --radius-tile: 24px;
+  --radius-group: 16px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-2xl: 24px;
+  --radius-3xl: 32px;
+  --radius-4xl: 40px;
 
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
-
-  --animate-breathe: breathe 1.8s ease-in-out infinite;
-  --animate-rise: rise 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
-  --animate-glow: glow 2.4s ease-in-out infinite;
-  --animate-sweep: sweep 1.6s linear infinite;
-  --animate-shimmer: shimmer 1.6s linear infinite;
+  --animate-blink: blink 1.6s ease-in-out infinite;
+  --animate-rise: rise 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-shimmer: shimmer 1.4s linear infinite;
 }
 
-:root {
-  --radius: 0.875rem;
-
-  /* Light, the default: bone paper, ink text, one burnt clay accent. */
-  --background: oklch(0.975 0.012 75);
-  --foreground: oklch(0.24 0.03 45);
-  --surface-1: oklch(0.995 0.006 75);
-  --surface-2: oklch(0.95 0.014 70);
-  --surface-3: oklch(0.91 0.018 65);
-  --hairline: oklch(0.3 0.04 45 / 14%);
-
-  --card: var(--surface-1);
-  --card-foreground: var(--foreground);
-  --popover: var(--surface-1);
-  --popover-foreground: var(--foreground);
-
-  --clay: oklch(0.55 0.16 40);
-  --clay-foreground: oklch(0.99 0.005 75);
-  --clay-soft: oklch(0.55 0.16 40 / 12%);
-  --positive: oklch(0.5 0.12 155);
-  --positive-soft: oklch(0.5 0.12 155 / 12%);
-  --negative: oklch(0.52 0.19 28);
-  --negative-soft: oklch(0.52 0.19 28 / 12%);
-  --warning: oklch(0.58 0.14 65);
-  --warning-soft: oklch(0.58 0.14 65 / 14%);
-
-  --primary: var(--clay);
-  --primary-foreground: var(--clay-foreground);
-  --secondary: var(--surface-2);
-  --secondary-foreground: var(--foreground);
-  --muted: var(--surface-2);
-  --muted-foreground: oklch(0.54 0.03 50);
-  --accent: var(--surface-2);
-  --accent-foreground: var(--foreground);
-  --destructive: var(--negative);
-  --border: var(--hairline);
-  --input: oklch(0.3 0.04 45 / 18%);
-  --ring: var(--clay);
-}
-
+:root,
 .dark {
-  /* Dark: the same room at night. Warm brown-black, bone text, the clay accent lifted so it still burns. */
-  --background: oklch(0.16 0.014 45);
-  --foreground: oklch(0.95 0.012 75);
-  --surface-1: oklch(0.2 0.016 45);
-  --surface-2: oklch(0.245 0.018 45);
-  --surface-3: oklch(0.3 0.02 45);
-  --hairline: oklch(0.95 0.02 75 / 11%);
-
-  --card: var(--surface-1);
-  --card-foreground: var(--foreground);
-  --popover: var(--surface-2);
-  --popover-foreground: var(--foreground);
-
-  --clay: oklch(0.7 0.16 42);
-  --clay-foreground: oklch(0.16 0.02 40);
-  --clay-soft: oklch(0.7 0.16 42 / 16%);
-  --positive: oklch(0.78 0.13 155);
-  --positive-soft: oklch(0.78 0.13 155 / 14%);
-  --negative: oklch(0.7 0.17 28);
-  --negative-soft: oklch(0.7 0.17 28 / 14%);
-  --warning: oklch(0.78 0.13 70);
-  --warning-soft: oklch(0.78 0.13 70 / 14%);
-
-  --primary: var(--clay);
-  --primary-foreground: var(--clay-foreground);
-  --secondary: var(--surface-2);
-  --secondary-foreground: var(--foreground);
-  --muted: var(--surface-2);
-  --muted-foreground: oklch(0.72 0.022 60);
-  --accent: var(--surface-2);
-  --accent-foreground: var(--foreground);
-  --destructive: var(--negative);
-  --border: var(--hairline);
-  --input: oklch(0.95 0.02 75 / 16%);
-  --ring: var(--clay);
+  --background: #000000;
+  --surface: #111111;
+  --surface-2: #222222;
+  --line: #444444;
+  --text: #ffffff;
+  --muted: #9a9a9a;
+  --dim: #707070;
+  --lime: #c8f23a;
+  --on-lime: #0a0f00;
+  --danger: #ff7a70;
+  --radius: 16px;
+  color-scheme: dark;
 }
 
-@keyframes breathe {
-  0%, 100% { transform: scale(1); opacity: 1; }
-  50% { transform: scale(1.35); opacity: 0.55; }
+.light {
+  /* Near-white ground, white tiles, the lime darkened until text on it and it on white both pass 4.5:1. */
+  --background: #f4f4f0;
+  --surface: #ffffff;
+  --surface-2: #ebebe6;
+  --line: #cfcfc8;
+  --text: #111111;
+  --muted: #5c5c5c;
+  --dim: #6b6b6b;
+  --lime: #4d6a00;
+  --on-lime: #ffffff;
+  --danger: #b42318;
+  color-scheme: light;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
 }
 @keyframes rise {
-  from { opacity: 0; transform: translateY(6px); }
+  from { opacity: 0; transform: translateY(4px); }
   to { opacity: 1; transform: translateY(0); }
-}
-@keyframes glow {
-  0%, 100% { box-shadow: 0 0 0 1px var(--clay), 0 0 0 0 var(--clay-soft); }
-  50% { box-shadow: 0 0 0 1px var(--clay), 0 0 24px 4px var(--clay-soft); }
-}
-@keyframes sweep {
-  from { background-position: 200% 0; }
-  to { background-position: -200% 0; }
 }
 @keyframes shimmer {
   from { background-position: -200% 0; }
@@ -182,47 +122,55 @@
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    @apply border-line outline-lime/60;
   }
   html {
     @apply font-sans;
     -webkit-text-size-adjust: 100%;
-    color-scheme: light;
   }
-  html.dark { color-scheme: dark; }
   body {
-    @apply bg-background text-foreground antialiased;
-    font-feature-settings: "ss01", "cv11";
+    @apply bg-background text-text antialiased;
+    font-weight: 500;
+    font-size: 15px;
+    line-height: 1.5;
     overflow-x: clip;
   }
+  @media (min-width: 768px) {
+    body { font-size: 16px; }
+  }
   h1, h2, h3 { text-wrap: balance; }
-  ::selection { background: var(--clay-soft); }
-  input, textarea, select { font-variant-numeric: tabular-nums; }
+  ::selection { background: var(--lime); color: var(--on-lime); }
+  :focus-visible { outline: 2px solid var(--lime); outline-offset: 2px; }
+  input, textarea, select, button { font: inherit; }
+  input[type="number"]::-webkit-outer-spin-button,
+  input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 }
 
 @layer utilities {
-  .tnum { font-variant-numeric: tabular-nums; }
-  /* Money and rates: the interface font with lining tabular figures, so columns align without looking like code. */
-  .num { font-variant-numeric: tabular-nums lining-nums; font-feature-settings: "tnum", "lnum"; letter-spacing: -0.005em; }
-  /* Addresses, hashes and references, where every character matters. */
-  .mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
-  .display { font-family: var(--font-display); font-weight: 600; letter-spacing: -0.02em; }
-  .display-italic { font-family: var(--font-display); font-weight: 600; font-style: normal; letter-spacing: -0.02em; color: var(--clay); }
-  /* The hero voice: set tight and shouted, the way the Sembol and No Name pages do it. */
-  .display-hero { font-family: var(--font-display); font-weight: 700; text-transform: uppercase; letter-spacing: -0.03em; line-height: 0.92; }
-  /* Small capitals for labels, eyebrows and the ticker. */
-  .label { font-family: var(--font-mono); font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.14em; }
+  /* Type scale from the design: tabs 32/800, tile values 48/700, hero balance 96/800 (56 on phones). */
+  .t-tab { font-size: 32px; font-weight: 800; letter-spacing: -0.02em; line-height: 1; }
+  .t-value { font-size: 48px; font-weight: 700; letter-spacing: -0.03em; line-height: 1; font-variant-numeric: tabular-nums; }
+  .t-hero { font-size: 56px; font-weight: 800; letter-spacing: -0.04em; line-height: 0.95; font-variant-numeric: tabular-nums; }
+  @media (min-width: 768px) { .t-hero { font-size: 96px; } }
+  .t-title { font-size: 40px; font-weight: 800; letter-spacing: -0.03em; line-height: 1; }
+  @media (min-width: 768px) { .t-title { font-size: 48px; } }
+  .t-headline { font-size: 44px; font-weight: 800; letter-spacing: -0.04em; line-height: 0.95; }
+  @media (min-width: 768px) { .t-headline { font-size: 80px; } }
+  @media (min-width: 1100px) { .t-headline { font-size: 96px; } }
+  .t-tile-label { font-size: 15px; font-weight: 600; }
+  /* Mono voice: numbers, conditions, labels in caps, addresses. 13 px. */
+  .mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 13px; }
+  .label { font-family: var(--font-mono); font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; }
+  .num { font-variant-numeric: tabular-nums; }
   .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
   .pt-safe { padding-top: env(safe-area-inset-top); }
-  .mb-tabbar { margin-bottom: calc(4.25rem + env(safe-area-inset-bottom)); }
-  .hairline { box-shadow: 0 0 0 1px var(--hairline); }
   .skeleton {
-    background: linear-gradient(90deg, var(--surface-2) 0%, var(--surface-3) 50%, var(--surface-2) 100%);
+    background: linear-gradient(90deg, var(--surface-2) 0%, color-mix(in srgb, var(--surface-2) 60%, var(--line)) 50%, var(--surface-2) 100%);
     background-size: 200% 100%;
     animation: var(--animate-shimmer);
-    border-radius: var(--radius-md);
+    border-radius: 8px;
   }
-  .glow-ring { animation: var(--animate-glow); }
   .no-scrollbar::-webkit-scrollbar { display: none; }
   .no-scrollbar { scrollbar-width: none; }
 }

@@ -11,9 +11,10 @@ const config: SembolConfig = {
   webAuthnHints: ["client-device", "hybrid"],
 };
 
+/** Dark is the default; the light theme is a class on <html>, toggled on the Account page. */
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
-    <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false} disableTransitionOnChange>
+    <ThemeProvider attribute="class" defaultTheme="dark" themes={["dark", "light"]} enableSystem={false} disableTransitionOnChange>
       <PasskeyWalletProvider config={config}>
         <TooltipProvider delay={200}>
           {children}
