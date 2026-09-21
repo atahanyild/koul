@@ -9,7 +9,7 @@ import { useTheme } from "next-themes";
 import { toast } from "sonner";
 import { toastTx } from "@/hooks/use-passkey-action";
 import { Switch } from "@/components/ui/switch";
-import { CopyAction, KeyValue, Label, PillButton, Row, RowList, Sk, SkRows, Tile, TileLabel } from "@/components/signal";
+import { CopyAction, KeyValue, Label, Loadable, PillButton, Row, RowList, Sk, SkRows, Tile, TileLabel } from "@/components/signal";
 import { useWallet } from "@/hooks/use-wallet";
 import { usePortfolio } from "@/hooks/use-portfolio";
 import { fmtUsdc } from "@/lib/format";
@@ -62,16 +62,14 @@ export default function AccountPage() {
         </Tile>
         <Tile>
           <TileLabel>Assets</TileLabel>
-          <div className="mt-2">
-            {!pf.loaded ? <SkRows rows={3} /> : (
-              <RowList>
-                <Row title="USDC" sub="In XOXNO · earning" value={fmtUsdc(supplied)} />
-                {debt > 0 && <Row title="USDC" sub="In XOXNO · debt" value={`−${fmtUsdc(debt)}`} />}
-                <Row title="USDC" sub="In wallet · idle" value={fmtUsdc(pf.positions.idleUsdc)} />
-                <Row title="XLM" sub="In wallet · testnet" value={fmtUsdc(w.xlm ?? pf.positions.idleXlm)} />
-              </RowList>
-            )}
-          </div>
+          <Loadable loading={!pf.loaded} skeleton={<SkRows rows={3} />} className="mt-2">
+            <RowList>
+              <Row title="USDC" sub="In XOXNO · earning" value={fmtUsdc(supplied)} />
+              {debt > 0 && <Row title="USDC" sub="In XOXNO · debt" value={`−${fmtUsdc(debt)}`} />}
+              <Row title="USDC" sub="In wallet · idle" value={fmtUsdc(pf.positions.idleUsdc)} />
+              <Row title="XLM" sub="In wallet · testnet" value={fmtUsdc(w.xlm ?? pf.positions.idleXlm)} />
+            </RowList>
+          </Loadable>
         </Tile>
       </div>
       <Tile className="flex flex-col gap-2 md:self-start">

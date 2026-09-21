@@ -6,7 +6,7 @@
  */
 import * as React from "react";
 import { ArrowUpRight } from "lucide-react";
-import { EmptyState, FilterChip, Label, PillButton, SkRows, Tile } from "@/components/signal";
+import { EmptyState, FilterChip, Label, Loadable, PillButton, SkRows, Tile } from "@/components/signal";
 import { useActivity, type ActivityRow } from "@/hooks/use-activity";
 import { explorerTx } from "@/lib/koul";
 import { fmtUsdc } from "@/lib/format";
@@ -44,8 +44,8 @@ export default function ActivityPage() {
         {FILTERS.map((f) => <FilterChip key={f.value} selected={filter === f.value} onClick={() => setFilter(f.value)}>{f.label}</FilterChip>)}
       </div>
       <Tile padded={false} className="px-5 md:px-7">
-        {activity.loading ? <div className="py-2"><SkRows rows={5} /></div>
-          : activity.error && !activity.loaded ? (
+        <Loadable loading={activity.loading} skeleton={<div className="py-2"><SkRows rows={5} /></div>} className={activity.loading ? "min-h-[400px]" : undefined}>
+          {activity.error && !activity.loaded ? (
             <EmptyState title="Could not load" line={activity.error.message.slice(0, 120)} action={<PillButton variant="ghost" onClick={() => void activity.refresh()}>Try again</PillButton>} className="min-h-[400px]" />
           ) : rows.length === 0 ? (
             <EmptyState
@@ -80,6 +80,7 @@ export default function ActivityPage() {
               })}
             </ul>
           )}
+        </Loadable>
       </Tile>
       {activity.since !== null && activity.rows.length > 0 && <Label className="px-2">Last 7 days · the network node keeps no older events</Label>}
     </div>

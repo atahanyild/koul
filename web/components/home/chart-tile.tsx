@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Label, Sk, TextSegmented, Tile, TileLabel } from "@/components/signal";
+import { Label, Loadable, Sk, TextSegmented, Tile, TileLabel } from "@/components/signal";
 import { MOCK_HISTORY, mockedHistory, type HistoryPoint } from "@/lib/mock";
 
 type Range = "7D" | "30D" | "ALL";
@@ -33,14 +33,14 @@ export function ChartTile({ balance, loading, className }: { balance: number | n
         <TileLabel>Balance</TileLabel>
         <TextSegmented label="Range" value={range} onChange={setRange} options={[{ value: "7D", label: "7D" }, { value: "30D", label: "30D" }, { value: "ALL", label: "ALL" }]} />
       </div>
-      <div className="mt-4 flex h-24 items-center justify-center">
-        {loading ? <Sk className="h-24 w-full rounded-xl" /> : mocked ? <Line points={mocked.series} /> : (
+      <Loadable loading={loading} skeleton={<Sk className="h-24 w-full rounded-xl" />} className="mt-4 flex h-24 items-center justify-center">
+        {mocked ? <Line points={mocked.series} /> : (
           <div className="flex w-full flex-col items-center gap-3">
             <Label>{empty ? "Deposit to start the chart" : "No chart yet"}</Label>
             <span aria-hidden className="w-full border-t border-dashed border-line" />
           </div>
         )}
-      </div>
+      </Loadable>
     </Tile>
   );
 }

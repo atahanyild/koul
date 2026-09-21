@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
-import { Label, PillButton, Sk, StatusDot, Tile, TileLabel } from "@/components/signal";
+import { Label, PillButton, Sk, StatusDot, Tile, TileLabel, useDelayed } from "@/components/signal";
 import { RuleLine } from "@/components/rules/rule-line";
 import type { AutopilotLiveState } from "@/hooks/use-autopilot-live";
 import { agoShort, observedLabel } from "@/lib/model/labels";
@@ -12,9 +12,12 @@ const SHOWN = 4;
 
 /** Read-only. Watching with the first four rules, or the dashed Off tile. The whole tile leads to Autopilot. */
 export function AutopilotTile({ ap, now }: { ap: AutopilotLiveState; now: number }) {
-  if (ap.loading && ap.status === "off") {
+  const loading = ap.loading && ap.status === "off";
+  const showSkeleton = useDelayed(loading);
+  if (loading) {
+    if (!showSkeleton) return <Tile className="min-h-[220px]" aria-busy />;
     return (
-      <Tile className="grid gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,2.4fr)]">
+      <Tile className="grid gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,2.4fr)]" aria-busy>
         <div><TileLabel>Autopilot</TileLabel><Sk className="mt-4 h-12 w-48 rounded-xl" /><Sk className="mt-4 h-3.5 w-24" /></div>
         <div className="divide-y divide-line">{[0, 1, 2].map((i) => <div key={i} className="flex items-center justify-between py-5"><Sk className="h-4 w-56" /><Sk className="h-4 w-20" /></div>)}</div>
       </Tile>
@@ -22,7 +25,7 @@ export function AutopilotTile({ ap, now }: { ap: AutopilotLiveState; now: number
   }
   if (ap.status === "off") {
     return (
-      <Tile tone="dashed" className="grid gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)_auto] md:items-center">
+      <Tile tone="dashed" className="grid animate-fade-in gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)_auto] md:items-center">
         <div>
           <TileLabel>Autopilot</TileLabel>
           <div className="mt-2 flex items-center gap-3"><StatusDot on={false} size="md" /><span className="t-value">Off</span></div>
@@ -37,7 +40,7 @@ export function AutopilotTile({ ap, now }: { ap: AutopilotLiveState; now: number
   const more = ap.rules.length - SHOWN;
   const paused = ap.status === "paused";
   return (
-    <Link href="/autopilot" className="block rounded-[var(--radius-tile)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime" aria-label="Autopilot">
+    <Link href="/autopilot" className="block animate-fade-in rounded-[var(--radius-tile)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime" aria-label="Autopilot">
       <Tile className="grid gap-6 transition-colors hover:bg-surface-2/60 md:grid-cols-[minmax(0,1fr)_minmax(0,2.4fr)]">
         <div>
           <TileLabel>Autopilot</TileLabel>
