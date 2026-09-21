@@ -45,7 +45,7 @@ export default function ActivityPage() {
       </div>
       <Tile padded={false} className="px-5 md:px-7">
         {activity.loading ? <div className="py-2"><SkRows rows={5} /></div>
-          : activity.error && activity.rows.length === 0 ? (
+          : activity.error && !activity.loaded ? (
             <EmptyState title="Could not load" line={activity.error.message.slice(0, 120)} action={<PillButton variant="ghost" onClick={() => void activity.refresh()}>Try again</PillButton>} className="min-h-[400px]" />
           ) : rows.length === 0 ? (
             <EmptyState

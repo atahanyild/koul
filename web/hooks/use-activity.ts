@@ -34,6 +34,8 @@ export interface ActivityState {
   loading: boolean;
   error: Error | null;
   connected: boolean;
+  /** False until the first read came back; rows may still hold "Wallet created" before that. */
+  loaded: boolean;
   /** How far back the node still answers, in ms. */
   since: number | null;
   refresh: () => Promise<void>;
@@ -93,13 +95,13 @@ export function useActivity(): ActivityState {
   const { isConnected, address, txEpoch } = usePasskeyWallet();
   const p = usePoll(isConnected && address ? `events:${address}` : null, () => readWalletEvents(address!), { intervalMs: 45_000, enabled: isConnected, deps: [txEpoch] });
   return useMemo(() => {
-    if (!isConnected || !address) return { rows: [], loading: false, error: null, connected: false, since: null, refresh: p.refresh };
+    if (!isConnected || !address) return { rows: [], loading: false, error: null, connected: false, loaded: false, since: null, refresh: p.refresh };
     const loading = p.data === undefined && (p.loading || (!p.error && p.updatedAt === 0));
     const rows = p.data ? toRows(p.data.events, address) : [];
     const created = walletCreatedAt(address);
     if (created) rows.push({ id: "wallet-created", kind: "wallet_created", who: "you", at: created, title: "Wallet created" });
     rows.sort((a, b) => b.at - a.at);
     const since = p.data ? p.updatedAt - (p.data.latestLedger - p.data.oldestLedger) * 5000 : null;
-    return { rows, loading, error: p.error, connected: true, since, refresh: p.refresh };
+    return { rows, loading, error: p.error, connected: true, loaded: p.data !== undefined, since, refresh: p.refresh };
   }, [isConnected, address, p.data, p.loading, p.error, p.updatedAt, p.refresh]);
 }
