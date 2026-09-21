@@ -17,14 +17,13 @@ export default function AccountPage() {
   const w = useWallet();
   const pf = usePortfolio();
   const { resolvedTheme, setTheme } = useTheme();
-  const [mounted, setMounted] = React.useState(false);
-  React.useEffect(() => setMounted(true), []);
   const [funding, setFunding] = React.useState(false);
   const address = w.address ?? "";
   const shortAddress = address ? `${address.slice(0, 8)}…${address.slice(-8)}` : "";
   const supplied = pf.positions.supplied.A + pf.positions.supplied.B;
   const debt = pf.positions.borrowed.A + pf.positions.borrowed.B;
-  const light = mounted && resolvedTheme === "light";
+  // `resolvedTheme` is undefined until next-themes has read the stored choice, on the server and on first paint alike.
+  const light = resolvedTheme === "light";
 
   const fund = async () => {
     setFunding(true);
