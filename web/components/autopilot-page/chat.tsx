@@ -8,6 +8,8 @@
  */
 import * as React from "react";
 import { ArrowRight, Square } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
+import { DUR, rise, tween } from "@/lib/motion";
 import { Chip, IconButton, Label, PillButton } from "@/components/signal";
 import { RuleLine } from "@/components/rules/rule-line";
 import { askKoul } from "@/lib/chat/client";
@@ -49,23 +51,24 @@ function Dots() {
 
 function Bubble({ m }: { m: ChatMessage }) {
   if (m.role === "user") {
-    return <div className="ml-auto max-w-[85%] rounded-2xl bg-surface-2 px-4 py-3 text-[15px] font-bold text-text md:text-[16px]">{m.text}</div>;
+    return <motion.div layout {...rise(8)} className="ml-auto max-w-[85%] rounded-2xl bg-surface-2 px-4 py-3 text-[15px] font-bold text-text md:text-[16px]">{m.text}</motion.div>;
   }
   return (
-    <div className="grid gap-1.5">
+    <motion.div layout {...rise(8)} className="grid gap-1.5">
       <Label tone="lime">Koul</Label>
       <p className="text-[15px] text-text md:text-[16px]">{m.text}</p>
-    </div>
+    </motion.div>
   );
 }
 
+/** The proposed rule. Its layout id is the one the row in the editor will carry, so accepting makes it travel there. */
 function DraftRow({ draft }: { draft: ChatDraft }) {
   const rule = draft.rules[draft.position - 1];
   if (!rule) return null;
   return (
-    <div className="rounded-[var(--radius-group)] bg-surface-2 px-4 py-1">
+    <motion.div layout layoutId={`rule-${rule.id}`} {...rise(8)} className="rounded-[var(--radius-group)] bg-surface-2 px-4 py-1">
       <RuleLine index={draft.position} rule={rule} hideNumber nowOverride={`WAIT ${cooldownShort(rule.cooldownSec).toUpperCase()}`} trailing={<span className="text-lime">DRAFT · RULE {draft.position}</span>} className="py-3" />
-    </div>
+    </motion.div>
   );
 }
 
@@ -150,28 +153,30 @@ export function Chat({ mode, rules, live, onAccept, onEdit, chips = SUGGESTIONS.
       );
     }
     return (
-      <div className="rounded-[var(--radius-tile)] bg-lime p-6 text-on-lime md:p-8">
+      <motion.div layout layoutId="koul-composer" transition={tween(DUR.slow)} className="rounded-[var(--radius-tile)] bg-lime p-6 text-on-lime md:p-8">
         <h2 className="text-[28px] font-extrabold tracking-[-0.03em] md:text-[32px]">Tell Koul what to do</h2>
         <div className="mt-5">{input("large")}</div>
         <div className="mt-4 flex flex-wrap gap-2.5">
           {SUGGESTIONS.slice(0, chips).map((c) => <Chip key={c.label} tone="onLime" onClick={() => send(c.text)}>{c.label}</Chip>)}
         </div>
         {s.note && <Label tone="onLime" className="mt-3 block">{s.note}</Label>}
-      </div>
+      </motion.div>
     );
   }
 
   // Working, asking, proposing, declining or failing: the dark panel with the conversation.
   return (
-    <div className={cn("rounded-[var(--radius-tile)] border border-lime bg-surface p-5 md:p-7", mode === "editing" && "p-4 md:p-5")} role="region" aria-label="Koul">
+    <motion.div layout layoutId={mode === "editing" ? undefined : "koul-composer"} transition={tween(DUR.slow)} className={cn("rounded-[var(--radius-tile)] border border-lime bg-surface p-5 md:p-7", mode === "editing" && "p-4 md:p-5")} role="region" aria-label="Koul">
       <div className="grid gap-4">
-        {s.messages.map((m, i) => <Bubble key={i} m={m} />)}
+        <AnimatePresence initial={false}>
+        {s.messages.map((m, i) => <Bubble key={`${i}-${m.role}`} m={m} />)}
         {sending && (
-          <div className="grid gap-1.5">
+          <motion.div key="working" {...rise(8)} className="grid gap-1.5">
             <Label tone="lime">Koul</Label>
             <div className="flex items-center gap-3 text-[15px] text-muted md:text-[16px]"><Dots /> Working out the {mode === "editing" ? "change" : "rule"}</div>
-          </div>
+          </motion.div>
         )}
+        </AnimatePresence>
         {s.phase === "clarify" && s.choices.length > 0 && (
           <div className="flex flex-wrap gap-2" role="group" aria-label="Quick replies">
             {s.choices.map((c) => <Chip key={c} tone="surface2" mono onClick={() => send(c)}>{c}</Chip>)}
@@ -180,11 +185,11 @@ export function Chat({ mode, rules, live, onAccept, onEdit, chips = SUGGESTIONS.
         {s.phase === "draft" && s.draft && (
           <>
             <DraftRow draft={s.draft} />
-            <div className="flex flex-wrap gap-2">
+            <motion.div {...rise(6, DUR.fast)} className="flex flex-wrap gap-2">
               <PillButton size="md" onClick={() => { onAccept(s.draft!, "add"); dispatch({ type: "accept" }); }}>Add to rules</PillButton>
               <PillButton variant="ghost" size="md" onClick={() => { onAccept(s.draft!, "adjust"); dispatch({ type: "accept" }); }}>Adjust</PillButton>
               <PillButton variant="outline" size="md" onClick={() => dispatch({ type: "discard" })}>Discard</PillButton>
-            </div>
+            </motion.div>
           </>
         )}
         {s.phase === "error" && (
@@ -198,6 +203,6 @@ export function Chat({ mode, rules, live, onAccept, onEdit, chips = SUGGESTIONS.
           {(s.phase === "unsupported" || s.phase === "clarify") && <PillButton variant="ghost" size="md" onClick={() => dispatch({ type: "discard" })}>Discard</PillButton>}
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }
