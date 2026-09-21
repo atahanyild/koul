@@ -13,6 +13,7 @@ import { CopyAction, KeyValue, Label, PillButton, Row, RowList, Sk, SkRows, Tile
 import { useWallet } from "@/hooks/use-wallet";
 import { usePortfolio } from "@/hooks/use-portfolio";
 import { fmtUsdc } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 export default function AccountPage() {
   const w = useWallet();
@@ -23,8 +24,10 @@ export default function AccountPage() {
   const shortAddress = address ? `${address.slice(0, 8)}…${address.slice(-8)}` : "";
   const supplied = pf.positions.supplied.A + pf.positions.supplied.B;
   const debt = pf.positions.borrowed.A + pf.positions.borrowed.B;
-  // `resolvedTheme` is undefined until next-themes has read the stored choice, on the server and on first paint alike.
-  const light = resolvedTheme === "light";
+  // `resolvedTheme` is undefined until next-themes has read the stored choice, on the server and on first paint
+  // alike; until the page is mounted the switch stays still instead of sliding into place.
+  const mounted = React.useSyncExternalStore(() => () => {}, () => true, () => false);
+  const light = mounted && resolvedTheme === "light";
 
   const fund = async () => {
     setFunding(true);
@@ -76,9 +79,9 @@ export default function AccountPage() {
         <div className="mt-2 divide-y divide-line">
           <KeyValue label="Method" value="PASSKEY" />
           <KeyValue label="Network" value="TESTNET" />
-          <label className="flex min-h-12 items-center justify-between gap-4 py-2">
+          <label className="flex min-h-12 cursor-pointer items-center justify-between gap-4 py-2">
             <Label>Light theme</Label>
-            <Switch checked={light} onCheckedChange={(v) => setTheme(v ? "light" : "dark")} aria-label="Light theme" className="data-[size=default]:h-7 data-[size=default]:w-12 [&>span]:size-6" />
+            <Switch checked={light} onCheckedChange={(v) => setTheme(v ? "light" : "dark")} aria-label="Light theme" disabled={!mounted} className={cn(!mounted && "[&_*]:!transition-none")} />
           </label>
         </div>
         <div className="mt-4 grid gap-3">
