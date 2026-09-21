@@ -85,10 +85,10 @@ export function DepositBank({ method, onMethod }: { method: Method; onMethod: (m
         title={t.status === "done" ? `${fmtUsdc(t.amountUsdc)} USDC arrived` : `Send ${fmtLiraWhole(t.amountTry)}`}
         action={<PillButton variant={t.status === "done" ? "lime" : "outline"} size="lg" full onClick={() => { if (t.status !== "running") runner.reset(); router.push("/"); }}>Done</PillButton>}
       >
-        <Tile className="grid gap-5">
+        <Tile className="grid gap-5 [&>*]:min-w-0">
           <Steps labels={STEP_LABELS} active={stepIndex} failed={t.status === "failed"} />
           {t.status !== "done" && (
-            <div className="divide-y divide-line rounded-[var(--radius-group)] border border-line">
+            <div className="min-w-0 divide-y divide-line rounded-[var(--radius-group)] border border-line">
               {iban ? <CopyRow label="IBAN" value={iban} /> : detailsLate ? <DetailsMissing label="IBAN" /> : <div className="flex min-h-14 items-center gap-4 px-4"><Label className="w-24">IBAN</Label><Sk className="h-4 w-48" /></div>}
               {reference ? <CopyRow label="Reference" value={reference} /> : noReference ? (
                 <div className="flex min-h-14 items-center gap-4 px-4"><Label className="w-24 shrink-0">Reference</Label><span className="label text-muted">None · the anchor gave no reference</span></div>

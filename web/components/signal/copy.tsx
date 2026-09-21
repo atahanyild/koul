@@ -31,7 +31,7 @@ export function CopyAction({ value, label = "Copy", className }: { value: string
 /** A key, a mono value and COPY, in a bordered group row. The deposit details use three of these. */
 export function CopyRow({ label, value, display, className }: { label: string; value: string; display?: React.ReactNode; className?: string }) {
   return (
-    <div className={cn("flex min-h-14 items-center gap-4 px-4 py-3", className)}>
+    <div className={cn("flex min-h-14 min-w-0 items-center gap-4 px-4 py-3", className)}>
       <span className="label w-24 shrink-0 text-muted">{label}</span>
       <span className="mono num min-w-0 flex-1 truncate">{display ?? value}</span>
       <CopyAction value={value} label={`Copy ${label.toLowerCase()}`} />
