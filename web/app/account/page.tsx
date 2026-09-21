@@ -28,6 +28,13 @@ export default function AccountPage() {
   // alike; until the page is mounted the switch stays still instead of sliding into place.
   const mounted = React.useSyncExternalStore(() => () => {}, () => true, () => false);
   const light = mounted && resolvedTheme === "light";
+  /** The colours cross-fade: the transition class stays on <html> just long enough for the change. */
+  const switchTheme = (next: "light" | "dark") => {
+    const root = document.documentElement;
+    root.classList.add("theme-fade");
+    setTheme(next);
+    window.setTimeout(() => root.classList.remove("theme-fade"), 300);
+  };
 
   const fund = async () => {
     setFunding(true);
@@ -79,7 +86,7 @@ export default function AccountPage() {
           <KeyValue label="Network" value="TESTNET" />
           <label className="flex min-h-12 cursor-pointer items-center justify-between gap-4 py-2">
             <Label>Light theme</Label>
-            <Switch checked={light} onCheckedChange={(v) => setTheme(v ? "light" : "dark")} aria-label="Light theme" disabled={!mounted} className={cn(!mounted && "[&_*]:!transition-none")} />
+            <Switch checked={light} onCheckedChange={(v) => switchTheme(v ? "light" : "dark")} aria-label="Light theme" disabled={!mounted} className={cn(!mounted && "[&_*]:!transition-none")} />
           </label>
         </div>
         <div className="mt-4 grid gap-3">

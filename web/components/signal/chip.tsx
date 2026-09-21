@@ -1,7 +1,12 @@
 "use client";
 
 import * as React from "react";
+import { motion } from "motion/react";
+import { SPRING } from "@/lib/motion";
 import { cn } from "@/lib/utils";
+
+type MotionSafe<T> = Omit<T, "onDrag" | "onDragStart" | "onDragEnd" | "onAnimationStart" | "onAnimationEnd" | "onAnimationIteration">;
+const PRESS = { whileTap: { scale: 0.97 }, transition: SPRING } as const;
 
 export type ChipTone = "surface" | "surface2" | "lime" | "outline" | "onLime";
 
@@ -15,7 +20,7 @@ const tones: Record<ChipTone, string> = {
 };
 
 /** A small round chip. As a button it keeps the 44 px target through its height. */
-export function Chip({ tone = "surface2", mono = false, className, children, ...rest }: React.ButtonHTMLAttributes<HTMLButtonElement> & { tone?: ChipTone; mono?: boolean }) {
+export function Chip({ tone = "surface2", mono = false, className, children, ...rest }: MotionSafe<React.ButtonHTMLAttributes<HTMLButtonElement>> & { tone?: ChipTone; mono?: boolean }) {
   const interactive = Boolean(rest.onClick) || rest.type === "submit";
   const cls = cn(
     "inline-flex h-10 shrink-0 items-center gap-2 rounded-full px-4 whitespace-nowrap",
@@ -26,19 +31,20 @@ export function Chip({ tone = "surface2", mono = false, className, children, ...
   );
   if (interactive) {
     return (
-      <button type={rest.type ?? "button"} className={cls} {...rest}>
+      <motion.button type={rest.type ?? "button"} className={cls} {...(rest.disabled ? {} : PRESS)} {...rest}>
         {children}
-      </button>
+      </motion.button>
     );
   }
   return <span className={cls}>{children}</span>;
 }
 
 /** Filter pills: the selected one is white on black. */
-export function FilterChip({ selected, className, ...rest }: React.ButtonHTMLAttributes<HTMLButtonElement> & { selected?: boolean }) {
+export function FilterChip({ selected, className, ...rest }: MotionSafe<React.ButtonHTMLAttributes<HTMLButtonElement>> & { selected?: boolean }) {
   return (
-    <button
+    <motion.button
       type="button"
+      {...PRESS}
       aria-pressed={selected}
       className={cn(
         "inline-flex h-11 items-center rounded-full px-5 text-[15px] font-bold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime",

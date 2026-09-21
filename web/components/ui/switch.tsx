@@ -5,6 +5,8 @@
  * The knob is a plain block so its transform is the only thing that moves.
  */
 import { Switch as SwitchPrimitive } from "@base-ui/react/switch";
+import { motion } from "motion/react";
+import { SPRING } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 
 function Switch({ className, size = "default", ...props }: SwitchPrimitive.Root.Props & { size?: "sm" | "default" }) {
@@ -24,8 +26,9 @@ function Switch({ className, size = "default", ...props }: SwitchPrimitive.Root.
     >
       <SwitchPrimitive.Thumb
         data-slot="switch-thumb"
+        render={<motion.span layout transition={SPRING} />}
         className={cn(
-          "pointer-events-none block rounded-full transition-transform duration-200 ease-out",
+          "pointer-events-none block rounded-full",
           "bg-text group-data-checked/switch:bg-on-lime",
           size === "default" ? "size-6 group-data-checked/switch:translate-x-5" : "size-4 group-data-checked/switch:translate-x-4",
         )}

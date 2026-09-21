@@ -2,7 +2,15 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { motion } from "motion/react";
+import { SPRING } from "@/lib/motion";
 import { cn } from "@/lib/utils";
+
+/** Motion's drag and animation handlers share names with React's; the HTML ones are dropped from the props. */
+type MotionSafe<T> = Omit<T, "onDrag" | "onDragStart" | "onDragEnd" | "onAnimationStart" | "onAnimationEnd" | "onAnimationIteration">;
+const MotionLink = motion.create(Link);
+/** Every clickable pill presses to 97% while held. */
+const PRESS = { whileTap: { scale: 0.97 }, transition: SPRING } as const;
 
 export type PillVariant = "lime" | "onLime" | "onLimeOutline" | "outline" | "ghost" | "white";
 export type PillSize = "sm" | "md" | "lg";
@@ -26,8 +34,8 @@ const sizes: Record<PillSize, string> = {
 };
 
 type Common = { variant?: PillVariant; size?: PillSize; full?: boolean; className?: string; children: React.ReactNode };
-type ButtonProps = Common & React.ButtonHTMLAttributes<HTMLButtonElement> & { href?: undefined };
-type LinkProps = Common & Omit<React.AnchorHTMLAttributes<HTMLAnchorElement>, "href"> & { href: string; disabled?: boolean };
+type ButtonProps = Common & MotionSafe<React.ButtonHTMLAttributes<HTMLButtonElement>> & { href?: undefined };
+type LinkProps = Common & MotionSafe<Omit<React.AnchorHTMLAttributes<HTMLAnchorElement>, "href">> & { href: string; disabled?: boolean };
 
 /** Every button and link-button in the app is a fully round pill with a 44 px minimum height. */
 export function PillButton(props: ButtonProps | LinkProps) {
@@ -45,25 +53,26 @@ export function PillButton(props: ButtonProps | LinkProps) {
     void _v; void _s; void _f; void _c; void _ch;
     // A disabled link keeps its cursor (not-allowed) and its place in the layout, but goes nowhere.
     return (
-      <Link href={href} aria-disabled={disabled || undefined} tabIndex={disabled ? -1 : undefined} className={cls} onClick={disabled ? (e) => e.preventDefault() : onClick} {...rest}>
+      <MotionLink href={href} aria-disabled={disabled || undefined} tabIndex={disabled ? -1 : undefined} className={cls} onClick={disabled ? (e) => e.preventDefault() : onClick} {...(disabled ? {} : PRESS)} {...rest}>
         {children}
-      </Link>
+      </MotionLink>
     );
   }
   const { variant: _v, size: _s, full: _f, className: _c, children: _ch, type = "button", ...rest } = props as ButtonProps;
   void _v; void _s; void _f; void _c; void _ch;
   return (
-    <button type={type} className={cls} {...rest}>
+    <motion.button type={type} className={cls} {...(rest.disabled ? {} : PRESS)} {...rest}>
       {children}
-    </button>
+    </motion.button>
   );
 }
 
 /** A round 44 px button for one icon: back, close, the "?" on the access chip, the composer's send arrow. */
-export function IconButton({ variant = "ghost", size = "md", className, children, ...rest }: React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: PillVariant; size?: "md" | "lg" }) {
+export function IconButton({ variant = "ghost", size = "md", className, children, ...rest }: MotionSafe<React.ButtonHTMLAttributes<HTMLButtonElement>> & { variant?: PillVariant; size?: "md" | "lg" }) {
   return (
-    <button
+    <motion.button
       type="button"
+      {...(rest.disabled ? {} : PRESS)}
       className={cn(
         "inline-flex shrink-0 items-center justify-center rounded-full transition-[filter,opacity,background-color] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime disabled:opacity-40 disabled:hover:brightness-100",
         size === "md" ? "size-11" : "size-14",
@@ -73,6 +82,6 @@ export function IconButton({ variant = "ghost", size = "md", className, children
       {...rest}
     >
       {children}
-    </button>
+    </motion.button>
   );
 }
