@@ -30,6 +30,8 @@ export interface WalletEvent {
 
 const WINDOW = 5000;
 const PAGE = 200;
+/** Ledgers kept clear of the node's oldest one, about a minute, so the two requests of the edge window both land inside it. */
+const EDGE = 12;
 const server = new rpc.Server(KOUL.rpcUrl);
 const sym = (s: string) => xdr.ScVal.scvSymbol(s).toXDR("base64");
 
@@ -95,12 +97,25 @@ export async function readWalletEvents(address: string, limit = 80): Promise<{ e
   // Windows are aligned to fixed boundaries so a closed window's key stays the same on every call.
   const out: WalletEvent[] = [];
   for (let start = Math.floor(latest / WINDOW) * WINDOW; start + WINDOW > oldest && out.length < limit; start -= WINDOW) {
-    const from = Math.max(oldest, start);
+    let from = Math.max(oldest, start);
     const to = Math.min(latest, start + WINDOW - 1);
     const key = `${address}:${start}`;
     const done = closed.get(key);
     if (done) { out.push(...done); continue; }
-    const rows = await readWindow(filters, from, to);
+    if (from === oldest) {
+      // The node forgets one ledger every five seconds; the walk to here took longer than that. Ask again where
+      // its memory starts now, keep a minute clear of the edge, and let the edge window go if it still slipped.
+      const fresh = await server.getHealth();
+      from = Math.max(from, (fresh.oldestLedger ?? 1) + 1 + EDGE);
+      if (from > to) break;
+    }
+    let rows: WalletEvent[];
+    try {
+      rows = await readWindow(filters, from, to);
+    } catch (err) {
+      if (from > start && /ledger range/i.test(String(err))) break;
+      throw err;
+    }
     // Closed for good once the newest ledger has moved past it and the node still had its first ledger.
     if (to < latest && from === start) closed.set(key, rows);
     out.push(...rows);
