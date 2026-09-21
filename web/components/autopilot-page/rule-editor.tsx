@@ -19,6 +19,7 @@ import { POOLS, type Action, type Comparator, type Condition, type ConditionKind
 import { ACTION_CHOICES, CONDITION_SUBJECTS, agoShort, cooldownShort, liveLabel, observedLabel } from "@/lib/model/labels";
 import type { LiveRule } from "@/hooks/use-autopilot-live";
 import type { Editor } from "./use-editor";
+import { pairingProblem } from "@/lib/model/pairing";
 import { cn } from "@/lib/utils";
 
 const pill = "h-11 rounded-full border-0 bg-surface-2 px-4 mono text-text data-[size=default]:h-11 hover:brightness-110 [&_svg]:text-muted";
@@ -35,15 +36,7 @@ function defaultsFor(kind: ConditionKind): Condition {
   }
 }
 
-/** Which actions and conditions the router can pair. Moves need the rate gap; the rate gap only moves. */
-export function pairingProblem(rule: Rule): string | null {
-  const hasGap = rule.conditions.some((c) => c.kind === "rate_gap");
-  if (rule.action.kind === "move_to_best_pool" && !hasGap) return "Moving to the better hub needs the rate gap as its condition";
-  if (rule.action.kind !== "move_to_best_pool" && hasGap) return "The rate gap can only move USDC to the better hub";
-  if (rule.conditions.some((c) => c.kind === "rate_gap" && c.comparator !== "gte")) return "The rate gap only works as \"more than\"";
-  if (rule.conditions.some((c) => !(c.value > 0))) return "Every level must be above zero";
-  return null;
-}
+export { pairingProblem };
 
 export function ruleTemplate(): Rule {
   return { id: `r_${Date.now().toString(36)}`, name: "Rule", conditions: [defaultsFor("fx_price")], match: "all", action: { kind: "withdraw_to_wallet", amount: "all" }, cooldownSec: 600, inferred: [], enabled: true };

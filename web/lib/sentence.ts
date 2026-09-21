@@ -65,7 +65,8 @@ export function parseSentence(input: string): ParseResult {
       placed = true;
     }
     // FX exit
-    if (/lira|try\b|usd\/try|dollar|dolar|kur|exchange rate|fx/.test(c) && /pass|cross|above|over|reach|hits?|goes? past|exceeds?|>=|>|geç|aş|üst|üzer/.test(c) && !has("fx_price")) {
+    // "the lira drops" is USD/TRY rising, the same exit.
+    if (/lira|try\b|usd\/try|dollar|dolar|kur|exchange rate|fx/.test(c) && /pass|cross|above|over|reach|hits?|goes? past|exceeds?|>=|>|drops?|falls?|weakens?|slides?|crash|geç|aş|üst|üzer|düş/.test(c) && !has("fx_price")) {
       const v = num(c, /(?:pass(?:es)?|cross(?:es)?|above|over|reach(?:es)?|hits?|past|exceeds?|>=?)\s*(\d+(?:[.,]\d+)?)/) ?? num(c, /(\d+(?:[.,]\d+)?)(?:'?[yiıu]?[ıiuü])?\s*(?:geç|aş|üst|üzer)/) ?? num(c, /(\d{2}(?:[.,]\d+)?)/);
       const cd = cooldownFrom(c);
       const inferred: string[] = [];
