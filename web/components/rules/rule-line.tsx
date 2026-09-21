@@ -39,7 +39,7 @@ export function RuleLine({ index, rule, now, ranAgo, current, trailing, nowOverr
   const status = nowOverride ?? (ranAgo ? `RAN ${ranAgo} AGO` : now ? `NOW ${now}` : null);
   const statusTone = ranAgo && !nowOverride ? "text-lime" : "text-muted";
   return (
-    <div className={cn("grid gap-x-4 gap-y-1 py-4 md:grid-cols-[auto_auto_minmax(0,1fr)_auto_minmax(0,1.2fr)_auto] md:items-center", dimmed && "opacity-50", className)}>
+    <div className={cn("grid gap-x-4 gap-y-1 py-4 md:grid-cols-[auto_auto_minmax(0,1fr)_auto_minmax(0,1.2fr)_auto_auto] md:items-center", dimmed && "opacity-50", className)}>
       {/* Phone row 1: number, IF condition, status. Desktop: the same items flow into the grid columns. */}
       <div className="flex items-center gap-3 md:contents">
         <RuleNumber index={index} current={current} />
@@ -51,7 +51,7 @@ export function RuleLine({ index, rule, now, ranAgo, current, trailing, nowOverr
         <ArrowRight className="size-4 shrink-0 text-lime" aria-hidden />
         <span className="min-w-0 truncate text-[16px] font-bold">{actionShort(rule.action)}</span>
         <span className={cn("mono hidden shrink-0 text-right md:inline", statusTone)}>{status}</span>
-        {trailing !== undefined && <span className="mono hidden shrink-0 md:inline">{trailing}</span>}
+        <span className="mono hidden shrink-0 md:inline">{trailing}</span>
       </div>
     </div>
   );
