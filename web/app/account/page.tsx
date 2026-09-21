@@ -7,6 +7,7 @@
 import * as React from "react";
 import { useTheme } from "next-themes";
 import { toast } from "sonner";
+import { toastTx } from "@/hooks/use-passkey-action";
 import { Switch } from "@/components/ui/switch";
 import { CopyAction, KeyValue, Label, PillButton, Row, RowList, Sk, SkRows, Tile, TileLabel } from "@/components/signal";
 import { useWallet } from "@/hooks/use-wallet";
@@ -29,7 +30,8 @@ export default function AccountPage() {
     setFunding(true);
     try {
       const r = await w.fund();
-      if (r.success) toast.success("Test XLM added", { description: "Friendbot topped up this wallet." });
+      if (r.success && r.hash) toastTx("Test XLM added", r.hash, "Friendbot topped up this wallet.");
+      else if (r.success) toast("Friendbot answered", { description: "No transaction hash came back; check the XLM row." });
       else toast.error("Friendbot declined", { description: "This wallet may already be funded." });
     } catch (e) {
       toast.error("Could not add test XLM", { description: e instanceof Error ? e.message : String(e) });

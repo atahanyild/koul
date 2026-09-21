@@ -93,10 +93,11 @@ export function useAutopilotEditor() {
 
 export type ArmResult =
   | { ok: true; chainId: number; grantHash: string | null; rulesHash: string | null; openHash?: string | null }
-  | { ok: false; step: "wallet" | "account" | "open" | "rules" | "grant" | "write"; grantHash?: string | null; errors?: string[] };
+  /** `toasted`: the passkey action already showed the reason (a transaction that failed or was dismissed). */
+  | { ok: false; step: "wallet" | "account" | "open" | "rules" | "grant" | "write"; reason: string; toasted: boolean; grantHash?: string | null; errors?: string[] };
 
 /** XOXNO mints the position inside the first supply, and the id shows up on the position NFT a ledger later. */
-async function waitForAccountId(address: string, attempts = 12): Promise<bigint | null> {
+async function waitForAccountId(address: string, attempts = 24): Promise<bigint | null> {
   for (let i = 0; i < attempts; i++) {
     await new Promise((r) => setTimeout(r, i === 0 ? 1500 : 2500));
     try {
@@ -129,28 +130,29 @@ export function useArmAutopilot() {
    * where; without it a wallet with no position cannot be armed.
    */
   const arm = useCallback(async (ap: Autopilot, opts: { days: number; accountId: bigint | null; openWith?: { hub: number; units: bigint } }): Promise<ArmResult> => {
-    if (!kit || !address) return { ok: false, step: "wallet" };
+    if (!kit || !address) return { ok: false, step: "wallet", reason: "The wallet is not connected", toasted: false };
     let accountId = opts.accountId;
     let openHash: string | null = null;
     if (accountId === null) {
-      if (!opts.openWith || opts.openWith.units <= 0n) return { ok: false, step: "account" };
+      if (!opts.openWith || opts.openWith.units <= 0n) return { ok: false, step: "account", reason: "This wallet has no XOXNO position yet and nothing to open one with", toasted: false };
       const opened = await openAction.run(() => writer.buildSupply(address, 0n, opts.openWith!.hub, opts.openWith!.units), {
         title: `Position opened with ${fmtUsdc(Number(opts.openWith.units) / 1e7)} USDC`,
+        doing: "Opening your XOXNO position",
         description: "XOXNO minted your position; Koul reads its id from the position NFT.",
         invalidatePrefixes: ["portfolio:", "pools"],
       });
-      if (!opened) return { ok: false, step: "open" };
+      if (!opened) return { ok: false, step: "open", reason: `Your position was not opened: ${openAction.lastFailure() ?? "the transaction did not go through"}`, toasted: true };
       openHash = opened.hash;
       accountId = await waitForAccountId(address);
-      if (accountId === null) return { ok: false, step: "open", grantHash: null };
+      if (accountId === null) return { ok: false, step: "open", reason: "Your position opened, but its id is not readable from the position NFT yet. Wait a minute and press Save again.", toasted: false, grantHash: null };
     }
     const m = preview(ap, accountId);
-    if (m.errors.length) return { ok: false, step: "rules", errors: m.errors };
+    if (m.errors.length) return { ok: false, step: "rules", reason: m.errors.join("; "), toasted: false, errors: m.errors };
     const core: CoreAutopilot = { ...m.autopilot, account_id: accountId.toString() };
     let grantHash: string | null = null;
     if (!agent.active) {
       const g = await agent.grant(opts.days, core);
-      if (!g) return { ok: false, step: "grant" };
+      if (!g) return { ok: false, step: "grant", reason: `Access was not given: ${agent.action.lastFailure() ?? "the transaction did not go through"}`, toasted: true };
       grantHash = g.hash;
     }
     const existing = chainIdOf(ap.id);
@@ -159,8 +161,8 @@ export function useArmAutopilot() {
     // these rules already, in which case only the key was missing.
     const stored = chain.list.find((c) => c.id === chainId)?.autopilot;
     const unchanged = stored !== undefined && JSON.stringify(stored) === JSON.stringify(core);
-    const res = unchanged ? { hash: null } : await write.run(() => writer.buildSetAutopilot(address, chainId, core), { title: "Rules saved on-chain", description: `${core.rules.length} router rule${core.rules.length === 1 ? "" : "s"} for ${ap.name}.`, invalidatePrefixes: ["autopilots:", "portfolio:"] });
-    if (!res) return { ok: false, step: "write", grantHash };
+    const res = unchanged ? { hash: null } : await write.run(() => writer.buildSetAutopilot(address, chainId, core), { title: "Rules saved", doing: "Saving your rules", description: `${core.rules.length} router rule${core.rules.length === 1 ? "" : "s"} on the router.`, invalidatePrefixes: ["autopilots:", "portfolio:"] });
+    if (!res) return { ok: false, step: "write", reason: `The rules were not saved: ${write.lastFailure() ?? "the transaction did not go through"}`, toasted: true, grantHash };
     // The chain now holds the rules: keep name, sentence and marks under the chain id, drop the draft it came from.
     const armed: Autopilot = { ...ap, id: chainUiId(chainId), status: "armed", armedUntil: Date.now() + opts.days * 86400_000, agentRuleId: agent.active?.ruleId ?? null };
     drafts.set((prev) => [armed, ...prev.filter((a) => a.id !== ap.id && a.id !== armed.id)]);
@@ -177,7 +179,7 @@ export function useArmAutopilot() {
   const clear = useCallback(async (uiId: string) => {
     const chainId = chainIdOf(uiId);
     if (!address || chainId === null) return null;
-    const res = await write.run(() => writer.buildClearAutopilot(address, chainId), { title: "Autopilot removed", description: "The router no longer holds these rules.", invalidatePrefixes: ["autopilots:"] });
+    const res = await write.run(() => writer.buildClearAutopilot(address, chainId), { title: "Rules cleared", doing: "Clearing your rules", description: "The router no longer holds these rules.", invalidatePrefixes: ["autopilots:"] });
     if (res) drafts.set((prev) => prev.filter((a) => a.id !== uiId));
     return res;
   }, [address, write]);

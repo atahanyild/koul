@@ -35,7 +35,7 @@ export function WithdrawCrypto({ method, onMethod }: { method: Method; onMethod:
   const send = async () => {
     if (!w.address || !destOk || usdc <= 0) return;
     const units = BigInt(Math.round(usdc * 1e7));
-    const res = await action.run(() => writer.buildTransfer(w.address!, dest, units), { title: `Sent ${fmtUsdc(usdc)} USDC`, description: `To ${dest.slice(0, 4)}…${dest.slice(-4)}`, invalidatePrefixes: ["portfolio:", "events:"] });
+    const res = await action.run(() => writer.buildTransfer(w.address!, dest, units), { title: `Sent ${fmtUsdc(usdc)} USDC`, doing: `Sending ${fmtUsdc(usdc)} USDC`, description: `To ${dest.slice(0, 4)}…${dest.slice(-4)}`, invalidatePrefixes: ["portfolio:", "events:"] });
     if (res) { setSent({ hash: res.hash, amount: usdc, to: dest }); void w.refetchBalances(); }
   };
 

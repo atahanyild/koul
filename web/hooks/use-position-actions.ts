@@ -42,6 +42,7 @@ export function usePositionActions() {
     const units = toUsdcUnits(amountUsdc);
     return action.run(() => writer.buildSupply(address, accountId ?? 0n, pool.hub, units), {
       title: `Supplied ${fmtUsdc(fromUsdcUnits(units))} USDC to ${pool.name}`,
+      doing: `Supplying ${fmtUsdc(fromUsdcUnits(units))} USDC`,
       invalidatePrefixes: INVALIDATE_PREFIXES,
     });
   }, [address, accountId, action]);
@@ -52,6 +53,7 @@ export function usePositionActions() {
     const units = snapWithdrawUnits(toUsdcUnits(amountUsdc));
     return action.run(() => writer.buildWithdraw(address, accountId, pool.hub, units), {
       title: `Withdrew ${fmtUsdc(fromUsdcUnits(units))} USDC from ${pool.name}`,
+      doing: `Withdrawing ${fmtUsdc(fromUsdcUnits(units))} USDC`,
       invalidatePrefixes: INVALIDATE_PREFIXES,
     });
   }, [address, accountId, action]);

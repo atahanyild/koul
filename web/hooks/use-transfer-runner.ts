@@ -205,7 +205,7 @@ export function useTransferRunner() {
     const res = await approveAction.run(async () => {
       const parsed = JSON.parse(t.unsignedTransfer!) as { tx: string; simulationResult: { auth: string[]; retval: string }; simulationTransactionData: string };
       return contract.AssembledTransaction.fromJSON<null>({ contractId: XOXNO.usdc, networkPassphrase: KOUL.networkPassphrase, rpcUrl: KOUL.rpcUrl, publicKey: SIM_SOURCE, method: "transfer", parseResultXdr: () => null }, parsed);
-    }, { title: "USDC sent to the receiving account", invalidatePrefixes: ["portfolio:"] });
+    }, { title: "USDC sent to the receiving account", doing: "Sending USDC to the receiving account", invalidatePrefixes: ["portfolio:"] });
     if (!res) return null;
     setTransfer((prev) => {
       if (!prev) return prev;

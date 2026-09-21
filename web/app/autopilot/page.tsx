@@ -6,6 +6,7 @@
  * key) is granted with the first save and shown in the chip at the top.
  */
 import * as React from "react";
+import { toast } from "sonner";
 import { usePortfolio } from "@/hooks/use-portfolio";
 import { useAutopilotLive } from "@/hooks/use-autopilot-live";
 import { useLiveValues } from "@/hooks/use-live-values";
@@ -20,7 +21,7 @@ import { AccessChip } from "@/components/autopilot-page/access";
 import { Composer } from "@/components/autopilot-page/composer";
 import { RulesHeader, RulesList } from "@/components/autopilot-page/rules-list";
 import { RuleEditor, pairingProblem, ruleTemplate } from "@/components/autopilot-page/rule-editor";
-import { SaveBar } from "@/components/autopilot-page/save-bar";
+import { SaveBar, type AccessAsk } from "@/components/autopilot-page/save-bar";
 import { Templates } from "@/components/autopilot-page/templates";
 import { useEditor } from "@/components/autopilot-page/use-editor";
 
@@ -84,21 +85,53 @@ export default function AutopilotPage() {
     ?? (rules.length > 0 && needsPosition && idle < 1 ? "Deposit at least 1 USDC first: the first save opens your XOXNO position" : null)
     ?? (rules.length > 0 && toCoreAutopilot({ rules }, 0n).unsupported.length ? "One rule is not something the router can run" : null);
   const confirmations = rules.length === 0 ? 1 : 1 + (live.access.active ? 0 : 1) + (needsPosition ? 1 : 0);
-  const busy = armer.openAction.busy || armer.grantAction.busy || armer.rulesAction.busy;
-  const busyLabel = armer.openAction.busy ? "Opening your position" : armer.grantAction.busy ? "Giving access" : armer.rulesAction.busy ? "Saving rules" : null;
+  const [waitingForId, setWaitingForId] = React.useState(false);
+  const busy = armer.openAction.busy || armer.grantAction.busy || armer.rulesAction.busy || waitingForId;
+  const busyLabel = armer.openAction.busy ? "Opening your position" : waitingForId ? "Reading your position" : armer.grantAction.busy ? "Giving access" : armer.rulesAction.busy ? "Saving rules" : null;
+  const [saveError, setSaveError] = React.useState<string | null>(null);
+  const [asking, setAsking] = React.useState(false);
+
+  /** The chain does the work; the page only leaves editing once the chain read shows the saved rules. */
+  const settle = React.useCallback(async () => {
+    invalidate("check:"); invalidate("tick:"); invalidate("events:");
+    await live.refresh();
+    editor.discard();
+    setNotes([]);
+  }, [live, editor]);
+
+  const submit = React.useCallback(async () => {
+    setAsking(false);
+    setSaveError(null);
+    const ap: Autopilot = { id: live.chainId !== null ? chainUiId(live.chainId) : newId("ap"), name: "Autopilot", description: "", rules, status: "draft", createdAt: Date.now(), armedUntil: null, agentRuleId: null, runs: 0, lastRunAt: null };
+    setWaitingForId(needsPosition);
+    let res: Awaited<ReturnType<typeof armer.arm>>;
+    try {
+      res = await armer.arm(ap, { days: ACCESS_DAYS, accountId: pf.accountId, openWith: needsPosition ? { hub: openHub, units: OPEN_WITH_USDC } : undefined });
+    } finally {
+      setWaitingForId(false);
+    }
+    if (res.ok) { await settle(); return; }
+    // Stay in editing, and say why in the bar; a transaction that failed already said so in a toast.
+    setSaveError(res.reason);
+    if (!res.toasted) toast.error("Rules not saved", { description: res.reason });
+  }, [live.chainId, rules, armer, pf.accountId, needsPosition, openHub, settle]);
 
   const onSave = React.useCallback(async () => {
     if (blocker) return;
+    setSaveError(null);
     if (rules.length === 0) {
       if (live.chainId === null) return;
       const res = await armer.clear(chainUiId(live.chainId));
-      if (res) { editor.discard(); invalidate("check:"); invalidate("tick:"); invalidate("events:"); await live.refresh(); }
+      if (res) await settle();
+      else setSaveError("The rules were not cleared");
       return;
     }
-    const ap: Autopilot = { id: live.chainId !== null ? chainUiId(live.chainId) : newId("ap"), name: "Autopilot", description: "", rules, status: "draft", createdAt: Date.now(), armedUntil: null, agentRuleId: null, runs: 0, lastRunAt: null };
-    const res = await armer.arm(ap, { days: ACCESS_DAYS, accountId: pf.accountId, openWith: needsPosition ? { hub: openHub, units: OPEN_WITH_USDC } : undefined });
-    if (res.ok) { editor.discard(); invalidate("check:"); invalidate("tick:"); invalidate("events:"); await live.refresh(); }
-  }, [blocker, rules, live, armer, editor, pf.accountId, needsPosition, openHub]);
+    // No key yet: one sentence about what Koul gets, then the passkeys.
+    if (!live.access.active || needsPosition) { setAsking(true); return; }
+    await submit();
+  }, [blocker, rules, live.chainId, live.access.active, armer, needsPosition, settle, submit]);
+
+  const ask: AccessAsk | null = asking ? { needsPosition, days: ACCESS_DAYS, onConfirm: () => void submit(), onCancel: () => setAsking(false) } : null;
 
   if (live.loading && live.status === "off" && !editor.editing) {
     return (
@@ -136,7 +169,7 @@ export default function AutopilotPage() {
         <>
           <RulesHeader hint="Top to bottom · first match runs" />
           <RuleEditor editor={editor} liveRules={live.rules} live={values.live} now={now} onAdd={() => editor.add(ruleTemplate())} />
-          <SaveBar changes={editor.changes} confirmations={confirmations} blocker={editor.changes === 0 ? null : blocker} busy={busy} busyLabel={busyLabel} onDiscard={() => { editor.discard(); setNotes([]); }} onSave={() => void onSave()} />
+          <SaveBar changes={editor.changes} confirmations={confirmations} blocker={editor.changes === 0 ? null : blocker} error={saveError} ask={ask} busy={busy} busyLabel={busyLabel} onDiscard={() => { editor.discard(); setNotes([]); setSaveError(null); setAsking(false); }} onSave={() => void onSave()} />
         </>
       ) : live.status === "off" ? (
         <Templates onAdd={(rule) => editor.add(rule)} />
