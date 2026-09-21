@@ -10,15 +10,16 @@ import { toast } from "sonner";
 import { usePortfolio } from "@/hooks/use-portfolio";
 import { useAutopilotLive } from "@/hooks/use-autopilot-live";
 import { useLiveValues } from "@/hooks/use-live-values";
-import { bestPool, useFx, usePools } from "@/hooks/use-market";
+import { bestPool, usePools } from "@/hooks/use-market";
 import { useWallet } from "@/hooks/use-wallet";
 import { chainUiId, useArmAutopilot } from "@/hooks/use-autopilots";
 import { invalidate } from "@/lib/data/store";
 import { newId, toCoreAutopilot, type Autopilot } from "@/lib/model/autopilot";
-import { buildParseContext, parseWithKoul } from "@/lib/parse";
 import { Label, PillButton, Sk, StatusPill, type StatusKind } from "@/components/signal";
 import { AccessChip } from "@/components/autopilot-page/access";
-import { Composer } from "@/components/autopilot-page/composer";
+import { Chat } from "@/components/autopilot-page/chat";
+import type { ChatDraft } from "@/lib/chat/reducer";
+import type { LiveContext } from "@/lib/chat/schema";
 import { RulesHeader, RulesList } from "@/components/autopilot-page/rules-list";
 import { RuleEditor, pairingProblem, ruleTemplate } from "@/components/autopilot-page/rule-editor";
 import { SaveBar, type AccessAsk } from "@/components/autopilot-page/save-bar";
@@ -43,34 +44,20 @@ export default function AutopilotPage() {
   const live = useAutopilotLive();
   const pf = usePortfolio();
   const pools = usePools();
-  const fx = useFx();
   const values = useLiveValues();
   const armer = useArmAutopilot();
   const now = useMinute();
   const saved = React.useMemo(() => live.rules.map((r) => r.rule), [live.rules]);
   const editor = useEditor(w.address, saved);
 
-  // Sentence to rules
-  const [parsing, setParsing] = React.useState(false);
-  const [parseError, setParseError] = React.useState<string | null>(null);
-  const [notes, setNotes] = React.useState<string[]>([]);
-  const onSentence = React.useCallback(async (text: string) => {
-    setParsing(true); setParseError(null); setNotes([]);
-    try {
-      const context = buildParseContext(values.live, pf.accountId?.toString() ?? "0", fx.fx.timestamp ? fx.fx.ageSec : null);
-      const result = await parseWithKoul(text, context);
-      if (result.rules.length === 0) {
-        setParseError(result.unplaced[0] ? `Koul cannot do that: ${result.unplaced[0]}` : "Koul could not turn that into a rule. Try one of the suggestions.");
-      } else {
-        editor.append(result.rules);
-        setNotes(result.unplaced);
-      }
-    } catch (err) {
-      setParseError(err instanceof Error ? err.message : "Koul could not read that");
-    } finally {
-      setParsing(false);
-    }
-  }, [values.live, pf.accountId, fx.fx.timestamp, fx.fx.ageSec, editor]);
+  // The chat: what Koul may quote, and what happens when a draft is accepted.
+  const chatLive = React.useMemo<LiveContext>(() => ({ fx: values.live.fx, healthFactor: values.live.healthFactor, hasLoan: values.live.hasLoan, rateA: values.live.rateA, rateB: values.live.rateB, idleUsdc: values.live.idleUsdc }), [values.live]);
+  const [highlight, setHighlight] = React.useState<string | null>(null);
+  const onAccept = React.useCallback((draft: ChatDraft, how: "add" | "adjust") => {
+    const rule = draft.rules[draft.position - 1];
+    editor.replace(draft.rules, how === "adjust" && rule ? rule.id : null);
+    setHighlight(rule?.id ?? null);
+  }, [editor]);
 
   // Saving
   const rules = editor.rules;
@@ -96,7 +83,7 @@ export default function AutopilotPage() {
     invalidate("check:"); invalidate("tick:"); invalidate("events:");
     await live.refresh();
     editor.discard();
-    setNotes([]);
+    setHighlight(null);
   }, [live, editor]);
 
   const submit = React.useCallback(async () => {
@@ -162,14 +149,13 @@ export default function AutopilotPage() {
       </div>
       <Label className="sm:hidden">{summary}</Label>
 
-      <Composer variant={editor.editing ? "slim" : "large"} busy={parsing} error={parseError} onSubmit={(t) => void onSentence(t)} chips={4} />
-      {notes.length > 0 && <Label className="px-2">Koul could not place: {notes.join(" · ")}</Label>}
+      <Chat mode={editor.editing ? "editing" : "live"} rules={rules} live={chatLive} onAccept={onAccept} chips={4} />
 
       {editor.editing ? (
         <>
           <RulesHeader hint="Top to bottom · first match runs" action={editor.canUndo ? <PillButton variant="ghost" size="sm" onClick={editor.undo}>Undo</PillButton> : undefined} />
-          <RuleEditor editor={editor} liveRules={live.rules} live={values.live} now={now} onAdd={() => editor.add(ruleTemplate())} />
-          <SaveBar changes={editor.changes} confirmations={confirmations} blocker={editor.changes === 0 ? null : blocker} error={saveError} ask={ask} busy={busy} busyLabel={busyLabel} onDiscard={() => { editor.discard(); setNotes([]); setSaveError(null); setAsking(false); }} onSave={() => void onSave()} />
+          <RuleEditor editor={editor} liveRules={live.rules} live={values.live} now={now} highlight={highlight} onAdd={() => editor.add(ruleTemplate())} />
+          <SaveBar changes={editor.changes} confirmations={confirmations} blocker={editor.changes === 0 ? null : blocker} error={saveError} ask={ask} busy={busy} busyLabel={busyLabel} onDiscard={() => { editor.discard(); setHighlight(null); setSaveError(null); setAsking(false); }} onSave={() => void onSave()} />
         </>
       ) : live.status === "off" ? (
         <Templates onAdd={(rule) => editor.add(rule)} />

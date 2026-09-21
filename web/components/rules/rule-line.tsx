@@ -24,6 +24,8 @@ export interface RuleLineProps {
   /** Overrides the NOW column text, e.g. "IN BEST HUB". */
   nowOverride?: string | null;
   dimmed?: boolean;
+  /** The draft row in the chat has no place yet, so no number. */
+  hideNumber?: boolean;
   className?: string;
 }
 
@@ -35,14 +37,14 @@ export function RuleNumber({ index, current, className }: { index: number; curre
   );
 }
 
-export function RuleLine({ index, rule, now, ranAgo, current, trailing, nowOverride, dimmed, className }: RuleLineProps) {
+export function RuleLine({ index, rule, now, ranAgo, current, trailing, nowOverride, dimmed, hideNumber, className }: RuleLineProps) {
   const status = nowOverride ?? (ranAgo ? `RAN ${ranAgo} AGO` : now ? `NOW ${now}` : null);
   const statusTone = ranAgo && !nowOverride ? "text-lime" : "text-muted";
   return (
     <div className={cn("grid gap-x-4 gap-y-1 py-4 md:grid-cols-[auto_auto_minmax(0,1fr)_auto_minmax(0,1.2fr)_auto_auto] md:items-center", dimmed && "opacity-50", className)}>
       {/* Phone row 1: number, IF condition, status. Desktop: the same items flow into the grid columns. */}
       <div className="flex items-center gap-3 md:contents">
-        <RuleNumber index={index} current={current} />
+        {hideNumber ? <span className="hidden md:inline" aria-hidden /> : <RuleNumber index={index} current={current} />}
         <span className="mono text-dim">IF</span>
         <span className="mono min-w-0 flex-1 truncate">{conditionsCompact(rule)}</span>
         <span className={cn("mono ml-auto shrink-0 md:hidden", statusTone)}>{trailing ?? status}</span>

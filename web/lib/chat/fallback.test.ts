@@ -23,6 +23,7 @@ describe("local answers", () => {
     expect(r.position).toBe(2);
     expect(r.message).toBe("Here is the rule. It would run second, before the rate gap rule.");
     expect(r.rules?.[1]?.conditions[0]?.value).toBe(50);
+    expect(r.rules?.[1]?.cooldownSec).toBe(600);
   });
   it("a follow-up changes the draft in place", () => {
     const d = answerLocally([{ role: "user", text: "Pull everything back to my wallet if USD/TRY passes 50" }], [health, gap], "live", live);

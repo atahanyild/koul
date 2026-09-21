@@ -112,7 +112,9 @@ export function answerLocally(messages: ChatMessage[], rules: Rule[], mode: "liv
   const parsed = parseSentence(text);
   const rule = parsed.rules[0];
   if (!rule) return { kind: "unsupported", message: UNSUPPORTED };
-  const fresh: Rule = { ...rule, id: newId("chat") };
+  // The keyword parser defaults the wait to 5 s; a rule from the chat waits 10 minutes, or an hour for yield moves.
+  const waits = rule.inferred.includes("cooldownSec") ? (rule.action.kind === "move_to_best_pool" || rule.action.kind === "supply_from_wallet" ? 3600 : 600) : rule.cooldownSec;
+  const fresh: Rule = { ...rule, id: newId("chat"), cooldownSec: waits };
   if (fresh.inferred.includes("conditions.0.value")) {
     const c = fresh.conditions[0]!;
     const reading = readingFor(c, live);

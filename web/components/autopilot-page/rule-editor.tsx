@@ -116,7 +116,7 @@ function Handle({ index, attributes, listeners, setActivatorNodeRef }: { index: 
   );
 }
 
-function SortableRule({ rule, i, shownIndex, editor, lr, live, now, dragging }: { rule: Rule; i: number; shownIndex: number; editor: Editor; lr: LiveRule | undefined; live: LiveValues; now: number; dragging: boolean }) {
+function SortableRule({ rule, i, shownIndex, editor, lr, live, now, dragging, highlighted }: { rule: Rule; i: number; shownIndex: number; editor: Editor; lr: LiveRule | undefined; live: LiveValues; now: number; dragging: boolean; highlighted: boolean }) {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id: rule.id });
   const open = editor.open === rule.id;
   const first = rule.conditions[0]!;
@@ -127,7 +127,7 @@ function SortableRule({ rule, i, shownIndex, editor, lr, live, now, dragging }: 
   return (
     <Tile
       ref={setNodeRef}
-      tone={open ? "outlined" : "surface"}
+      tone={open || highlighted ? "outlined" : "surface"}
       padded={false}
       data-dragging={isDragging || undefined}
       className={cn("px-4 md:px-6", isDragging && "relative z-10 scale-[1.02] border border-lime shadow-[0_12px_40px_rgba(0,0,0,0.35)]", dragging && !isDragging && "transition-transform")}
@@ -196,7 +196,7 @@ function SortableRule({ rule, i, shownIndex, editor, lr, live, now, dragging }: 
   );
 }
 
-export function RuleEditor({ editor, liveRules, live, now, onAdd }: { editor: Editor; liveRules: LiveRule[]; live: LiveValues; now: number; onAdd: () => void }) {
+export function RuleEditor({ editor, liveRules, live, now, highlight, onAdd }: { editor: Editor; liveRules: LiveRule[]; live: LiveValues; now: number; highlight?: string | null; onAdd: () => void }) {
   const byId = new Map(liveRules.map((r) => [r.rule.id, r] as const));
   const ids = editor.rules.map((r) => r.id);
   // While a row is held, `order` is where the rows would land, so the numbers follow the drag.
@@ -230,7 +230,7 @@ export function RuleEditor({ editor, liveRules, live, now, onAdd }: { editor: Ed
       <SortableContext items={ids} strategy={verticalListSortingStrategy}>
         <div className="grid gap-3">
           {editor.rules.map((rule, i) => (
-            <SortableRule key={rule.id} rule={rule} i={i} shownIndex={shown.indexOf(rule.id)} editor={editor} lr={byId.get(rule.id)} live={live} now={now} dragging={order !== null} />
+            <SortableRule key={rule.id} rule={rule} i={i} shownIndex={shown.indexOf(rule.id)} editor={editor} lr={byId.get(rule.id)} live={live} now={now} dragging={order !== null} highlighted={highlight === rule.id} />
           ))}
           <button type="button" onClick={onAdd} className="flex min-h-14 w-full items-center justify-center gap-2 rounded-[var(--radius-tile)] border-2 border-dashed border-line text-[16px] font-bold text-text transition-colors hover:border-muted active:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime">
             <Plus className="size-5" aria-hidden /> Add rule
