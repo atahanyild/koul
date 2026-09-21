@@ -1,0 +1,77 @@
+"use client";
+
+import * as React from "react";
+import Link from "next/link";
+import { cn } from "@/lib/utils";
+
+export type PillVariant = "lime" | "onLime" | "onLimeOutline" | "outline" | "ghost" | "white";
+export type PillSize = "sm" | "md" | "lg";
+
+const variants: Record<PillVariant, string> = {
+  /** The primary action anywhere on a dark surface. */
+  lime: "bg-lime text-on-lime hover:brightness-95 active:brightness-90",
+  /** The primary action on a lime tile: ink on lime in the dark theme, white on olive in the light theme. */
+  onLime: "bg-on-lime text-lime hover:opacity-90",
+  onLimeOutline: "border border-on-lime text-on-lime hover:bg-on-lime/10",
+  outline: "border border-line text-text hover:bg-surface-2",
+  ghost: "bg-surface-2 text-text hover:brightness-110",
+  /** The selected filter pill. */
+  white: "bg-text text-background",
+};
+
+const sizes: Record<PillSize, string> = {
+  sm: "h-9 px-4 text-[14px]",
+  md: "h-11 px-5 text-[15px]",
+  lg: "h-14 px-7 text-[17px]",
+};
+
+type Common = { variant?: PillVariant; size?: PillSize; full?: boolean; className?: string; children: React.ReactNode };
+type ButtonProps = Common & React.ButtonHTMLAttributes<HTMLButtonElement> & { href?: undefined };
+type LinkProps = Common & Omit<React.AnchorHTMLAttributes<HTMLAnchorElement>, "href"> & { href: string; disabled?: boolean };
+
+/** Every button and link-button in the app is a fully round pill with a 44 px minimum height. */
+export function PillButton(props: ButtonProps | LinkProps) {
+  const { variant = "lime", size = "md", full, className, children } = props;
+  const cls = cn(
+    "inline-flex shrink-0 items-center justify-center gap-2 rounded-full font-bold whitespace-nowrap transition-[filter,opacity,background-color] select-none",
+    "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime disabled:pointer-events-none disabled:opacity-40 aria-disabled:pointer-events-none aria-disabled:opacity-40",
+    variants[variant],
+    sizes[size],
+    full && "w-full",
+    className,
+  );
+  if ("href" in props && props.href !== undefined) {
+    const { href, disabled, variant: _v, size: _s, full: _f, className: _c, children: _ch, ...rest } = props;
+    void _v; void _s; void _f; void _c; void _ch;
+    return (
+      <Link href={href} aria-disabled={disabled || undefined} tabIndex={disabled ? -1 : undefined} className={cls} {...rest}>
+        {children}
+      </Link>
+    );
+  }
+  const { variant: _v, size: _s, full: _f, className: _c, children: _ch, type = "button", ...rest } = props as ButtonProps;
+  void _v; void _s; void _f; void _c; void _ch;
+  return (
+    <button type={type} className={cls} {...rest}>
+      {children}
+    </button>
+  );
+}
+
+/** A round 44 px button for one icon: back, close, the "?" on the access chip, the composer's send arrow. */
+export function IconButton({ variant = "ghost", size = "md", className, children, ...rest }: React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: PillVariant; size?: "md" | "lg" }) {
+  return (
+    <button
+      type="button"
+      className={cn(
+        "inline-flex shrink-0 items-center justify-center rounded-full transition-[filter,opacity,background-color] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime disabled:pointer-events-none disabled:opacity-40",
+        size === "md" ? "size-11" : "size-14",
+        variants[variant],
+        className,
+      )}
+      {...rest}
+    >
+      {children}
+    </button>
+  );
+}
