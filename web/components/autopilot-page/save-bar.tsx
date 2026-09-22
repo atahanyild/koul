@@ -50,7 +50,7 @@ function Progress({ steps }: { steps: SaveStep[] }) {
   );
 }
 
-export function SaveBar({ changes, confirmations, blocker, error, ask, saved, savedLabel = "Autopilot started", verb = "Start", busy, busyLabel, progress, onDiscard, onSave }: {
+export function SaveBar({ changes, confirmations, blocker, error, ask, saved, savedLabel = "Autopilot started", verb = "Start", busy, busyLabel, progress, onDiscard, onSave, onStop }: {
   changes: number;
   confirmations: number;
   blocker: string | null;
@@ -68,6 +68,8 @@ export function SaveBar({ changes, confirmations, blocker, error, ask, saved, sa
   progress: SaveStep[] | null;
   onDiscard: () => void;
   onSave: () => void;
+  /** Stop autopilot: revoke the key, keep the rules. Only while rules run. */
+  onStop?: () => void;
 }) {
   const words = ["", "one", "two", "three"][confirmations] ?? String(confirmations);
   const line = blocker ?? error ?? `${changes} ${changes === 1 ? "change" : "changes"} · ${words} passkey ${confirmations === 1 ? "confirmation" : "confirmations"} to ${verb.toLowerCase()}`;
@@ -115,6 +117,7 @@ export function SaveBar({ changes, confirmations, blocker, error, ask, saved, sa
             <Tile className="flex flex-col gap-4 p-4 md:flex-row md:items-center md:justify-between md:p-5">
               <Label tone={blocker || error ? "danger" : "muted"} className="text-center md:text-left" role={error ? "alert" : undefined}>{line}</Label>
               <div className="flex flex-col-reverse gap-3 md:flex-row">
+                {onStop && <PillButton variant="ghost" size="lg" onClick={onStop} disabled={busy}>Stop autopilot</PillButton>}
                 <PillButton variant="outline" size="lg" onClick={onDiscard} disabled={busy}>Discard</PillButton>
                 <PillButton size="lg" onClick={onSave} disabled={busy || !!blocker || changes === 0} aria-busy={busy}>{busy ? busyLabel ?? "Working" : error ? "Try again" : `${verb} autopilot`}</PillButton>
               </div>

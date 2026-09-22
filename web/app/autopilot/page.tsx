@@ -28,7 +28,7 @@ import type { LiveContext } from "@/lib/chat/schema";
 import { RulesHeader, RulesList } from "@/components/autopilot-page/rules-list";
 import { Running } from "@/components/autopilot-page/running";
 import { copyShareLink, Library, SaveToLibrary } from "@/components/autopilot-page/library";
-import { Holdings } from "@/components/autopilot-page/holdings";
+import { Holdings, type HoldingsFocus } from "@/components/autopilot-page/holdings";
 import { Capital } from "@/components/autopilot-page/capital";
 import { RuleEditor, pairingProblem, ruleTemplate } from "@/components/autopilot-page/rule-editor";
 import { SaveBar, type AccessAsk } from "@/components/autopilot-page/save-bar";
@@ -225,6 +225,11 @@ export default function AutopilotPage() {
     setChatChanges([]);
   }, [editor]);
 
+  // A draft with no rules on a wallet that has none is no draft: back to the templates.
+  React.useEffect(() => {
+    if (editor.editing && rules.length === 0 && live.status === "off" && !busy) editor.discard();
+  }, [editor, rules.length, live.status, busy]);
+
   // A share link: `/autopilot?load=<token>` opens with the set as a draft once a wallet is connected.
   const loaded = React.useRef(false);
   React.useEffect(() => {
@@ -243,9 +248,9 @@ export default function AutopilotPage() {
     return () => clearTimeout(t);
   }, [w.address, loadRules]);
 
-  const ask: AccessAsk | null = asking ? { needsPosition, days: ACCESS_DAYS, steps: saveSteps({ plan: nextPlan, done: {}, active: null, failed: null, labels: stepLabels }), confirmLabel: editor.editing ? `${verb} autopilot` : "Give access", onConfirm: () => void submit(), onCancel: () => setAsking(false) } : null;
+  const ask: AccessAsk | null = asking ? { needsPosition, days: ACCESS_DAYS, steps: saveSteps({ plan: nextPlan, done: {}, active: null, failed: null, labels: stepLabels }), confirmLabel: editor.editing ? `${verb} autopilot` : "Start autopilot", onConfirm: () => void submit(), onCancel: () => setAsking(false) } : null;
   const onDiscard = () => { editor.discard(); setHighlight(null); setChatChanges([]); setSaveError(null); setAsking(false); clearProgress(); };
-  const bar = <SaveBar key="save-bar" changes={editor.changes} confirmations={confirmations} blocker={editor.changes === 0 ? null : blocker} error={saveError} ask={ask} saved={justSaved} savedLabel={plan?.includes("clear") ? "Autopilot removed" : plan && !plan.includes("rules") ? "Access given" : first ? "Autopilot started" : "Autopilot updated"} verb={verb} busy={busy} busyLabel={busyLabel} progress={progress} onDiscard={onDiscard} onSave={() => void onSave()} />;
+  const bar = <SaveBar key="save-bar" changes={editor.changes} confirmations={confirmations} blocker={editor.changes === 0 ? null : blocker} error={saveError} ask={ask} saved={justSaved} savedLabel={plan?.includes("clear") ? "Autopilot removed" : plan && !plan.includes("rules") ? "Autopilot started" : first ? "Autopilot started" : "Autopilot updated"} verb={verb} busy={busy} busyLabel={busyLabel} progress={progress} onDiscard={onDiscard} onSave={() => void onSave()} onStop={editor.editing && live.status === "live" ? () => { onDiscard(); void pause(); } : undefined} />;
 
   if (live.loading && live.status === "off" && !editor.editing) {
     return (
@@ -257,19 +262,22 @@ export default function AutopilotPage() {
     );
   }
 
+  const openRule = editor.open ? rules.find((r) => r.id === editor.open) ?? null : null;
+  const holdingsFocus: HoldingsFocus | null = openRule ? { conditions: openRule.conditions, action: openRule.action.kind, actionPool: openRule.action.pool } : null;
   const kind: StatusKind = editor.editing ? "editing" : live.status === "live" ? "live" : "off";
+  const detail = editor.editing ? `${editor.changes} ${editor.changes === 1 ? "CHANGE" : "CHANGES"}` : undefined;
   const onCount = live.rules.filter((r) => r.rule.enabled).length;
   const summary = editor.editing
-    ? (live.status === "off" ? "Nothing runs until you start it" : "Live rules keep running until you update")
+    ? (live.status === "off" ? "Nothing runs until you start it" : live.status === "paused" ? "Stopped · rules kept until you start it again" : "Running rules keep going until you update")
     : live.status === "live"
       ? (live.nowOn !== null ? `${onCount} ${onCount === 1 ? "rule" : "rules"} · now on rule ${live.nowOn}` : `${onCount} ${onCount === 1 ? "rule" : "rules"} · nothing to do right now`)
-      : live.status === "paused" ? "Paused · no access" : "No rules yet";
+      : live.status === "paused" ? "Stopped · rules kept" : "No rules yet";
 
   return (
     <div className="grid gap-4 md:gap-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-3">
-          <StatusPill kind={kind} />
+          <StatusPill kind={kind} detail={detail} />
           <Label className="hidden sm:inline">{summary}</Label>
         </div>
         <AccessChip />
@@ -279,7 +287,7 @@ export default function AutopilotPage() {
       {/* The composer: the way in before the first rule, and a helper while editing. A running autopilot shows itself instead. */}
       {(editor.editing || live.status === "off") && <Chat mode={editor.editing ? "editing" : "live"} rules={rules} live={chatLive} onAccept={onAccept} onEdit={onEdit} chips={4} />}
       {(editor.editing || live.status === "off") && (
-        <Holdings positions={pf.positions} health={pf.health} pools={pools.pools} fx={{ tryPerUsd: values.live.fx, stale: values.live.fxStale }} xlm={w.xlm} access={live.access} loading={pf.loading || pools.loading} />
+        <Holdings positions={pf.positions} health={pf.health} pools={pools.pools} fx={{ tryPerUsd: values.live.fx, stale: values.live.fxStale }} xlm={w.xlm} access={live.access} loading={pf.loading || pools.loading} focus={holdingsFocus} collapsed={editor.open === null} />
       )}
 
       {editor.editing ? (
@@ -306,8 +314,8 @@ export default function AutopilotPage() {
         <>
           <Running ap={live} now={now} actions={
             <>
-              {live.status === "paused" && live.access.loaded && <PillButton size="md" onClick={() => setAsking(true)} disabled={busy || asking}>Give access</PillButton>}
-              {live.status === "live" && <PillButton variant="outline" size="md" onClick={() => void pause()} disabled={busy} aria-busy={armer.grantAction.busy}>{armer.grantAction.busy && plan === null ? "Passkey" : "Pause"}</PillButton>}
+              {live.status === "paused" && live.access.loaded && <PillButton size="md" onClick={() => setAsking(true)} disabled={busy || asking}>Start autopilot</PillButton>}
+              {live.status === "live" && <PillButton variant="outline" size="md" onClick={() => void pause()} disabled={busy} aria-busy={armer.grantAction.busy}>{armer.grantAction.busy && plan === null ? "Passkey" : "Stop"}</PillButton>}
               <PillButton variant="outline" size="md" onClick={() => setSavingToLibrary((v) => !v)} disabled={busy}>Save to library</PillButton>
               <PillButton variant="outline" size="md" onClick={() => void copyShareLink(saved)} disabled={busy}>Link</PillButton>
               <PillButton variant="ghost" size="md" onClick={() => setConfirmDelete(true)} disabled={busy || confirmDelete}>Delete</PillButton>
@@ -323,7 +331,7 @@ export default function AutopilotPage() {
               </div>
             </Tile>
           )}
-          <RulesList rules={live.rules} now={now} onEdit={editor.begin} onOpen={editor.beginAt} />
+          <RulesList rules={live.rules} now={now} onEdit={editor.begin} onOpen={editor.beginAt} stopped={live.status === "paused"} />
           <AnimatePresence>{(asking || plan !== null || justSaved) && bar}</AnimatePresence>
         </>
       )}

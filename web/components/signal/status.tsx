@@ -16,12 +16,12 @@ export function StatusDot({ on, size = "sm", className }: { on: boolean; size?: 
 }
 
 /** The status pill at the top of the Autopilot page: LIVE, EDITING, OFF. */
-export function StatusPill({ kind, className }: { kind: StatusKind; className?: string }) {
+export function StatusPill({ kind, detail, className }: { kind: StatusKind; /** "2 CHANGES" after the word. */ detail?: string; className?: string }) {
   const on = kind === "live" || kind === "watching";
   return (
     <span className={cn("inline-flex h-11 items-center gap-2.5 rounded-full bg-surface px-4", className)}>
       <StatusDot on={on} />
-      <span className={cn("label", on ? "text-text" : "text-muted")}>{kind.toUpperCase()}</span>
+      <span className={cn("label", on ? "text-text" : "text-muted")}>{kind.toUpperCase()}{detail ? ` · ${detail}` : ""}</span>
     </span>
   );
 }
