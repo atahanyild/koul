@@ -48,7 +48,7 @@ function Progress({ steps }: { steps: SaveStep[] }) {
   );
 }
 
-export function SaveBar({ changes, confirmations, blocker, error, ask, saved, busy, busyLabel, progress, onDiscard, onSave }: {
+export function SaveBar({ changes, confirmations, blocker, error, ask, saved, savedLabel = "Rules saved", busy, busyLabel, progress, onDiscard, onSave }: {
   changes: number;
   confirmations: number;
   blocker: string | null;
@@ -56,6 +56,8 @@ export function SaveBar({ changes, confirmations, blocker, error, ask, saved, bu
   ask: AccessAsk | null;
   /** The save just landed: the bar turns accent for a moment before it leaves. */
   saved?: boolean;
+  /** What the accent tile says once it landed: "Rules saved", or "Autopilot removed" after a delete. */
+  savedLabel?: string;
   busy: boolean;
   busyLabel: string | null;
   /** The steps of the save in progress, or of the one that just failed; null when nothing has started. */
@@ -75,7 +77,7 @@ export function SaveBar({ changes, confirmations, blocker, error, ask, saved, bu
           <motion.div key="saved" {...swap}>
             <Tile tone="lime" className="flex items-center justify-center gap-3 p-5" role="status">
               <Check />
-              <span className="text-[17px] font-bold">Rules saved</span>
+              <span className="text-[17px] font-bold">{savedLabel}</span>
             </Tile>
           </motion.div>
         ) : ask && !busy ? (

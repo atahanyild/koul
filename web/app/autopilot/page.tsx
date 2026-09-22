@@ -17,7 +17,8 @@ import { useWallet } from "@/hooks/use-wallet";
 import { chainUiId, useArmAutopilot } from "@/hooks/use-autopilots";
 import { invalidate } from "@/lib/data/store";
 import { newId, toCoreAutopilot, type Autopilot } from "@/lib/model/autopilot";
-import { phaseDetail, planSteps, saveSteps, type SaveStep, type SaveStepKey } from "@/lib/model/save-steps";
+import { phaseDetail, planDelete, planSteps, saveSteps, type SaveStep, type SaveStepKey } from "@/lib/model/save-steps";
+import { decodeRules, type LibraryEntry } from "@/lib/model/library";
 import { Label, PillButton, Sk, StatusPill, Tile, type StatusKind } from "@/components/signal";
 import { AccessChip } from "@/components/autopilot-page/access";
 import { Chat } from "@/components/autopilot-page/chat";
@@ -26,6 +27,7 @@ import { describeChanges, diffRules, type RuleChange } from "@/lib/chat/diff";
 import type { LiveContext } from "@/lib/chat/schema";
 import { RulesHeader, RulesList } from "@/components/autopilot-page/rules-list";
 import { Running } from "@/components/autopilot-page/running";
+import { copyShareLink, Library, SaveToLibrary } from "@/components/autopilot-page/library";
 import { RuleEditor, pairingProblem, ruleTemplate } from "@/components/autopilot-page/rule-editor";
 import { SaveBar, type AccessAsk } from "@/components/autopilot-page/save-bar";
 import { Templates } from "@/components/autopilot-page/templates";
@@ -98,23 +100,31 @@ export default function AutopilotPage() {
   const [plan, setPlan] = React.useState<SaveStepKey[] | null>(null);
   const [failedStep, setFailedStep] = React.useState<{ key: SaveStepKey; reason: string } | null>(null);
   const [completed, setCompleted] = React.useState(false);
+  /** Which flow the strip belongs to, so Try again resumes the right one. */
+  const flow = React.useRef<"save" | "delete">("save");
+  const [deleteDone, setDeleteDone] = React.useState({ clear: false, revoke: false });
+  const [confirmDelete, setConfirmDelete] = React.useState(false);
+  const [savingToLibrary, setSavingToLibrary] = React.useState(false);
   const nextPlan = React.useMemo(() => planSteps({ needsPosition, hasAccess: live.access.active }), [needsPosition, live.access.active]);
   const confirmations = rules.length === 0 ? 1 : nextPlan.length;
   const progress = React.useMemo<SaveStep[] | null>(() => {
     if (!plan) return null;
+    const deleting = plan.includes("clear");
     const active: { key: SaveStepKey; detail: string | null } | null = armer.openAction.busy ? { key: "open", detail: phaseDetail(armer.openAction.phase) }
       : waitingForId ? { key: "open", detail: "Reading your position id" }
-      : armer.grantAction.busy ? { key: "grant", detail: phaseDetail(armer.grantAction.phase) }
-      : armer.rulesAction.busy ? { key: "rules", detail: phaseDetail(armer.rulesAction.phase) }
+      : armer.grantAction.busy ? { key: deleting ? "revoke" : "grant", detail: phaseDetail(armer.grantAction.phase) }
+      : armer.rulesAction.busy ? { key: deleting ? "clear" : "rules", detail: phaseDetail(armer.rulesAction.phase) }
       : null;
     const done = {
       open: completed || !needsPosition || armer.openAction.phase === "success",
       grant: completed || live.access.active || armer.grantAction.phase === "success",
       rules: completed || armer.rulesAction.phase === "success",
+      clear: completed || deleteDone.clear,
+      revoke: completed || deleteDone.revoke,
     };
     return saveSteps({ plan, done, active, failed: failedStep });
-  }, [plan, armer.openAction.busy, armer.openAction.phase, armer.grantAction.busy, armer.grantAction.phase, armer.rulesAction.busy, armer.rulesAction.phase, waitingForId, completed, needsPosition, live.access.active, failedStep]);
-  const clearProgress = React.useCallback(() => { setPlan(null); setFailedStep(null); setCompleted(false); }, []);
+  }, [plan, armer.openAction.busy, armer.openAction.phase, armer.grantAction.busy, armer.grantAction.phase, armer.rulesAction.busy, armer.rulesAction.phase, waitingForId, completed, needsPosition, live.access.active, failedStep, deleteDone]);
+  const clearProgress = React.useCallback(() => { setPlan(null); setFailedStep(null); setCompleted(false); setDeleteDone({ clear: false, revoke: false }); flow.current = "save"; }, []);
 
   const [justSaved, setJustSaved] = React.useState(false);
   /** The chain does the work; the page only leaves editing once the chain read shows the saved rules. */
@@ -160,7 +170,29 @@ export default function AutopilotPage() {
     if (!res.toasted) toast.error("Rules not saved", { description: res.reason });
   }, [live.chainId, rules, armer, pf.accountId, needsPosition, openHub, settle, plan, nextPlan, clearProgress]);
 
+  /** Remove the rules from the router, then the key when there is one. `resume` continues after a failed step. */
+  const remove = React.useCallback(async (resume: boolean) => {
+    if (live.chainId === null) return;
+    setConfirmDelete(false);
+    setFailedStep(null);
+    let done = resume ? deleteDone : { clear: false, revoke: false };
+    if (!resume) { flow.current = "delete"; setPlan(planDelete({ hasAccess: live.access.active })); setCompleted(false); setDeleteDone(done); }
+    if (!done.clear) {
+      const res = await armer.clear(chainUiId(live.chainId));
+      if (!res) { setFailedStep({ key: "clear", reason: armer.rulesAction.lastFailure() ?? "the transaction did not go through" }); return; }
+      done = { ...done, clear: true }; setDeleteDone(done);
+    }
+    if (live.access.active && !done.revoke) {
+      const res = await armer.pause();
+      if (!res) { setFailedStep({ key: "revoke", reason: armer.grantAction.lastFailure() ?? "the transaction did not go through" }); return; }
+      done = { ...done, revoke: true }; setDeleteDone(done);
+    }
+    setCompleted(true);
+    await settle();
+  }, [live.chainId, live.access.active, deleteDone, armer, settle]);
+
   const onSave = React.useCallback(async () => {
+    if (flow.current === "delete") { await remove(true); return; }
     if (blocker) return;
     setSaveError(null);
     if (rules.length === 0) {
@@ -173,11 +205,42 @@ export default function AutopilotPage() {
     // No key yet: one sentence about what Koul gets, then the passkeys. Try again after a failed step resumes.
     if ((!live.access.active || needsPosition) && plan === null) { setAsking(true); return; }
     await submit();
-  }, [blocker, rules, live.chainId, live.access.active, armer, needsPosition, settle, submit, plan]);
+  }, [blocker, rules, live.chainId, live.access.active, armer, needsPosition, settle, submit, plan, remove]);
+
+  /** Revoke the key: the rules stay on the router, nothing runs until access is given again. */
+  const pause = React.useCallback(async () => {
+    const res = await armer.pause();
+    if (res) await live.refresh();
+  }, [armer, live]);
+
+  /** Load a set into the editor as the draft (from the library or a share link). */
+  const loadRules = React.useCallback((entry: Pick<LibraryEntry, "rules">) => {
+    editor.replace(entry.rules.map((r) => ({ ...r, id: newId() })), null);
+    setHighlight(null);
+    setChatChanges([]);
+  }, [editor]);
+
+  // A share link: `/autopilot?load=<token>` opens with the set as a draft once a wallet is connected.
+  const loaded = React.useRef(false);
+  React.useEffect(() => {
+    if (loaded.current || !w.address) return;
+    const token = new URLSearchParams(window.location.search).get("load");
+    if (!token) return;
+    loaded.current = true;
+    window.history.replaceState(null, "", window.location.pathname);
+    // Deferred a tick so the draft lands after this render, not inside the effect.
+    const t = setTimeout(() => {
+      const set = decodeRules(token);
+      if (!set) { toast.error("That link does not hold rules Koul can read"); return; }
+      loadRules(set);
+      toast(`${set.rules.length} ${set.rules.length === 1 ? "rule" : "rules"} loaded from a link`, { description: set.name ? `${set.name} · save to run them on your wallet` : "Save to run them on your wallet" });
+    }, 0);
+    return () => clearTimeout(t);
+  }, [w.address, loadRules]);
 
   const ask: AccessAsk | null = asking ? { needsPosition, days: ACCESS_DAYS, steps: saveSteps({ plan: nextPlan, done: {}, active: null, failed: null }), onConfirm: () => void submit(), onCancel: () => setAsking(false) } : null;
   const onDiscard = () => { editor.discard(); setHighlight(null); setChatChanges([]); setSaveError(null); setAsking(false); clearProgress(); };
-  const bar = <SaveBar key="save-bar" changes={editor.changes} confirmations={confirmations} blocker={editor.changes === 0 ? null : blocker} error={saveError} ask={ask} saved={justSaved} busy={busy} busyLabel={busyLabel} progress={progress} onDiscard={onDiscard} onSave={() => void onSave()} />;
+  const bar = <SaveBar key="save-bar" changes={editor.changes} confirmations={confirmations} blocker={editor.changes === 0 ? null : blocker} error={saveError} ask={ask} saved={justSaved} savedLabel={flow.current === "delete" ? "Autopilot removed" : "Rules saved"} busy={busy} busyLabel={busyLabel} progress={progress} onDiscard={onDiscard} onSave={() => void onSave()} />;
 
   if (live.loading && live.status === "off" && !editor.editing) {
     return (
@@ -213,22 +276,45 @@ export default function AutopilotPage() {
 
       {editor.editing ? (
         <>
-          <RulesHeader hint="Top to bottom · first match runs" action={editor.canUndo ? <PillButton variant="ghost" size="sm" onClick={undoChat}>Undo</PillButton> : undefined} />
+          <RulesHeader hint="Top to bottom · first match runs" action={
+            <div className="flex gap-1">
+              {editor.canUndo && <PillButton variant="ghost" size="sm" onClick={undoChat}>Undo</PillButton>}
+              {rules.length > 0 && !savingToLibrary && <PillButton variant="ghost" size="sm" onClick={() => setSavingToLibrary(true)}>Save to library</PillButton>}
+            </div>
+          } />
+          {savingToLibrary && <SaveToLibrary rules={rules} defaultName="My autopilot" onDone={() => setSavingToLibrary(false)} onCancel={() => setSavingToLibrary(false)} />}
           <RuleEditor editor={editor} liveRules={live.rules} live={values.live} now={now} highlight={highlight} changes={chatChanges} onUndo={undoChat} onAdd={() => editor.add(ruleTemplate())} />
+          <Library onUse={loadRules} now={now} />
           <AnimatePresence>{bar}</AnimatePresence>
         </>
       ) : live.status === "off" ? (
-        <Templates onAdd={(rule) => editor.add(rule)} />
+        <>
+          <Templates onAdd={(rule) => editor.add(rule)} />
+          <Library onUse={loadRules} now={now} />
+          <AnimatePresence>{(plan !== null || justSaved) && bar}</AnimatePresence>
+        </>
       ) : (
         <>
-          <Running ap={live} now={now} />
-          <RulesList rules={live.rules} now={now} onEdit={editor.begin} onOpen={editor.beginAt} />
-          {live.status === "paused" && live.access.loaded && (
-            <Tile className="flex flex-col gap-4 p-5 md:flex-row md:items-center md:justify-between">
-              <p className="text-[15px] text-text md:max-w-[640px]">These rules are saved, but Koul has no key for this wallet, so nothing runs. Give access and they start on the next check.</p>
-              <PillButton size="lg" onClick={() => setAsking(true)} disabled={busy || asking}>Give access</PillButton>
+          <Running ap={live} now={now} actions={
+            <>
+              {live.status === "paused" && live.access.loaded && <PillButton size="md" onClick={() => setAsking(true)} disabled={busy || asking}>Give access</PillButton>}
+              {live.status === "live" && <PillButton variant="outline" size="md" onClick={() => void pause()} disabled={busy} aria-busy={armer.grantAction.busy}>{armer.grantAction.busy && plan === null ? "Passkey" : "Pause"}</PillButton>}
+              <PillButton variant="outline" size="md" onClick={() => setSavingToLibrary((v) => !v)} disabled={busy}>Save to library</PillButton>
+              <PillButton variant="outline" size="md" onClick={() => void copyShareLink(saved)} disabled={busy}>Link</PillButton>
+              <PillButton variant="ghost" size="md" onClick={() => setConfirmDelete(true)} disabled={busy || confirmDelete}>Delete</PillButton>
+            </>
+          } />
+          {savingToLibrary && <SaveToLibrary rules={saved} defaultName="My autopilot" onDone={() => setSavingToLibrary(false)} onCancel={() => setSavingToLibrary(false)} />}
+          {confirmDelete && (
+            <Tile tone="outlined" className="flex flex-col gap-4 p-5 md:flex-row md:items-center md:justify-between">
+              <p className="text-[15px] text-text md:max-w-[640px]">Remove {live.rules.length === 1 ? "this rule" : `all ${live.rules.length} rules`} from the router{live.access.active ? " and revoke Koul's key" : ""}? Nothing runs afterwards. {live.access.active ? "Two passkey confirmations." : "One passkey confirmation."}</p>
+              <div className="flex flex-col-reverse gap-3 md:flex-row">
+                <PillButton variant="outline" size="lg" onClick={() => setConfirmDelete(false)}>Keep it</PillButton>
+                <PillButton size="lg" onClick={() => void remove(false)}>Delete</PillButton>
+              </div>
             </Tile>
           )}
+          <RulesList rules={live.rules} now={now} onEdit={editor.begin} onOpen={editor.beginAt} />
           <AnimatePresence>{(asking || plan !== null || justSaved) && bar}</AnimatePresence>
         </>
       )}
