@@ -20,7 +20,9 @@ page now shows the running rule with its live readings instead of the composer, 
 editor, the save bar shows the passkey steps, drafts are tab-scoped, and a paused autopilot offers Give access.
 The running tile has Pause (revoke the key, rules stay), Delete (clear the rules, then revoke, with the same step strip),
 Save to library and Link. The library (`web/lib/model/library.ts`) keeps named rule sets in the browser; a share link
-`/autopilot?load=<token>` opens the set as a draft on any wallet. MVP scope closed here on 2026-09-22.
+`/autopilot?load=<token>` opens the set as a draft on any wallet. Actions take an amount (everything or a fixed USDC
+number, at least 1) and the editing page shows a "What you have" panel: idle wallet, each hub with rate, debt and free
+cash, loan health, USD/TRY, key days. MVP scope closed here on 2026-09-22.
 
 2026-09-22 (testnet rent): every XOXNO controller call quoted 566 XLM because the controller's wasm lease fell under
 its self-renewal threshold and testnet rent is high; the JS SDK cannot build a fee that large, so Save on a fresh wallet
