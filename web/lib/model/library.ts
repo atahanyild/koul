@@ -25,7 +25,7 @@ const conditionSchema = z.object({
 });
 const actionSchema = z.object({
   kind: z.enum(["supply_from_wallet", "move_to_best_pool", "repay_from_wallet", "withdraw_to_wallet"]),
-  amount: z.union([z.literal("all"), z.number().positive().finite()]),
+  amount: z.union([z.literal("all"), z.number().positive().finite(), z.object({ percent: z.number().int().min(1).max(100) })]),
   pool: z.enum(["A", "B"]).optional(),
 });
 const portableRule = z.object({

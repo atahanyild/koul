@@ -29,6 +29,7 @@ import { RulesHeader, RulesList } from "@/components/autopilot-page/rules-list";
 import { Running } from "@/components/autopilot-page/running";
 import { copyShareLink, Library, SaveToLibrary } from "@/components/autopilot-page/library";
 import { Holdings } from "@/components/autopilot-page/holdings";
+import { Capital } from "@/components/autopilot-page/capital";
 import { RuleEditor, pairingProblem, ruleTemplate } from "@/components/autopilot-page/rule-editor";
 import { SaveBar, type AccessAsk } from "@/components/autopilot-page/save-bar";
 import { Templates } from "@/components/autopilot-page/templates";
@@ -92,7 +93,10 @@ export default function AutopilotPage() {
     ?? (rules.length > 0 && toCoreAutopilot({ rules }, 0n).unsupported.length ? "One rule is not something the router can run" : null);
   const [waitingForId, setWaitingForId] = React.useState(false);
   const busy = armer.openAction.busy || armer.grantAction.busy || armer.rulesAction.busy || waitingForId;
-  const busyLabel = armer.openAction.busy ? "Opening your position" : waitingForId ? "Reading your position" : armer.grantAction.busy ? "Giving access" : armer.rulesAction.busy ? "Saving rules" : null;
+  const first = live.status === "off";
+  const verb = first ? "Start" : "Update";
+  const busyLabel = armer.openAction.busy ? "Opening your position" : waitingForId ? "Reading your position" : armer.grantAction.busy ? "Giving access" : armer.rulesAction.busy ? (first ? "Starting autopilot" : "Updating autopilot") : null;
+  const stepLabels = React.useMemo(() => ({ rules: first ? "Start autopilot" : "Update rules" }), [first]);
   const [saveError, setSaveError] = React.useState<string | null>(null);
   const [asking, setAsking] = React.useState(false);
 
@@ -123,8 +127,8 @@ export default function AutopilotPage() {
       clear: completed || deleteDone.clear,
       revoke: completed || deleteDone.revoke,
     };
-    return saveSteps({ plan, done, active, failed: failedStep });
-  }, [plan, armer.openAction.busy, armer.openAction.phase, armer.grantAction.busy, armer.grantAction.phase, armer.rulesAction.busy, armer.rulesAction.phase, waitingForId, completed, needsPosition, live.access.active, failedStep, deleteDone]);
+    return saveSteps({ plan, done, active, failed: failedStep, labels: stepLabels });
+  }, [plan, stepLabels, armer.openAction.busy, armer.openAction.phase, armer.grantAction.busy, armer.grantAction.phase, armer.rulesAction.busy, armer.rulesAction.phase, waitingForId, completed, needsPosition, live.access.active, failedStep, deleteDone]);
   const clearProgress = React.useCallback(() => { setPlan(null); setFailedStep(null); setCompleted(false); setDeleteDone({ clear: false, revoke: false }); flow.current = "save"; }, []);
 
   const [justSaved, setJustSaved] = React.useState(false);
@@ -168,8 +172,8 @@ export default function AutopilotPage() {
     if (key) { setFailedStep({ key, reason }); return; }
     clearProgress();
     setSaveError(res.reason);
-    if (!res.toasted) toast.error("Rules not saved", { description: res.reason });
-  }, [live.chainId, rules, armer, pf.accountId, needsPosition, openHub, settle, plan, nextPlan, clearProgress]);
+    if (!res.toasted) toast.error(first ? "Autopilot not started" : "Autopilot not updated", { description: res.reason });
+  }, [live.chainId, rules, armer, pf.accountId, needsPosition, openHub, settle, plan, nextPlan, clearProgress, first]);
 
   /** Remove the rules from the router, then the key when there is one. `resume` continues after a failed step. */
   const remove = React.useCallback(async (resume: boolean) => {
@@ -239,9 +243,9 @@ export default function AutopilotPage() {
     return () => clearTimeout(t);
   }, [w.address, loadRules]);
 
-  const ask: AccessAsk | null = asking ? { needsPosition, days: ACCESS_DAYS, steps: saveSteps({ plan: nextPlan, done: {}, active: null, failed: null }), onConfirm: () => void submit(), onCancel: () => setAsking(false) } : null;
+  const ask: AccessAsk | null = asking ? { needsPosition, days: ACCESS_DAYS, steps: saveSteps({ plan: nextPlan, done: {}, active: null, failed: null, labels: stepLabels }), confirmLabel: editor.editing ? `${verb} autopilot` : "Give access", onConfirm: () => void submit(), onCancel: () => setAsking(false) } : null;
   const onDiscard = () => { editor.discard(); setHighlight(null); setChatChanges([]); setSaveError(null); setAsking(false); clearProgress(); };
-  const bar = <SaveBar key="save-bar" changes={editor.changes} confirmations={confirmations} blocker={editor.changes === 0 ? null : blocker} error={saveError} ask={ask} saved={justSaved} savedLabel={plan?.includes("clear") ? "Autopilot removed" : "Rules saved"} busy={busy} busyLabel={busyLabel} progress={progress} onDiscard={onDiscard} onSave={() => void onSave()} />;
+  const bar = <SaveBar key="save-bar" changes={editor.changes} confirmations={confirmations} blocker={editor.changes === 0 ? null : blocker} error={saveError} ask={ask} saved={justSaved} savedLabel={plan?.includes("clear") ? "Autopilot removed" : plan && !plan.includes("rules") ? "Access given" : first ? "Autopilot started" : "Autopilot updated"} verb={verb} busy={busy} busyLabel={busyLabel} progress={progress} onDiscard={onDiscard} onSave={() => void onSave()} />;
 
   if (live.loading && live.status === "off" && !editor.editing) {
     return (
@@ -256,10 +260,10 @@ export default function AutopilotPage() {
   const kind: StatusKind = editor.editing ? "editing" : live.status === "live" ? "live" : "off";
   const onCount = live.rules.filter((r) => r.rule.enabled).length;
   const summary = editor.editing
-    ? (live.status === "off" ? "Nothing runs until you save" : "Live rules keep running until you save")
+    ? (live.status === "off" ? "Nothing runs until you start it" : "Live rules keep running until you update")
     : live.status === "live"
       ? (live.nowOn !== null ? `${onCount} ${onCount === 1 ? "rule" : "rules"} · now on rule ${live.nowOn}` : `${onCount} ${onCount === 1 ? "rule" : "rules"} · nothing to do right now`)
-      : live.status === "paused" ? "Rules saved · no access" : "No rules yet";
+      : live.status === "paused" ? "Paused · no access" : "No rules yet";
 
   return (
     <div className="grid gap-4 md:gap-5">
@@ -287,6 +291,7 @@ export default function AutopilotPage() {
             </div>
           } />
           {savingToLibrary && <SaveToLibrary rules={rules} defaultName="My autopilot" onDone={() => setSavingToLibrary(false)} onCancel={() => setSavingToLibrary(false)} />}
+          {rules.length > 0 && <Capital rules={rules} onChange={(next) => editor.replace(next)} />}
           <RuleEditor editor={editor} liveRules={live.rules} live={values.live} now={now} highlight={highlight} changes={chatChanges} onUndo={undoChat} onAdd={() => editor.add(ruleTemplate())} />
           <Library onUse={loadRules} now={now} />
           <AnimatePresence>{bar}</AnimatePresence>

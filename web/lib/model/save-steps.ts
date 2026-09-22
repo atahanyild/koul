@@ -51,6 +51,8 @@ export interface SaveProgressInput {
   active: { key: SaveStepKey; detail: string | null } | null;
   /** The step the last run stopped at, with the reason. */
   failed: { key: SaveStepKey; reason: string } | null;
+  /** Labels that differ from the default for this run ("Start autopilot" instead of "Save rules"). */
+  labels?: Partial<Record<SaveStepKey, string>>;
 }
 
 /**
@@ -59,7 +61,7 @@ export interface SaveProgressInput {
  */
 export function saveSteps(input: SaveProgressInput): SaveStep[] {
   return input.plan.map((key) => {
-    const label = STEP_LABELS[key];
+    const label = input.labels?.[key] ?? STEP_LABELS[key];
     if (input.active?.key === key) return { key, label, state: "active", detail: input.active.detail };
     if (input.done[key]) return { key, label, state: "done", detail: null };
     if (input.failed?.key === key) return { key, label, state: "failed", detail: input.failed.reason };

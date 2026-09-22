@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * "2 CHANGES · ONE PASSKEY CONFIRMATION TO SAVE", Discard and Save rules. Pinned to the bottom on phones. Before the
+ * "2 CHANGES · ONE PASSKEY CONFIRMATION TO START", Discard and Start autopilot (Update once it runs). Pinned to the bottom on phones. Before the
  * first save it turns into one sentence about the key Koul gets, with the steps ahead and Give access; while the
  * passkeys run it shows those steps with what each one is waiting on; after a failure it keeps the failed step and
  * its reason on screen until the next attempt; after a success it turns accent with a drawn check for a moment.
@@ -18,6 +18,8 @@ export interface AccessAsk {
   days: number;
   /** The passkey steps this save will run, in order. */
   steps: SaveStep[];
+  /** The confirm button: "Start autopilot" on a first save, "Give access" when only the key is missing. */
+  confirmLabel: string;
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -48,7 +50,7 @@ function Progress({ steps }: { steps: SaveStep[] }) {
   );
 }
 
-export function SaveBar({ changes, confirmations, blocker, error, ask, saved, savedLabel = "Rules saved", busy, busyLabel, progress, onDiscard, onSave }: {
+export function SaveBar({ changes, confirmations, blocker, error, ask, saved, savedLabel = "Autopilot started", verb = "Start", busy, busyLabel, progress, onDiscard, onSave }: {
   changes: number;
   confirmations: number;
   blocker: string | null;
@@ -56,8 +58,10 @@ export function SaveBar({ changes, confirmations, blocker, error, ask, saved, sa
   ask: AccessAsk | null;
   /** The save just landed: the bar turns accent for a moment before it leaves. */
   saved?: boolean;
-  /** What the accent tile says once it landed: "Rules saved", or "Autopilot removed" after a delete. */
+  /** What the accent tile says once it landed: "Autopilot started", "Autopilot updated", or "Autopilot removed". */
   savedLabel?: string;
+  /** "Start" before the first save, "Update" when rules already run. */
+  verb?: "Start" | "Update";
   busy: boolean;
   busyLabel: string | null;
   /** The steps of the save in progress, or of the one that just failed; null when nothing has started. */
@@ -66,7 +70,7 @@ export function SaveBar({ changes, confirmations, blocker, error, ask, saved, sa
   onSave: () => void;
 }) {
   const words = ["", "one", "two", "three"][confirmations] ?? String(confirmations);
-  const line = blocker ?? error ?? `${changes} ${changes === 1 ? "change" : "changes"} · ${words} passkey ${confirmations === 1 ? "confirmation" : "confirmations"} to save`;
+  const line = blocker ?? error ?? `${changes} ${changes === 1 ? "change" : "changes"} · ${words} passkey ${confirmations === 1 ? "confirmation" : "confirmations"} to ${verb.toLowerCase()}`;
   const failed = progress?.some((s) => s.state === "failed") ?? false;
   const complete = progress !== null && progress.every((s) => s.state === "done");
   const showProgress = progress !== null && (busy || failed || complete);
@@ -90,7 +94,7 @@ export function SaveBar({ changes, confirmations, blocker, error, ask, saved, sa
               <Steps labels={ask.steps.map((s) => s.label)} active={0} />
               <div className="flex flex-col-reverse gap-3 md:flex-row md:justify-end">
                 <PillButton variant="outline" size="lg" onClick={ask.onCancel}>Cancel</PillButton>
-                <PillButton size="lg" onClick={ask.onConfirm}>Give access</PillButton>
+                <PillButton size="lg" onClick={ask.onConfirm}>{ask.confirmLabel}</PillButton>
               </div>
             </Tile>
           </motion.div>
@@ -112,7 +116,7 @@ export function SaveBar({ changes, confirmations, blocker, error, ask, saved, sa
               <Label tone={blocker || error ? "danger" : "muted"} className="text-center md:text-left" role={error ? "alert" : undefined}>{line}</Label>
               <div className="flex flex-col-reverse gap-3 md:flex-row">
                 <PillButton variant="outline" size="lg" onClick={onDiscard} disabled={busy}>Discard</PillButton>
-                <PillButton size="lg" onClick={onSave} disabled={busy || !!blocker || changes === 0} aria-busy={busy}>{busy ? busyLabel ?? "Saving" : error ? "Try again" : "Save rules"}</PillButton>
+                <PillButton size="lg" onClick={onSave} disabled={busy || !!blocker || changes === 0} aria-busy={busy}>{busy ? busyLabel ?? "Working" : error ? "Try again" : `${verb} autopilot`}</PillButton>
               </div>
             </Tile>
           </motion.div>

@@ -161,8 +161,8 @@ export function useArmAutopilot() {
     // these rules already, in which case only the key was missing.
     const stored = chain.list.find((c) => c.id === chainId)?.autopilot;
     const unchanged = stored !== undefined && JSON.stringify(stored) === JSON.stringify(core);
-    const res = unchanged ? { hash: null } : await write.run(() => writer.buildSetAutopilot(address, chainId, core), { title: "Rules saved", doing: "Saving your rules", description: `${core.rules.length} router rule${core.rules.length === 1 ? "" : "s"} on the router.`, invalidatePrefixes: ["autopilots:", "portfolio:"] });
-    if (!res) return { ok: false, step: "write", reason: `The rules were not saved: ${write.lastFailure() ?? "the transaction did not go through"}`, toasted: true, grantHash };
+    const res = unchanged ? { hash: null } : await write.run(() => writer.buildSetAutopilot(address, chainId, core), { title: "Rules on the router", doing: "Writing your rules to the router", description: `${core.rules.length} router rule${core.rules.length === 1 ? "" : "s"} on the router.`, invalidatePrefixes: ["autopilots:", "portfolio:"] });
+    if (!res) return { ok: false, step: "write", reason: `The rules did not reach the router: ${write.lastFailure() ?? "the transaction did not go through"}`, toasted: true, grantHash };
     // The chain now holds the rules: keep name, sentence and marks under the chain id, drop the draft it came from.
     const armed: Autopilot = { ...ap, id: chainUiId(chainId), status: "armed", armedUntil: Date.now() + opts.days * 86400_000, agentRuleId: agent.active?.ruleId ?? null };
     drafts.set((prev) => [armed, ...prev.filter((a) => a.id !== ap.id && a.id !== armed.id)]);
