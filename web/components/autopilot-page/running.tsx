@@ -46,11 +46,11 @@ export function Running({ ap, now, actions }: { ap: AutopilotLiveState; now: num
     <Tile className="grid gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] md:gap-8">
       <div>
         <TileLabel>Autopilot</TileLabel>
-        <div className="mt-2 flex items-center gap-3"><StatusDot on={!paused} size="md" /><span className="t-value">{paused ? "Paused" : "Watching"}</span></div>
+        <div className="mt-2 flex items-center gap-3"><StatusDot on={!paused} size="md" /><span className="t-value">{paused ? "Stopped" : "Watching"}</span></div>
         <div className="mt-3 grid gap-1">
-          <Label>{on} {on === 1 ? "rule" : "rules"} on{paused ? " · no access" : ""}</Label>
-          <Label>{paused ? "Nothing runs until access is given" : `Checked every ${CHECK_EVERY}`}</Label>
-          {capital !== null && <Label>Capital · {capital === "mixed" ? "mixed per rule" : capital >= 100 ? "everything it can move" : `${capital}% of what it can move`}</Label>}
+          <Label>{on} {on === 1 ? "rule" : "rules"} {paused ? "kept" : "on"}</Label>
+          <Label>{paused ? "Nothing runs until you start it again" : `Checked every ${CHECK_EVERY}`}</Label>
+          {capital !== null && <Label>{capital === "mixed" ? "Moves use a different share per rule" : capital >= 100 ? "Each move uses everything that rule can see" : `Each move uses up to ${capital}% of what that rule can see`}</Label>}
           {ap.access.active && ap.access.daysLeft !== null && <Label>Access {ap.access.daysLeft}D left</Label>}
         </div>
         {actions && <div className="mt-5 flex flex-wrap gap-2">{actions}</div>}

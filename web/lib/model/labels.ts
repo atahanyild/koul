@@ -3,38 +3,11 @@
  * are mono, actions are plain words. Nothing here is a sentence.
  */
 import { usdPerTryToTryPerUsd } from "@/lib/koul";
-import { aprToApy, POOLS, type Action, type Condition, type ConditionKind, type Rule } from "./autopilot";
+import { aprToApy, type Action, type Condition, type ConditionKind } from "./autopilot";
 
 const n2 = (v: number) => v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const n0 = (v: number) => v.toLocaleString("en-US", { maximumFractionDigits: 2 });
 
-/** `gte` reads as ">" and `lte` as "<", the way the design writes conditions. */
-const op = (c: Condition) => (c.comparator === "gte" ? ">" : "<");
-
-export function conditionCompact(c: Condition): string {
-  switch (c.kind) {
-    case "rate_gap": return `rate gap > ${n2(c.value)}%`;
-    case "pool_rate": return `hub ${POOLS[c.pool ?? "B"].hub} APY ${op(c)} ${n2(c.value)}%`;
-    case "health_factor": return `health ${op(c)} ${n2(c.value)}`;
-    case "fx_price": return `USD/TRY ${op(c)} ${n2(c.value)}`;
-    case "idle_usdc": return `wallet ${op(c)} ${n0(c.value)} USDC`;
-  }
-}
-
-export function conditionsCompact(rule: Pick<Rule, "conditions" | "match">): string {
-  return rule.conditions.map(conditionCompact).join(rule.match === "all" ? " AND " : " OR ");
-}
-
-/** "Withdraw to wallet" for everything, "Withdraw 50 USDC to wallet" for a fixed amount. */
-export function actionShort(a: Action): string {
-  const amt = a.amount === "all" ? null : typeof a.amount === "number" ? `${n0(a.amount)} USDC` : `${a.amount.percent}%`;
-  switch (a.kind) {
-    case "repay_from_wallet": return amt ? `Repay ${amt}` : "Repay debt";
-    case "withdraw_to_wallet": return amt ? `Withdraw ${amt} to wallet` : "Withdraw to wallet";
-    case "move_to_best_pool": return amt ? `Move ${amt} to the better hub` : "Move to the better hub";
-    case "supply_from_wallet": return amt ? `Supply ${amt} to Hub ${POOLS[a.pool ?? "B"].hub}` : `Supply to Hub ${POOLS[a.pool ?? "B"].hub}`;
-  }
-}
+export { describeCondition as conditionCompact, describeConditions as conditionsCompact, describeAction as actionShort } from "@/lib/rules/describe";
 
 /** The subject a condition reads, for the editor pickers. */
 export const CONDITION_SUBJECTS: { kind: ConditionKind; label: string; unit: string }[] = [
@@ -95,6 +68,16 @@ export function cooldownShort(seconds: number): string {
   if (seconds < 3600) return `${Math.round(seconds / 60)}m`;
   if (seconds < 86400) return `${Math.round(seconds / 3600)}h`;
   return `${Math.round(seconds / 86400)}d`;
+}
+
+/** "TODAY", "YESTERDAY", "SAT 20 SEP": the sticky day header on Activity. */
+export function dayLabel(at: number, now = Date.now()): string {
+  const d = new Date(at);
+  const today = new Date(now);
+  if (d.toDateString() === today.toDateString()) return "TODAY";
+  const yesterday = new Date(now - 86_400_000);
+  if (d.toDateString() === yesterday.toDateString()) return "YESTERDAY";
+  return `${d.toLocaleDateString("en-US", { weekday: "short" })} ${d.toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`.toUpperCase();
 }
 
 /** "TODAY 14:02", "SAT 21:15", "12 SEP 09:10". */

@@ -10,7 +10,7 @@ import { EmptyState, FilterChip, Label, Loadable, PillButton, SkRows, Tile } fro
 import { useActivity, type ActivityRow } from "@/hooks/use-activity";
 import { explorerTx } from "@/lib/koul";
 import { fmtUsdc } from "@/lib/format";
-import { whenLabel } from "@/lib/model/labels";
+import { dayLabel, whenLabel } from "@/lib/model/labels";
 import { cn } from "@/lib/utils";
 
 type Filter = "all" | "auto" | "you";
@@ -56,11 +56,15 @@ export default function ActivityPage() {
             />
           ) : (
             <ul className="divide-y divide-line">
-              {rows.map((r) => {
+              {rows.map((r, i) => {
                 const amount = amountText(r);
                 const who = r.who === "auto" ? "AUTO" : "YOU";
+                const day = dayLabel(r.at, now);
+                const newDay = i === 0 || dayLabel(rows[i - 1]!.at, now) !== day;
                 return (
-                  <li key={r.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 py-4 md:grid-cols-[112px_minmax(0,1fr)_auto_64px_44px] md:py-5">
+                  <React.Fragment key={r.id}>
+                  {newDay && <li className="sticky top-0 z-10 -mx-5 bg-surface px-5 py-2 md:-mx-7 md:px-7" aria-label={day}><span className="label text-muted">{day}</span></li>}
+                  <li className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 py-4 md:grid-cols-[112px_minmax(0,1fr)_auto_64px_44px] md:py-5">
                     <span className="mono order-3 col-span-2 text-muted md:order-1 md:col-span-1"><span className="md:hidden"><span className={cn(r.who === "auto" ? "text-accent-text" : "text-muted")}>{who}</span> · </span>{whenLabel(r.at, now)}</span>
                     <span className="order-1 min-w-0 truncate text-[16px] font-bold md:order-2">{r.title}</span>
                     <span className="mono order-2 text-right md:order-3">{amount ?? ""}</span>
@@ -76,6 +80,7 @@ export default function ActivityPage() {
                       <a href={explorerTx(r.txHash)} target="_blank" rel="noopener noreferrer" className="label order-4 col-span-2 inline-flex min-h-11 items-center text-muted hover:text-text md:hidden">Transaction ↗</a>
                     )}
                   </li>
+                  </React.Fragment>
                 );
               })}
             </ul>

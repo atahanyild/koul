@@ -1,7 +1,8 @@
 "use client";
 
 /**
- * The capital pill on the editing page: how much of what it could move every rule takes. Everything, or a share.
+ * The per-move pill on the editing page: how much of what it can see every rule takes when it runs. Everything, or a
+ * share. This is not a portfolio budget: two rules at 50% can each take half of what they see (see docs/internal).
  * One change for the whole list, undoable; a rule with a fixed USDC amount keeps it. "Mixed" means the rules
  * disagree, which is fine, and picking a share lines them up again.
  */
@@ -23,12 +24,12 @@ export function Capital({ rules, onChange }: { rules: Rule[]; onChange: (rules: 
   const items = [...CAPITAL_CHOICES.map((p) => ({ value: String(p), label: label(p) })), ...(current === "mixed" ? [{ value: "mixed", label: "Mixed" }] : [])];
   return (
     <div className="flex flex-wrap items-center gap-3">
-      <Label>Capital</Label>
+      <Label>Per move</Label>
       <Select value={value} onValueChange={(v) => { if (v && v !== "mixed") onChange(applyCapital(rules, Number(v))); }} items={items}>
-        <SelectTrigger className={pill} aria-label="Capital: how much of what it could move each rule takes"><SelectValue /></SelectTrigger>
+        <SelectTrigger className={pill} aria-label="Per move: how much of what it can see each rule takes when it runs"><SelectValue /></SelectTrigger>
         <SelectContent className={popup}>{items.map((o) => <SelectItem key={o.value} value={o.value} className={item} disabled={o.value === "mixed"}>{o.label}</SelectItem>)}</SelectContent>
       </Select>
-      <Label className="hidden md:inline">of what each rule could move · fixed amounts stay</Label>
+      <Label className="hidden md:inline">Applies per rule, at the moment it runs. Rules do not share a budget.</Label>
     </div>
   );
 }

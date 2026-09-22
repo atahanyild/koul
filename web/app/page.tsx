@@ -7,6 +7,8 @@ import { usePortfolio } from "@/hooks/use-portfolio";
 import { bestPool, useFx, usePools } from "@/hooks/use-market";
 import { useAutopilotLive } from "@/hooks/use-autopilot-live";
 import { useActivity } from "@/hooks/use-activity";
+import { useRunToasts } from "@/hooks/use-run-toasts";
+import { DEMO_ON } from "@/components/account/demo";
 import { BalanceTile } from "@/components/home/balance-tile";
 import { IdleTile, PnlTile } from "@/components/home/pnl-idle";
 import { ChartTile } from "@/components/home/chart-tile";
@@ -31,6 +33,7 @@ export default function HomePage() {
   const pools = usePools();
   const ap = useAutopilotLive();
   const activity = useActivity();
+  useRunToasts(activity.rows, DEMO_ON);
   const now = useMinute();
   const [putOpen, setPutOpen] = React.useState(false);
 
@@ -47,7 +50,7 @@ export default function HomePage() {
   return (
     <motion.div variants={staggerParent} initial="hidden" animate="show" className="grid gap-4 md:gap-5">
       <div className="grid gap-4 md:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] md:gap-5">
-        <motion.div {...tile}><BalanceTile balance={balance} lira={lira} loading={!loaded} /></motion.div>
+        <motion.div {...tile}><BalanceTile balance={balance} lira={lira} loading={!loaded} rate={fx.fx.tryPerUsd > 0 ? { tryPerUsd: fx.fx.tryPerUsd, at: fx.fx.timestamp * 1000 } : null} /></motion.div>
         <div className="grid gap-4 md:gap-5">
           <div className="grid grid-cols-2 gap-4 md:gap-5">
             <motion.div {...tile}><PnlTile balance={balance} loading={!loaded} /></motion.div>

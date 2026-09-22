@@ -14,6 +14,7 @@ import { useWallet } from "@/hooks/use-wallet";
 import { usePortfolio } from "@/hooks/use-portfolio";
 import { fmtUsdc } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { DEMO_ON, DemoSection } from "@/components/account/demo";
 
 export default function AccountPage() {
   const w = useWallet();
@@ -67,6 +68,7 @@ export default function AccountPage() {
             <PillButton size="lg" href="/deposit">Deposit</PillButton>
           </div>
         </Tile>
+        {DEMO_ON && <DemoSection />}
         <Tile>
           <TileLabel>Assets</TileLabel>
           <Loadable loading={!pf.loaded} skeleton={<SkRows rows={3} />} className="mt-2">

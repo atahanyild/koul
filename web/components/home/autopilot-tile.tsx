@@ -44,9 +44,9 @@ export function AutopilotTile({ ap, now }: { ap: AutopilotLiveState; now: number
       <Tile className="grid gap-6 transition-colors hover:bg-surface-2/60 md:grid-cols-[minmax(0,1fr)_minmax(0,2.4fr)]">
         <div>
           <TileLabel>Autopilot</TileLabel>
-          <div className="mt-2 flex items-center gap-3"><StatusDot on={!paused} size="md" /><span className="t-value">{paused ? "Paused" : "Watching"}</span></div>
+          <div className="mt-2 flex items-center gap-3"><StatusDot on={!paused} size="md" /><span className="t-value">{paused ? "Stopped" : "Watching"}</span></div>
           <div className="mt-3 flex flex-col gap-1">
-            <Label>{on} {on === 1 ? "rule" : "rules"} on{paused ? " · no access" : ""}</Label>
+            <Label>{on} {on === 1 ? "rule" : "rules"} {paused ? "kept" : "on"}</Label>
             {ap.nowOn !== null ? <Label>Now on rule {ap.nowOn}</Label> : <Label>Nothing to do right now</Label>}
           </div>
         </div>

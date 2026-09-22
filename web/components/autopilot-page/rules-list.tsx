@@ -19,7 +19,7 @@ export function RulesHeader({ hint, action }: { hint: string; action?: React.Rea
   );
 }
 
-export function RulesList({ rules, now, onEdit, onOpen }: { rules: LiveRule[]; now: number; onEdit: () => void; /** A rule was tapped: open it in the editor. */ onOpen: (id: string) => void }) {
+export function RulesList({ rules, now, onEdit, onOpen, stopped }: { rules: LiveRule[]; now: number; onEdit: () => void; /** A rule was tapped: open it in the editor. */ onOpen: (id: string) => void; /** The autopilot is stopped: every row greyed, kept for a restart. */ stopped?: boolean }) {
   return (
     <div className="grid gap-3">
       <RulesHeader hint="Top to bottom · first match runs · tap a rule to change it" action={<PillButton variant="ghost" onClick={onEdit}>Edit rules</PillButton>} />
@@ -39,7 +39,7 @@ export function RulesList({ rules, now, onEdit, onOpen }: { rules: LiveRule[]; n
                 current={r.current}
                 ranAgo={r.current && r.lastRunAt ? agoShort(r.lastRunAt, now) : null}
                 now={observedLabel(r.rule.conditions[0]!.kind, r.observed)}
-                dimmed={!r.rule.enabled}
+                dimmed={!r.rule.enabled || stopped}
                 trailing={<span className={cn(r.rule.enabled ? "text-accent-text" : "text-muted")}>{r.rule.enabled ? "ON" : "OFF"}</span>}
               />
             </button>

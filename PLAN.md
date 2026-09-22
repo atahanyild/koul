@@ -26,6 +26,15 @@ cash, loan health, USD/TRY, key days. Capital: an action can also take a share (
 router's `Amount::Percent`), a Capital pill on the editing page sets one share for every non-fixed rule, and the running
 tile says which share runs. The save bar says Start autopilot / Update autopilot. MVP scope closed here on 2026-09-22.
 
+Round 3 (2026-09-22, web only): the share pill is "Per move" and the running tile says "Each move uses up to N% of
+what that rule can see" (no shared budget; a portfolio cap needs a router field, noted in docs/internal). Start /
+Update / Stop autopilot wording everywhere, EDITING · N CHANGES, a stopped autopilot keeps its rules greyed. "What you
+have" lights the cell the open rule reads or moves from, scrolls as a strip on phones and folds to one line with no
+rule open. Amount presets 25/50/100/Max with an over-balance warning; `web/lib/rules/describe.ts` is the one wording.
+Demo runner on Account behind `NEXT_PUBLIC_KOUL_DEMO=1` (testnet only) through `/api/demo/oracle`, which proxies the
+oracle admin app (`KOUL_ORACLE_ADMIN_URL`); run toasts on Home. Lira line shows its rate on tap, Activity groups by day,
+the access chip says RENEW under 3 days.
+
 2026-09-22 (testnet rent): every XOXNO controller call quoted 566 XLM because the controller's wasm lease fell under
 its self-renewal threshold and testnet rent is high; the JS SDK cannot build a fee that large, so Save on a fresh wallet
 died at the position-opening supply and the keeper's tick was blocked. Renewed the controller lease (+200k ledgers)
