@@ -22,7 +22,9 @@ The running tile has Pause (revoke the key, rules stay), Delete (clear the rules
 Save to library and Link. The library (`web/lib/model/library.ts`) keeps named rule sets in the browser; a share link
 `/autopilot?load=<token>` opens the set as a draft on any wallet. Actions take an amount (everything or a fixed USDC
 number, at least 1) and the editing page shows a "What you have" panel: idle wallet, each hub with rate, debt and free
-cash, loan health, USD/TRY, key days. MVP scope closed here on 2026-09-22.
+cash, loan health, USD/TRY, key days. Capital: an action can also take a share (percent of what it could move, the
+router's `Amount::Percent`), a Capital pill on the editing page sets one share for every non-fixed rule, and the running
+tile says which share runs. The save bar says Start autopilot / Update autopilot. MVP scope closed here on 2026-09-22.
 
 2026-09-22 (testnet rent): every XOXNO controller call quoted 566 XLM because the controller's wasm lease fell under
 its self-renewal threshold and testnet rent is high; the JS SDK cannot build a fee that large, so Save on a fresh wallet
