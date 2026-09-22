@@ -439,3 +439,19 @@ After: a supply that opens a position quotes 0.67 XLM on hub 1, an existing-posi
 Watch: the controller renewal buys about 11 days. If XOXNO does not renew their own contract by then, the same
 fee spike returns and this transaction has to be repeated. The `koul_agent_policy` and `koul_router` leases run
 out in about 80,000 ledgers (4.6 days); both are small and cheap to extend.
+
+## Router: up to 32 rules per autopilot (2026-09-22)
+
+One autopilot per wallet, as many rules as a person wants: `MAX_RULES` in `contracts/koul_router` goes from 8 to 32.
+A UI rule often becomes two contract rules (repay and withdraw are written once per hub, "move to the better hub"
+once per direction), so 8 meant as few as four rules on the page. Same address, upgraded in place; the stored
+autopilots and `LastFired` entries carry over. The SDK schema, the chat schema and the page mirror the new cap.
+
+| Step | Result |
+|---|---|
+| `stellar contract upload` | wasm `608bca585be781d8f5edb8aa6d1e7a51d6b975cce1f15e624e198b81d1eb1aa4`, tx `5d227beb670fc266a25790f9f70e143ae86ab67760be3580eb04007ebc28801f` |
+| `upgrade(new_wasm_hash)` by the keeper admin | tx `62cd9800685a36e4e28821b251af072cb3ab434029c665ca83066d196f6f686f` |
+| after | `list_users()` lists the same five wallets, `list_ids(CCDWPO4Q...) = [1]` |
+
+Build note: the homebrew `cargo` on this machine fails to load `libllhttp.9.3.dylib`; put `~/.cargo/bin` first on
+`PATH` after `source scripts/env.sh` so `stellar contract build` finds the rustup toolchain.

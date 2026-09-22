@@ -14,6 +14,11 @@ Deployed, all from this repo on `master`, every push redeploys:
 - Keeper: `.github/workflows/keeper.yml`, every five minutes and on demand, with `KEEPER_SECRET` and `AGENT_SECRET`
   as GitHub repository secrets. `loadEnv` falls back to the process environment, so no `.env` file is needed there.
 
+2026-09-22 (router cap): `MAX_RULES` raised from 8 to 32 and the router upgraded in place (wasm `608bca58...`); one
+autopilot per wallet with up to 32 contract rules. The SDK schema, chat schema and the page mirror it. The Autopilot
+page now shows the running rule with its live readings instead of the composer, a tap on a rule opens it in the
+editor, the save bar shows the passkey steps, drafts are tab-scoped, and a paused autopilot offers Give access.
+
 2026-09-22 (testnet rent): every XOXNO controller call quoted 566 XLM because the controller's wasm lease fell under
 its self-renewal threshold and testnet rent is high; the JS SDK cannot build a fee that large, so Save on a fresh wallet
 died at the position-opening supply and the keeper's tick was blocked. Renewed the controller lease (+200k ledgers)
@@ -76,7 +81,7 @@ Constraints carried over: amounts snapped to 0.01 USDC, min move 1 USDC, repay r
 
 ### A. Router rule engine (`contracts/koul_router`)
 - [x] A1 types above as `contracttype`s, storage keys, migrate constructor signature if needed
-- [x] A2 `set_autopilot` / `clear_autopilot` / `get_autopilot` / `list_ids` / `list_users`, validation (1..=3 conditions, hubs differ for MoveSupply, cooldown > 0, max_age > 0, at most 8 rules)
+- [x] A2 `set_autopilot` / `clear_autopilot` / `get_autopilot` / `list_ids` / `list_users`, validation (1..=3 conditions, hubs differ for MoveSupply, cooldown > 0, max_age > 0, at most 32 rules since 2026-09-22, 8 before)
 - [x] A3 condition evaluation with the existing reads; `check` view
 - [x] A4 `tick`: cooldown, first true rule, execute action with the existing amount logic, record LastFired, emit Fired
 - [x] A5 unit tests for evaluation, ordering, cooldown, amount resolution
