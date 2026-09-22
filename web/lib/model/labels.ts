@@ -25,12 +25,14 @@ export function conditionsCompact(rule: Pick<Rule, "conditions" | "match">): str
   return rule.conditions.map(conditionCompact).join(rule.match === "all" ? " AND " : " OR ");
 }
 
+/** "Withdraw to wallet" for everything, "Withdraw 50 USDC to wallet" for a fixed amount. */
 export function actionShort(a: Action): string {
+  const amt = a.amount === "all" ? null : `${n0(a.amount)} USDC`;
   switch (a.kind) {
-    case "repay_from_wallet": return "Repay debt";
-    case "withdraw_to_wallet": return "Withdraw to wallet";
-    case "move_to_best_pool": return "Move to the better hub";
-    case "supply_from_wallet": return `Supply to Hub ${POOLS[a.pool ?? "B"].hub}`;
+    case "repay_from_wallet": return amt ? `Repay ${amt}` : "Repay debt";
+    case "withdraw_to_wallet": return amt ? `Withdraw ${amt} to wallet` : "Withdraw to wallet";
+    case "move_to_best_pool": return amt ? `Move ${amt} to the better hub` : "Move to the better hub";
+    case "supply_from_wallet": return amt ? `Supply ${amt} to Hub ${POOLS[a.pool ?? "B"].hub}` : `Supply to Hub ${POOLS[a.pool ?? "B"].hub}`;
   }
 }
 

@@ -28,6 +28,7 @@ import type { LiveContext } from "@/lib/chat/schema";
 import { RulesHeader, RulesList } from "@/components/autopilot-page/rules-list";
 import { Running } from "@/components/autopilot-page/running";
 import { copyShareLink, Library, SaveToLibrary } from "@/components/autopilot-page/library";
+import { Holdings } from "@/components/autopilot-page/holdings";
 import { RuleEditor, pairingProblem, ruleTemplate } from "@/components/autopilot-page/rule-editor";
 import { SaveBar, type AccessAsk } from "@/components/autopilot-page/save-bar";
 import { Templates } from "@/components/autopilot-page/templates";
@@ -273,6 +274,9 @@ export default function AutopilotPage() {
 
       {/* The composer: the way in before the first rule, and a helper while editing. A running autopilot shows itself instead. */}
       {(editor.editing || live.status === "off") && <Chat mode={editor.editing ? "editing" : "live"} rules={rules} live={chatLive} onAccept={onAccept} onEdit={onEdit} chips={4} />}
+      {(editor.editing || live.status === "off") && (
+        <Holdings positions={pf.positions} health={pf.health} pools={pools.pools} fx={{ tryPerUsd: values.live.fx, stale: values.live.fxStale }} xlm={w.xlm} access={live.access} loading={pf.loading || pools.loading} />
+      )}
 
       {editor.editing ? (
         <>
