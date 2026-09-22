@@ -17,7 +17,7 @@ import { chainUiId, useArmAutopilot } from "@/hooks/use-autopilots";
 import { invalidate } from "@/lib/data/store";
 import { newId, toCoreAutopilot, type Autopilot } from "@/lib/model/autopilot";
 import { phaseDetail, planSteps, saveSteps, type SaveStep, type SaveStepKey } from "@/lib/model/save-steps";
-import { Label, PillButton, Sk, StatusPill, type StatusKind } from "@/components/signal";
+import { Label, PillButton, Sk, StatusPill, Tile, type StatusKind } from "@/components/signal";
 import { AccessChip } from "@/components/autopilot-page/access";
 import { Chat } from "@/components/autopilot-page/chat";
 import type { ChatDraft } from "@/lib/chat/reducer";
@@ -219,6 +219,12 @@ export default function AutopilotPage() {
       ) : (
         <>
           <RulesList rules={live.rules} now={now} onEdit={editor.begin} />
+          {live.status === "paused" && live.access.loaded && (
+            <Tile className="flex flex-col gap-4 p-5 md:flex-row md:items-center md:justify-between">
+              <p className="text-[15px] text-text md:max-w-[640px]">These rules are saved, but Koul has no key for this wallet, so nothing runs. Give access and they start on the next check.</p>
+              <PillButton size="lg" onClick={() => setAsking(true)} disabled={busy || asking}>Give access</PillButton>
+            </Tile>
+          )}
           <AnimatePresence>{(asking || plan !== null || justSaved) && bar}</AnimatePresence>
         </>
       )}
