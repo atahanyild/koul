@@ -414,3 +414,28 @@ which is the only class of failure worth repeating; anything the server itself r
 Verified in the browser on the live site, with the passkey wallet `CC2F5O…VUIN` connected: ₺1.000,00 at 50.50 became
 19.80 USDC, every step ticking in order, the FAST instructions shown with a reference, the sandbox bank leg pressed,
 and the wallet chip going from 20.40 to 40.79 USDC.
+
+## Testnet rent spike: every XOXNO call quoted 566 XLM (2026-09-22)
+
+Saving rules on a fresh wallet failed before the first passkey: "The network quotes a fee of 566 XLM for this
+transaction, above the protocol limit". The same supply had cost 0.11 XLM two days earlier. Reads on our own
+contracts were unchanged; only calls into the XOXNO controller were affected, supply and withdraw alike.
+
+Cause: the controller's 106 KB wasm lease had dropped below the contract's own renewal threshold, so every call
+bundled a renewal of that wasm to the maximum lease. At testnet's current rent price that renewal alone is 550 XLM,
+above the 429 XLM a transaction fee can carry, so the JS SDK refused to build the transaction. Nothing on our side
+changed; the keeper's tick was blocked the same way.
+
+Fix: renewed the leases ourselves from the keeper account, for less than the contract would have charged.
+
+| Action | Tx |
+|---|---|
+| XOXNO controller code + instance, +200,000 ledgers (about 11 days), 19.82 XLM | `14fe8a2d768405b7754c8ee05516ead504179f54503d51a27e42e067524fd4dc` |
+| Ed25519 verifier code + instance, +1,000,000 ledgers (about 58 days), 3.14 XLM | `59f4fca95e66176187eaaddd4412075f7146cd1672181501254aaa8d825a46a8` |
+
+After: a supply that opens a position quotes 0.67 XLM on hub 1, an existing-position supply 0.03 XLM, a withdraw
+0.03 XLM. The keeper fired on wallet `CCDWPO4Q...` within minutes (`b545113d...` supply, `0462b44b...` withdraw).
+
+Watch: the controller renewal buys about 11 days. If XOXNO does not renew their own contract by then, the same
+fee spike returns and this transaction has to be repeated. The `koul_agent_policy` and `koul_router` leases run
+out in about 80,000 ledgers (4.6 days); both are small and cheap to extend.
