@@ -101,16 +101,20 @@ export function usePoll<T>(key: string | null, fetcher: () => Promise<T>, opts: 
   return { data: snap.data, error: snap.error, loading: snap.loading && snap.data === undefined, refreshing: snap.loading && snap.data !== undefined, updatedAt: snap.updatedAt, refresh };
 }
 
-/** A tiny localStorage-backed store with cross-component reactivity, for demo mode and local drafts. */
-export function createLocalStore<T>(storageKey: string, initial: T) {
+/**
+ * A tiny browser-storage-backed store with cross-component reactivity, for local drafts. `scope: "tab"` keeps the
+ * value in sessionStorage: it survives a reload but not closing the tab, so nothing half-done greets the next visit.
+ */
+export function createLocalStore<T>(storageKey: string, initial: T, opts: { scope?: "browser" | "tab" } = {}) {
   let value: T = initial;
   let loaded = false;
   const listeners = new Set<() => void>();
+  const storage = () => (opts.scope === "tab" ? window.sessionStorage : window.localStorage);
   const load = () => {
     if (loaded || typeof window === "undefined") return;
     loaded = true;
     try {
-      const raw = window.localStorage.getItem(storageKey);
+      const raw = storage().getItem(storageKey);
       if (raw !== null) value = JSON.parse(raw) as T;
     } catch { /* ignore */ }
   };
@@ -118,7 +122,7 @@ export function createLocalStore<T>(storageKey: string, initial: T) {
   const setValue = (next: T | ((prev: T) => T)) => {
     load();
     value = typeof next === "function" ? (next as (p: T) => T)(value) : next;
-    try { window.localStorage.setItem(storageKey, JSON.stringify(value)); } catch { /* ignore */ }
+    try { storage().setItem(storageKey, JSON.stringify(value)); } catch { /* ignore */ }
     listeners.forEach((l) => l());
   };
   const subscribe = (cb: () => void) => { listeners.add(cb); return () => { listeners.delete(cb); }; };

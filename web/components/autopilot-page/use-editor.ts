@@ -2,8 +2,8 @@
 
 /**
  * The editing state of the Autopilot page: a draft list of rules that starts as a copy of what the router holds,
- * kept in this browser until it is saved or discarded. While a draft exists the page is in EDITING; the live rules
- * keep running until the save lands.
+ * kept for this tab until it is saved or discarded (a reload keeps it, a new visit starts clean). While a draft
+ * exists the page is in EDITING; the live rules keep running until the save lands.
  */
 import { useCallback, useMemo } from "react";
 import { createLocalStore } from "@/lib/data/store";
@@ -13,7 +13,7 @@ import { newId, type Rule } from "@/lib/model/autopilot";
 /** `past` holds the lists before each change that can be undone (a drop, a chat edit), newest last. */
 interface Draft { rules: Rule[]; open: string | null; past?: Rule[][] }
 const UNDO_DEPTH = 10;
-const drafts = createLocalStore<Record<string, Draft>>("koul.autopilot.draft", {});
+const drafts = createLocalStore<Record<string, Draft>>("koul.autopilot.draft", {}, { scope: "tab" });
 
 export interface Editor {
   rules: Rule[];
