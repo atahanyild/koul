@@ -16,6 +16,7 @@ import { useWallet } from "@/hooks/use-wallet";
 import { chainUiId, useArmAutopilot } from "@/hooks/use-autopilots";
 import { invalidate } from "@/lib/data/store";
 import { newId, toCoreAutopilot, type Autopilot } from "@/lib/model/autopilot";
+import { phaseDetail, planSteps, saveSteps, type SaveStep, type SaveStepKey } from "@/lib/model/save-steps";
 import { Label, PillButton, Sk, StatusPill, type StatusKind } from "@/components/signal";
 import { AccessChip } from "@/components/autopilot-page/access";
 import { Chat } from "@/components/autopilot-page/chat";
@@ -84,12 +85,34 @@ export default function AutopilotPage() {
     ?? (rules.length > 0 && contractCount > MAX_CONTRACT_RULES ? `The router holds at most ${MAX_CONTRACT_RULES} rules on-chain and this list becomes ${contractCount}` : null)
     ?? (rules.length > 0 && needsPosition && idle < 1 ? "Deposit at least 1 USDC first: the first save opens your XOXNO position" : null)
     ?? (rules.length > 0 && toCoreAutopilot({ rules }, 0n).unsupported.length ? "One rule is not something the router can run" : null);
-  const confirmations = rules.length === 0 ? 1 : 1 + (live.access.active ? 0 : 1) + (needsPosition ? 1 : 0);
   const [waitingForId, setWaitingForId] = React.useState(false);
   const busy = armer.openAction.busy || armer.grantAction.busy || armer.rulesAction.busy || waitingForId;
   const busyLabel = armer.openAction.busy ? "Opening your position" : waitingForId ? "Reading your position" : armer.grantAction.busy ? "Giving access" : armer.rulesAction.busy ? "Saving rules" : null;
   const [saveError, setSaveError] = React.useState<string | null>(null);
   const [asking, setAsking] = React.useState(false);
+
+  // The passkey steps of the save in progress. The plan is fixed when the save starts, so a step that lands does
+  // not vanish from the strip; Try again keeps the same plan and resumes at the step that failed.
+  const [plan, setPlan] = React.useState<SaveStepKey[] | null>(null);
+  const [failedStep, setFailedStep] = React.useState<{ key: SaveStepKey; reason: string } | null>(null);
+  const [completed, setCompleted] = React.useState(false);
+  const nextPlan = React.useMemo(() => planSteps({ needsPosition, hasAccess: live.access.active }), [needsPosition, live.access.active]);
+  const confirmations = rules.length === 0 ? 1 : nextPlan.length;
+  const progress = React.useMemo<SaveStep[] | null>(() => {
+    if (!plan) return null;
+    const active: { key: SaveStepKey; detail: string | null } | null = armer.openAction.busy ? { key: "open", detail: phaseDetail(armer.openAction.phase) }
+      : waitingForId ? { key: "open", detail: "Reading your position id" }
+      : armer.grantAction.busy ? { key: "grant", detail: phaseDetail(armer.grantAction.phase) }
+      : armer.rulesAction.busy ? { key: "rules", detail: phaseDetail(armer.rulesAction.phase) }
+      : null;
+    const done = {
+      open: completed || !needsPosition || armer.openAction.phase === "success",
+      grant: completed || live.access.active || armer.grantAction.phase === "success",
+      rules: completed || armer.rulesAction.phase === "success",
+    };
+    return saveSteps({ plan, done, active, failed: failedStep });
+  }, [plan, armer.openAction.busy, armer.openAction.phase, armer.grantAction.busy, armer.grantAction.phase, armer.rulesAction.busy, armer.rulesAction.phase, waitingForId, completed, needsPosition, live.access.active, failedStep]);
+  const clearProgress = React.useCallback(() => { setPlan(null); setFailedStep(null); setCompleted(false); }, []);
 
   const [justSaved, setJustSaved] = React.useState(false);
   /** The chain does the work; the page only leaves editing once the chain read shows the saved rules. */
@@ -100,14 +123,22 @@ export default function AutopilotPage() {
     setJustSaved(true);
     await new Promise((r) => setTimeout(r, 1200));
     setJustSaved(false);
+    clearProgress();
     editor.discard();
     setHighlight(null);
     setChatChanges([]);
-  }, [live, editor]);
+  }, [live, editor, clearProgress]);
 
   const submit = React.useCallback(async () => {
     setAsking(false);
     setSaveError(null);
+    setFailedStep(null);
+    if (plan === null) {
+      // A fresh save: the phases of an earlier save must not count as done for this one.
+      setPlan(nextPlan);
+      setCompleted(false);
+      armer.openAction.reset(); armer.grantAction.reset(); armer.rulesAction.reset();
+    }
     const ap: Autopilot = { id: live.chainId !== null ? chainUiId(live.chainId) : newId("ap"), name: "Autopilot", description: "", rules, status: "draft", createdAt: Date.now(), armedUntil: null, agentRuleId: null, runs: 0, lastRunAt: null };
     setWaitingForId(needsPosition);
     let res: Awaited<ReturnType<typeof armer.arm>>;
@@ -116,11 +147,16 @@ export default function AutopilotPage() {
     } finally {
       setWaitingForId(false);
     }
-    if (res.ok) { await settle(); return; }
-    // Stay in editing, and say why in the bar; a transaction that failed already said so in a toast.
+    if (res.ok) { setCompleted(true); await settle(); return; }
+    // Stay in editing. A step that failed stays marked in the strip with its reason; anything before the first
+    // passkey (the wallet, the rules themselves) goes in the bar's line. A transaction that failed already toasted.
+    const key: SaveStepKey | null = res.step === "open" || res.step === "account" ? "open" : res.step === "grant" ? "grant" : res.step === "write" ? "rules" : null;
+    const reason = res.reason.replace(/^[^:]{0,60}: /, "");
+    if (key) { setFailedStep({ key, reason }); return; }
+    clearProgress();
     setSaveError(res.reason);
     if (!res.toasted) toast.error("Rules not saved", { description: res.reason });
-  }, [live.chainId, rules, armer, pf.accountId, needsPosition, openHub, settle]);
+  }, [live.chainId, rules, armer, pf.accountId, needsPosition, openHub, settle, plan, nextPlan, clearProgress]);
 
   const onSave = React.useCallback(async () => {
     if (blocker) return;
@@ -132,12 +168,14 @@ export default function AutopilotPage() {
       else setSaveError("The rules were not cleared");
       return;
     }
-    // No key yet: one sentence about what Koul gets, then the passkeys.
-    if (!live.access.active || needsPosition) { setAsking(true); return; }
+    // No key yet: one sentence about what Koul gets, then the passkeys. Try again after a failed step resumes.
+    if ((!live.access.active || needsPosition) && plan === null) { setAsking(true); return; }
     await submit();
-  }, [blocker, rules, live.chainId, live.access.active, armer, needsPosition, settle, submit]);
+  }, [blocker, rules, live.chainId, live.access.active, armer, needsPosition, settle, submit, plan]);
 
-  const ask: AccessAsk | null = asking ? { needsPosition, days: ACCESS_DAYS, onConfirm: () => void submit(), onCancel: () => setAsking(false) } : null;
+  const ask: AccessAsk | null = asking ? { needsPosition, days: ACCESS_DAYS, steps: saveSteps({ plan: nextPlan, done: {}, active: null, failed: null }), onConfirm: () => void submit(), onCancel: () => setAsking(false) } : null;
+  const onDiscard = () => { editor.discard(); setHighlight(null); setChatChanges([]); setSaveError(null); setAsking(false); clearProgress(); };
+  const bar = <SaveBar key="save-bar" changes={editor.changes} confirmations={confirmations} blocker={editor.changes === 0 ? null : blocker} error={saveError} ask={ask} saved={justSaved} busy={busy} busyLabel={busyLabel} progress={progress} onDiscard={onDiscard} onSave={() => void onSave()} />;
 
   if (live.loading && live.status === "off" && !editor.editing) {
     return (
@@ -174,14 +212,15 @@ export default function AutopilotPage() {
         <>
           <RulesHeader hint="Top to bottom · first match runs" action={editor.canUndo ? <PillButton variant="ghost" size="sm" onClick={undoChat}>Undo</PillButton> : undefined} />
           <RuleEditor editor={editor} liveRules={live.rules} live={values.live} now={now} highlight={highlight} changes={chatChanges} onUndo={undoChat} onAdd={() => editor.add(ruleTemplate())} />
-          <AnimatePresence>
-          <SaveBar key="save-bar" changes={editor.changes} confirmations={confirmations} blocker={editor.changes === 0 ? null : blocker} error={saveError} ask={ask} saved={justSaved} busy={busy} busyLabel={busyLabel} onDiscard={() => { editor.discard(); setHighlight(null); setChatChanges([]); setSaveError(null); setAsking(false); }} onSave={() => void onSave()} />
-          </AnimatePresence>
+          <AnimatePresence>{bar}</AnimatePresence>
         </>
       ) : live.status === "off" ? (
         <Templates onAdd={(rule) => editor.add(rule)} />
       ) : (
-        <RulesList rules={live.rules} now={now} onEdit={editor.begin} />
+        <>
+          <RulesList rules={live.rules} now={now} onEdit={editor.begin} />
+          <AnimatePresence>{(asking || plan !== null || justSaved) && bar}</AnimatePresence>
+        </>
       )}
     </div>
   );
