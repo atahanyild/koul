@@ -21,7 +21,8 @@ import { POOLS, type Action, type Comparator, type Condition, type ConditionKind
 import { ACTION_CHOICES, CONDITION_SUBJECTS, agoShort, cooldownShort, liveLabel, observedLabel } from "@/lib/model/labels";
 import type { LiveRule } from "@/hooks/use-autopilot-live";
 import type { Editor } from "./use-editor";
-import { pairingProblem } from "@/lib/model/pairing";
+import { MIN_AMOUNT_USDC, pairingProblem } from "@/lib/model/pairing";
+import { parseAmount, sanitizeAmount } from "@/components/flows/amount-input";
 import type { RuleChange } from "@/lib/chat/diff";
 import { cn } from "@/lib/utils";
 
@@ -81,10 +82,34 @@ function ConditionPickers({ c, i, onChange }: { c: Condition; i: number; onChang
   );
 }
 
-function ActionPickers({ action, onChange }: { action: Action; onChange: (next: Action) => void }) {
+/** What "everything" means for each action, and the number it is measured against, for the hint under the amount. */
+function amountContext(kind: Action["kind"], live: LiveValues): { all: string; have: number | null } {
+  const supplied = live.suppliedA !== null && live.suppliedB !== null ? live.suppliedA + live.suppliedB : null;
+  switch (kind) {
+    case "supply_from_wallet": return { all: "every idle USDC in the wallet", have: live.idleUsdc };
+    case "repay_from_wallet": return { all: "the whole debt, from the wallet", have: live.idleUsdc };
+    case "withdraw_to_wallet": return { all: "everything supplied", have: supplied };
+    case "move_to_best_pool": return { all: "everything supplied", have: supplied };
+  }
+}
+
+const AMOUNT_MODES = [{ value: "all", label: "Everything" }, { value: "fixed", label: "An amount" }];
+
+function ActionPickers({ action, live, onChange }: { action: Action; live: LiveValues; onChange: (next: Action) => void }) {
+  const fixed = action.amount !== "all";
+  const [text, setText] = React.useState(fixed ? String(action.amount) : "");
+  // The field follows the rule when something else changes the amount (a chat edit, Undo), not while it is typed in.
+  const [seen, setSeen] = React.useState(action.amount);
+  if (action.amount !== seen) {
+    setSeen(action.amount);
+    if (action.amount !== "all" && parseAmount(text) !== action.amount) setText(String(action.amount));
+  }
+  const ctx = amountContext(action.kind, live);
+  const have = ctx.have === null ? null : ctx.have.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   return (
+    <div className="grid gap-2">
     <div className="flex flex-wrap items-center gap-2">
-      <Select value={action.kind} onValueChange={(v) => v && onChange({ kind: v as Action["kind"], amount: "all", ...(v === "supply_from_wallet" ? { pool: "B" as const } : {}) })} items={ACTION_CHOICES.map((a) => ({ value: a.kind, label: a.label }))}>
+      <Select value={action.kind} onValueChange={(v) => v && onChange({ kind: v as Action["kind"], amount: action.amount, ...(v === "supply_from_wallet" ? { pool: "B" as const } : {}) })} items={ACTION_CHOICES.map((a) => ({ value: a.kind, label: a.label }))}>
         <SelectTrigger className={pill} aria-label="What to do"><SelectValue /></SelectTrigger>
         <SelectContent className={popup}>{ACTION_CHOICES.map((a) => <SelectItem key={a.kind} value={a.kind} className={item}>{a.label}</SelectItem>)}</SelectContent>
       </Select>
@@ -94,6 +119,34 @@ function ActionPickers({ action, onChange }: { action: Action; onChange: (next: 
           <SelectContent className={popup}>{(["A", "B"] as const).map((p) => <SelectItem key={p} value={p} className={item}>{`Hub ${POOLS[p].hub}`}</SelectItem>)}</SelectContent>
         </Select>
       )}
+    </div>
+    <div className="flex flex-wrap items-center gap-2">
+      <Select value={fixed ? "fixed" : "all"} onValueChange={(v) => v && onChange({ ...action, amount: v === "all" ? "all" : Math.max(MIN_AMOUNT_USDC, parseAmount(text) || (ctx.have && ctx.have >= MIN_AMOUNT_USDC ? Math.floor(ctx.have) : 10)) })} items={AMOUNT_MODES}>
+        <SelectTrigger className={pill} aria-label="How much"><SelectValue /></SelectTrigger>
+        <SelectContent className={popup}>{AMOUNT_MODES.map((m) => <SelectItem key={m.value} value={m.value} className={item}>{m.label}</SelectItem>)}</SelectContent>
+      </Select>
+      {fixed && (
+        <label className="mono flex h-11 items-center gap-2 rounded-full bg-surface-2 px-4 text-text focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-accent-text">
+          <input
+            value={text}
+            onChange={(e) => { const s = sanitizeAmount(e.target.value); setText(s); const n = parseAmount(s); if (n > 0) onChange({ ...action, amount: n }); }}
+            onBlur={() => { const n = parseAmount(text); if (!(n >= MIN_AMOUNT_USDC)) { setText(String(MIN_AMOUNT_USDC)); onChange({ ...action, amount: MIN_AMOUNT_USDC }); } }}
+            inputMode="decimal"
+            autoComplete="off"
+            size={6}
+            aria-label="Amount in USDC"
+            className="num w-[7ch] bg-transparent text-right outline-none placeholder:text-dim"
+            placeholder="0"
+          />
+          <span className="text-muted">USDC</span>
+        </label>
+      )}
+      {have !== null && (
+        <button type="button" onClick={() => { if (ctx.have !== null && ctx.have >= MIN_AMOUNT_USDC) { const n = Math.floor(ctx.have * 100) / 100; setText(String(n)); onChange({ ...action, amount: n }); } }} className="label min-h-11 rounded-full px-3 text-muted hover:text-text" disabled={ctx.have === null || ctx.have < MIN_AMOUNT_USDC}>
+          {fixed ? `You have ${have} USDC` : `Everything = ${ctx.all} · ${have} USDC now`}
+        </button>
+      )}
+    </div>
     </div>
   );
 }
@@ -177,7 +230,7 @@ function SortableRule({ rule, i, shownIndex, editor, lr, live, now, dragging, hi
           <div className="grid gap-5">
             <div className="grid gap-2">
               <Label>Then</Label>
-              <ActionPickers action={rule.action} onChange={(next) => editor.update(rule.id, { action: next })} />
+              <ActionPickers action={rule.action} live={live} onChange={(next) => editor.update(rule.id, { action: next })} />
             </div>
             <div className="grid gap-2">
               <Label>Wait between runs</Label>
