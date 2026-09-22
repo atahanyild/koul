@@ -32,7 +32,7 @@ export const ruleSchema = z.object({
 }).strict();
 export const autopilotSchema = z.object({
   account_id: decimal,
-  rules: z.array(ruleSchema).min(1).max(8),
+  rules: z.array(ruleSchema).min(1).max(32),
 }).strict();
 
 export type Cmp = z.infer<typeof cmpSchema>;

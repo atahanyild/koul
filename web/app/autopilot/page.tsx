@@ -33,7 +33,7 @@ import { useEditor } from "@/components/autopilot-page/use-editor";
 
 const ACCESS_DAYS = 30;
 const OPEN_WITH_USDC = 1_0000000n;
-const MAX_CONTRACT_RULES = 8;
+const MAX_CONTRACT_RULES = 32;
 
 function useMinute(): number {
   const [now, setNow] = React.useState(() => Date.now());
