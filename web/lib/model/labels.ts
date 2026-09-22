@@ -27,7 +27,7 @@ export function conditionsCompact(rule: Pick<Rule, "conditions" | "match">): str
 
 /** "Withdraw to wallet" for everything, "Withdraw 50 USDC to wallet" for a fixed amount. */
 export function actionShort(a: Action): string {
-  const amt = a.amount === "all" ? null : `${n0(a.amount)} USDC`;
+  const amt = a.amount === "all" ? null : typeof a.amount === "number" ? `${n0(a.amount)} USDC` : `${a.amount.percent}%`;
   switch (a.kind) {
     case "repay_from_wallet": return amt ? `Repay ${amt}` : "Repay debt";
     case "withdraw_to_wallet": return amt ? `Withdraw ${amt} to wallet` : "Withdraw to wallet";

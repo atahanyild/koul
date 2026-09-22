@@ -14,7 +14,7 @@ export const conditionSchema = z.object({
 
 export const actionSchema = z.object({
   kind: z.enum(["withdraw_to_wallet", "repay_from_wallet", "move_to_best_pool", "supply_from_wallet"]),
-  amount: z.union([z.literal("all"), z.number().finite().min(1)]),
+  amount: z.union([z.literal("all"), z.number().finite().min(1), z.object({ percent: z.number().int().min(1).max(100) }).strict()]),
   pool: z.enum(["A", "B"]).optional(),
 }).strict();
 

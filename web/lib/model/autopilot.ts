@@ -35,8 +35,8 @@ export type ActionKind = "supply_from_wallet" | "move_to_best_pool" | "repay_fro
 
 export interface Action {
   kind: ActionKind;
-  /** "all" or a fixed USDC amount. */
-  amount: "all" | number;
+  /** "all", a share of what the action could move (percent), or a fixed USDC amount. */
+  amount: "all" | number | { percent: number };
   /** Which pool the action names, where it needs one (supply and withdraw). Defaults to the second hub. */
   pool?: PoolId;
 }
@@ -83,19 +83,19 @@ export const COMPARATOR_LABELS: Record<Comparator, string> = { gte: "is at or ab
 
 export const ACTION_LABELS: Record<ActionKind, { sentence: (amount: Action["amount"], pool?: PoolId) => string; technical: string }> = {
   supply_from_wallet: {
-    sentence: (a, pool) => `put ${a === "all" ? "the idle USDC in my wallet" : `${a} USDC from my wallet`} into ${pool ? POOLS[pool].name : "the pool"}`,
+    sentence: (a, pool) => `put ${a === "all" ? "the idle USDC in my wallet" : typeof a === "number" ? `${a} USDC from my wallet` : `${a.percent}% of the idle USDC in my wallet`} into ${pool ? POOLS[pool].name : "the pool"}`,
     technical: "controller.supply with idle wallet USDC; this is how an autopilot opens a position",
   },
   move_to_best_pool: {
-    sentence: (a) => `move ${a === "all" ? "all" : `${a} USDC of`} my supplied USDC to the pool that pays more`,
+    sentence: (a) => `move ${a === "all" ? "all" : typeof a === "number" ? `${a} USDC of` : `${a.percent}% of`} my supplied USDC to the pool that pays more`,
     technical: "controller.withdraw from the lower-rate hub, controller.supply to the higher-rate hub, one transaction",
   },
   repay_from_wallet: {
-    sentence: (a) => `repay ${a === "all" ? "my loan" : `${a} USDC of my loan`} from the USDC in my wallet`,
+    sentence: (a) => `repay ${a === "all" ? "my loan" : typeof a === "number" ? `${a} USDC of my loan` : `${a.percent}% of my loan`} from the USDC in my wallet`,
     technical: "controller.repay with idle wallet USDC, debt rounded up by one grain",
   },
   withdraw_to_wallet: {
-    sentence: (a) => `withdraw ${a === "all" ? "everything" : `${a} USDC`} from the pools to my wallet`,
+    sentence: (a) => `withdraw ${a === "all" ? "everything" : typeof a === "number" ? `${a} USDC` : `${a.percent}% of what is supplied`} from the pools to my wallet`,
     technical: "controller.withdraw from every hub to the smart account; stays armed while over 1 USDC remains",
   },
 };
@@ -336,8 +336,8 @@ export const apyToApr = (apy: number) => Math.log1p(apy / 100) * 100;
 
 const toLedgers = (sec: number) => Math.max(1, Math.round(sec / LEDGER_SECONDS));
 const toUnits = (usdc: number) => BigInt(Math.round(usdc * 1e7)).toString();
-const toAmount = (a: Action["amount"]): CoreAmount => (a === "all" ? { type: "All" } : { type: "Fixed", value: toUnits(a) });
-const fromAmount = (a: CoreAmount): Action["amount"] => (a.type === "All" ? "all" : a.type === "Fixed" ? Number(a.value) / 1e7 : 0);
+const toAmount = (a: Action["amount"]): CoreAmount => (a === "all" ? { type: "All" } : typeof a === "number" ? { type: "Fixed", value: toUnits(a) } : { type: "Percent", bps: Math.max(1, Math.min(10_000, Math.round(a.percent * 100))) });
+const fromAmount = (a: CoreAmount): Action["amount"] => (a.type === "All" ? "all" : a.type === "Fixed" ? Number(a.value) / 1e7 : a.bps >= 10_000 ? "all" : { percent: Math.max(1, Math.round(a.bps / 100)) });
 
 /** A UI condition as contract conditions. Rate gap is direction-less in the UI, so it yields one variant per direction. */
 function toCoreConditions(c: Condition): { variants: CoreCondition[][]; unsupported: boolean } {

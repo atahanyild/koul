@@ -11,5 +11,6 @@ export function pairingProblem(rule: Rule): string | null {
   if (rule.conditions.some((c) => c.kind === "rate_gap" && c.comparator !== "gte")) return "The rate gap only works as \"more than\"";
   if (rule.conditions.some((c) => !(c.value > 0))) return "Every level must be above zero";
   if (typeof rule.action.amount === "number" && !(rule.action.amount >= MIN_AMOUNT_USDC)) return `An amount must be at least ${MIN_AMOUNT_USDC} USDC`;
+  if (typeof rule.action.amount === "object" && !(Number.isInteger(rule.action.amount.percent) && rule.action.amount.percent >= 1 && rule.action.amount.percent <= 100)) return "A share is a whole percent between 1 and 100";
   return null;
 }
