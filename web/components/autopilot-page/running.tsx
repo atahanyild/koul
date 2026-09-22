@@ -11,6 +11,7 @@ import { KeyValue, Label, StatusDot, Tile, TileLabel } from "@/components/signal
 import { RuleNumber } from "@/components/rules/rule-line";
 import type { AutopilotLiveState, LiveRule } from "@/hooks/use-autopilot-live";
 import { actionShort, agoShort, conditionCompact, cooldownShort, observedLabel, whenLabel } from "@/lib/model/labels";
+import { capitalOf } from "@/lib/model/capital";
 import { cn } from "@/lib/utils";
 
 /** The keeper ticks every five minutes. */
@@ -39,6 +40,7 @@ export function Running({ ap, now, actions }: { ap: AutopilotLiveState; now: num
   const paused = ap.status === "paused";
   const current = ap.rules.find((r) => r.current) ?? null;
   const on = ap.rules.filter((r) => r.rule.enabled).length;
+  const capital = capitalOf(ap.rules.map((r) => r.rule));
   const lastRun = ap.rules.map((r) => r.lastRun).filter((r): r is NonNullable<typeof r> => r !== null).sort((a, b) => b.at - a.at)[0] ?? null;
   return (
     <Tile className="grid gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] md:gap-8">
@@ -48,6 +50,7 @@ export function Running({ ap, now, actions }: { ap: AutopilotLiveState; now: num
         <div className="mt-3 grid gap-1">
           <Label>{on} {on === 1 ? "rule" : "rules"} on{paused ? " · no access" : ""}</Label>
           <Label>{paused ? "Nothing runs until access is given" : `Checked every ${CHECK_EVERY}`}</Label>
+          {capital !== null && <Label>Capital · {capital === "mixed" ? "mixed per rule" : capital >= 100 ? "everything it can move" : `${capital}% of what it can move`}</Label>}
           {ap.access.active && ap.access.daysLeft !== null && <Label>Access {ap.access.daysLeft}D left</Label>}
         </div>
         {actions && <div className="mt-5 flex flex-wrap gap-2">{actions}</div>}

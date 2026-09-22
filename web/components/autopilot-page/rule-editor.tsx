@@ -22,6 +22,7 @@ import { ACTION_CHOICES, CONDITION_SUBJECTS, agoShort, cooldownShort, liveLabel,
 import type { LiveRule } from "@/hooks/use-autopilot-live";
 import type { Editor } from "./use-editor";
 import { MIN_AMOUNT_USDC, pairingProblem } from "@/lib/model/pairing";
+import { isFixed, isPercent } from "@/lib/model/capital";
 import { parseAmount, sanitizeAmount } from "@/components/flows/amount-input";
 import type { RuleChange } from "@/lib/chat/diff";
 import { cn } from "@/lib/utils";
@@ -93,16 +94,19 @@ function amountContext(kind: Action["kind"], live: LiveValues): { all: string; h
   }
 }
 
-const AMOUNT_MODES = [{ value: "all", label: "Everything" }, { value: "fixed", label: "An amount" }];
+const AMOUNT_MODES = [{ value: "all", label: "Everything" }, { value: "share", label: "A share" }, { value: "fixed", label: "An amount" }];
+const SHARES = [75, 50, 25, 10].map((p) => ({ value: String(p), label: `${p}%` }));
 
 function ActionPickers({ action, live, onChange }: { action: Action; live: LiveValues; onChange: (next: Action) => void }) {
-  const fixed = action.amount !== "all";
+  const fixed = isFixed(action.amount);
+  const share = isPercent(action.amount) ? action.amount.percent : null;
+  const mode = fixed ? "fixed" : share !== null ? "share" : "all";
   const [text, setText] = React.useState(fixed ? String(action.amount) : "");
   // The field follows the rule when something else changes the amount (a chat edit, Undo), not while it is typed in.
   const [seen, setSeen] = React.useState(action.amount);
   if (action.amount !== seen) {
     setSeen(action.amount);
-    if (action.amount !== "all" && parseAmount(text) !== action.amount) setText(String(action.amount));
+    if (isFixed(action.amount) && parseAmount(text) !== action.amount) setText(String(action.amount));
   }
   const ctx = amountContext(action.kind, live);
   const have = ctx.have === null ? null : ctx.have.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -121,10 +125,16 @@ function ActionPickers({ action, live, onChange }: { action: Action; live: LiveV
       )}
     </div>
     <div className="flex flex-wrap items-center gap-2">
-      <Select value={fixed ? "fixed" : "all"} onValueChange={(v) => v && onChange({ ...action, amount: v === "all" ? "all" : Math.max(MIN_AMOUNT_USDC, parseAmount(text) || (ctx.have && ctx.have >= MIN_AMOUNT_USDC ? Math.floor(ctx.have) : 10)) })} items={AMOUNT_MODES}>
+      <Select value={mode} onValueChange={(v) => v && onChange({ ...action, amount: v === "all" ? "all" : v === "share" ? { percent: 50 } : Math.max(MIN_AMOUNT_USDC, parseAmount(text) || (ctx.have && ctx.have >= MIN_AMOUNT_USDC ? Math.floor(ctx.have) : 10)) })} items={AMOUNT_MODES}>
         <SelectTrigger className={pill} aria-label="How much"><SelectValue /></SelectTrigger>
         <SelectContent className={popup}>{AMOUNT_MODES.map((m) => <SelectItem key={m.value} value={m.value} className={item}>{m.label}</SelectItem>)}</SelectContent>
       </Select>
+      {share !== null && (
+        <Select value={String(share)} onValueChange={(v) => v && onChange({ ...action, amount: { percent: Number(v) } })} items={SHARES.some((s) => s.value === String(share)) ? SHARES : [{ value: String(share), label: `${share}%` }, ...SHARES]}>
+          <SelectTrigger className={pill} aria-label="Which share"><SelectValue /></SelectTrigger>
+          <SelectContent className={popup}>{(SHARES.some((s) => s.value === String(share)) ? SHARES : [{ value: String(share), label: `${share}%` }, ...SHARES]).map((s) => <SelectItem key={s.value} value={s.value} className={item}>{s.label}</SelectItem>)}</SelectContent>
+        </Select>
+      )}
       {fixed && (
         <label className="mono flex h-11 items-center gap-2 rounded-full bg-surface-2 px-4 text-text focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-accent-text">
           <input
@@ -143,7 +153,7 @@ function ActionPickers({ action, live, onChange }: { action: Action; live: LiveV
       )}
       {have !== null && (
         <button type="button" onClick={() => { if (ctx.have !== null && ctx.have >= MIN_AMOUNT_USDC) { const n = Math.floor(ctx.have * 100) / 100; setText(String(n)); onChange({ ...action, amount: n }); } }} className="label min-h-11 rounded-full px-3 text-muted hover:text-text" disabled={ctx.have === null || ctx.have < MIN_AMOUNT_USDC}>
-          {fixed ? `You have ${have} USDC` : `Everything = ${ctx.all} · ${have} USDC now`}
+          {fixed ? `You have ${have} USDC` : share !== null ? `${share}% of ${ctx.all} · ${have} USDC now` : `Everything = ${ctx.all} · ${have} USDC now`}
         </button>
       )}
     </div>
