@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 import { toSembolError, usePasskeyWallet, type SembolError } from "@sembol/passkey-react";
 import type { AssembledTransaction, SmartAccountKit, TransactionSuccess } from "smart-account-kit";
@@ -45,10 +45,16 @@ export interface ActionState {
   hash: string | null;
   busy: boolean;
   reset: () => void;
+  /** The reason the last run did not succeed, in one sentence, or null after a success. */
+  lastFailure: () => string | null;
 }
 
-/** Fire a success toast with a stellar.expert link. Every on-chain action ends here. */
+/**
+ * The only success toast in the app: fired after the network confirmed a transaction (status SUCCESS and a hash),
+ * named after what that transaction did, with a link to it. Nothing else may call `toast.success`.
+ */
 export function toastTx(title: string, hash: string, description?: string) {
+  if (!hash) return;
   toast.success(title, {
     description: description ?? `Transaction ${shortHash(hash)}`,
     action: { label: "View on stellar.expert", onClick: () => window.open(explorerTx(hash), "_blank", "noopener") },
@@ -77,30 +83,37 @@ export function usePasskeyAction() {
   const [phase, setPhase] = useState<ActionPhase>("idle");
   const [error, setError] = useState<SembolError | null>(null);
   const [hash, setHash] = useState<string | null>(null);
+  const failure = useRef<string | null>(null);
 
-  const run = useCallback(async <T,>(build: () => Promise<AssembledTransaction<T>>, opts: { title: string; description?: string; invalidatePrefixes?: string[]; quiet?: boolean }): Promise<TransactionSuccess | null> => {
+  /**
+   * `title` is the fact the success toast states once the transaction is confirmed ("Rules saved"); `doing` is
+   * what the loading toasts say meanwhile ("Saving your rules"). The two are never swapped.
+   */
+  const run = useCallback(async <T,>(build: () => Promise<AssembledTransaction<T>>, opts: { title: string; doing: string; description?: string; invalidatePrefixes?: string[]; quiet?: boolean }): Promise<TransactionSuccess | null> => {
     if (!kit) { toast.error("Wallet not ready"); return null; }
     if (!acquireCeremony()) {
       toast("One at a time", { description: "A passkey prompt is already open. Finish or dismiss it first." });
       return null;
     }
     setError(null); setHash(null); setPhase("building");
-    const toastId = toast.loading("Preparing the transaction", { description: opts.title });
+    const toastId = toast.loading(opts.doing, { description: "Preparing the transaction" });
     let restore: (() => void) | null = null;
     try {
       const tx = await build();
       setPhase("prompt");
-      toast.loading("Waiting for your passkey", { id: toastId, description: "Your device is asking you to confirm." });
+      toast.loading(opts.doing, { id: toastId, description: "Confirm with your passkey" });
       restore = instrumentRpc(kit, {
-        signed: () => { setPhase("signed"); toast.loading("Signed. Checking with the network", { id: toastId, description: opts.title }); },
-        submitting: () => { setPhase("submitting"); toast.loading("Sending to Stellar", { id: toastId, description: "A few seconds while the ledger closes." }); },
+        signed: () => { setPhase("signed"); toast.loading(opts.doing, { id: toastId, description: "Signed · checking with the network" }); },
+        submitting: () => { setPhase("submitting"); toast.loading(opts.doing, { id: toastId, description: "Sent · waiting for the ledger to close" }); },
       });
       const res = await kit.signAndSubmit(tx);
       restore();
       restore = null;
       setPhase("submitting");
       if (!res.success) throw new Error(describeFailure(res.error));
+      if (!res.hash) throw new Error("The network confirmed nothing: no transaction hash came back");
       setHash(res.hash);
+      failure.current = null;
       setPhase("success");
       toast.dismiss(toastId);
       if (!opts.quiet) toastTx(opts.title, res.hash, opts.description);
@@ -112,18 +125,20 @@ export function usePasskeyAction() {
       const e = toSembolError(err);
       setError(e);
       const dismissed = e.code === "user_cancelled" || isDismissed(err);
+      failure.current = dismissed ? "The passkey prompt was dismissed; nothing was signed" : describeFailure(err) || e.userMessage || e.message;
       setPhase(dismissed ? "cancelled" : "error");
       if (dismissed) toast("Nothing was signed", { description: "The passkey prompt was dismissed or timed out. Press the button again when you are ready." });
-      else toastError(`${opts.title} failed`, err);
+      else toastError(`${opts.doing} failed`, err);
       return null;
     } finally {
       releaseCeremony();
     }
   }, [kit]);
 
-  const reset = useCallback(() => { setPhase("idle"); setError(null); setHash(null); }, []);
+  const reset = useCallback(() => { setPhase("idle"); setError(null); setHash(null); failure.current = null; }, []);
+  const lastFailure = useCallback(() => failure.current, []);
   const busy = phase === "building" || phase === "prompt" || phase === "signed" || phase === "submitting";
-  return { run, phase, error, hash, busy, reset } as ActionState & { run: typeof run };
+  return { run, phase, error, hash, busy, reset, lastFailure } as ActionState & { run: typeof run };
 }
 
 /** Turn whatever failed into one sentence, naming the contract error when there is one. */
@@ -144,6 +159,8 @@ export function describeFailure(err: unknown): string {
     "112": "The pool does not have enough liquid USDC right now",
     "127": "The pool is at its utilisation ceiling right now",
   };
+  const fee = text.match(/exceeds the maximum uint32 value \(\d+\)\. Got (\d+)/);
+  if (fee) return `The network quotes a fee of ${Math.round(Number(fee[1]) / 1e7).toLocaleString("en-US")} XLM for this transaction, above the protocol limit. Nothing was signed.`;
   if (code && known[code]) return `${known[code]} (contract error ${code})`;
   if (code) return `The contract refused the call with error ${code}`;
   const m = text.match(/"?message"?\s*[:=]\s*"([^"]{4,200})"/);

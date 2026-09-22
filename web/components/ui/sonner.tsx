@@ -30,15 +30,25 @@ const Toaster = ({ ...props }: ToasterProps) => {
       }}
       style={
         {
-          "--normal-bg": "var(--popover)",
-          "--normal-text": "var(--popover-foreground)",
-          "--normal-border": "var(--border)",
-          "--border-radius": "var(--radius)",
+          // The Signal tokens themselves: an opaque surface, the hairline, the text colour. `--popover` does not exist.
+          "--normal-bg": "var(--surface)",
+          "--normal-text": "var(--text)",
+          "--normal-border": "var(--line)",
+          "--success-bg": "var(--surface)",
+          "--success-text": "var(--text)",
+          "--success-border": "var(--line)",
+          "--error-bg": "var(--surface)",
+          "--error-text": "var(--text)",
+          "--error-border": "var(--line)",
+          "--border-radius": "var(--radius-group)",
         } as React.CSSProperties
       }
       toastOptions={{
         classNames: {
-          toast: "cn-toast",
+          toast: "cn-toast !border !border-line !bg-surface !text-text !shadow-none",
+          description: "!text-muted",
+          actionButton: "!rounded-full !bg-lime !text-on-lime !font-bold",
+          cancelButton: "!rounded-full !bg-surface-2 !text-text",
         },
       }}
       {...props}

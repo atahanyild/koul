@@ -91,7 +91,7 @@ export function WithdrawBank({ method, onMethod }: { method: Method; onMethod: (
           autoFocus
           trailing={<>
             <Label tone={tooMuch ? "danger" : "muted"}>{available === null ? "Available —" : `Available ${fmtUsdc(available)}`}</Label>
-            <button type="button" className="label min-h-11 rounded-full px-2 text-lime hover:brightness-110 focus-visible:outline-2 focus-visible:outline-lime" onClick={() => available !== null && setAmount(String(Math.floor(available * 100) / 100))} disabled={available === null || available <= 0}>Max</button>
+            <button type="button" className="label min-h-11 rounded-full px-2 text-accent-text hover:brightness-110 focus-visible:outline-2 focus-visible:outline-accent-text" onClick={() => available !== null && setAmount(String(Math.floor(available * 100) / 100))} disabled={available === null || available <= 0}>Max</button>
           </>}
         />
         <div>
@@ -104,14 +104,14 @@ export function WithdrawBank({ method, onMethod }: { method: Method; onMethod: (
             autoComplete="off"
             spellCheck={false}
             aria-invalid={iban.length > 0 && !ibanOk}
-            className="mono mt-3 h-14 w-full rounded-full border border-line bg-transparent px-5 text-[15px] text-text outline-none placeholder:text-dim focus-visible:border-lime"
+            className="mono mt-3 h-14 w-full rounded-full border border-line bg-transparent px-5 text-[15px] text-text outline-none placeholder:text-muted focus-visible:border-accent-text"
           />
           {iban.length > 0 && !ibanOk && <Label tone="danger" className="mt-2 block">A Turkish IBAN: TR and 24 digits</Label>}
         </div>
         <div className="divide-y divide-line">
           <KeyValue label="You get" value={lira === null ? (usdc ? <Sk className="h-4 w-24" /> : "—") : `≈ ${fmtLira(lira)}`} />
           <KeyValue label="Rate" value={rate === null ? <Sk className="h-4 w-16" /> : fmtFx(rate)} />
-          <KeyValue label="Anchor fee" value="—" tone="dim" />
+          <KeyValue label="Anchor fee" value="—" tone="muted" />
         </div>
         {t?.status === "failed" && <Label tone="danger">{t.steps.find((s) => s.state === "failed")?.detail ?? "The transfer stopped"}</Label>}
         <Label className="text-center">One passkey confirmation</Label>

@@ -21,7 +21,7 @@ export function CopyAction({ value, label = "Copy", className }: { value: string
       onClick={copy}
       aria-label={`${label}: ${value}`}
       aria-live="polite"
-      className={cn("label -mr-2 inline-flex min-h-11 shrink-0 items-center rounded-full px-2 text-lime hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime", className)}
+      className={cn("label -mr-2 inline-flex min-h-11 shrink-0 items-center rounded-full px-2 text-accent-text transition-[filter,background-color] hover:bg-surface-2 hover:brightness-110 active:brightness-125 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text", className)}
     >
       {copied ? "COPIED" : "COPY"}
     </button>
@@ -31,7 +31,7 @@ export function CopyAction({ value, label = "Copy", className }: { value: string
 /** A key, a mono value and COPY, in a bordered group row. The deposit details use three of these. */
 export function CopyRow({ label, value, display, className }: { label: string; value: string; display?: React.ReactNode; className?: string }) {
   return (
-    <div className={cn("flex min-h-14 items-center gap-4 px-4 py-3", className)}>
+    <div className={cn("flex min-h-14 min-w-0 items-center gap-4 px-4 py-3", className)}>
       <span className="label w-24 shrink-0 text-muted">{label}</span>
       <span className="mono num min-w-0 flex-1 truncate">{display ?? value}</span>
       <CopyAction value={value} label={`Copy ${label.toLowerCase()}`} />

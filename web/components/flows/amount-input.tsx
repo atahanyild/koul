@@ -22,7 +22,7 @@ export function AmountInput({ value, onChange, unit, label = "You send", placeho
   return (
     <div className={className}>
       <label htmlFor={id} className="t-tile-label text-muted">{label}</label>
-      <div className="mt-3 flex items-end gap-4 border-b-2 border-lime pb-3">
+      <div className="mt-3 flex items-end gap-4 border-b-2 border-accent-text pb-3">
         <input
           id={id}
           value={value}
@@ -32,7 +32,7 @@ export function AmountInput({ value, onChange, unit, label = "You send", placeho
           autoFocus={autoFocus}
           placeholder={placeholder}
           size={1}
-          className={cn("t-hero num w-0 min-w-0 flex-1 bg-transparent text-text outline-none placeholder:text-dim", value.length > 9 && "text-[40px] md:text-[64px]")}
+          className={cn("t-hero num w-0 min-w-0 flex-1 bg-transparent text-text outline-none placeholder:text-muted", value.length > 9 ? "text-[32px] md:text-[48px]" : value.length > 6 && "text-[40px] md:text-[64px]")}
         />
         <span className="pb-2 text-[24px] font-extrabold text-dim md:text-[28px]">{unit}</span>
       </div>

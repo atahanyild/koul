@@ -49,7 +49,7 @@ export function Welcome() {
       <div className="grid gap-4 md:gap-5">
         {STEPS.map((s) => (
           <Tile key={s.n} className="flex min-h-[120px] items-center gap-6 md:min-h-0 md:flex-1">
-            <span className="label shrink-0 text-lime">{s.n}</span>
+            <span className="label shrink-0 text-accent-text">{s.n}</span>
             <div>
               <div className="text-[24px] font-bold leading-tight md:text-[28px]">{s.title}</div>
               <div className="mt-1 text-[15px] text-muted">{s.line}</div>

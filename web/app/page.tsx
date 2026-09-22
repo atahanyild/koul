@@ -1,6 +1,8 @@
 "use client";
 
 import * as React from "react";
+import { motion } from "motion/react";
+import { staggerChild, staggerParent } from "@/lib/motion";
 import { usePortfolio } from "@/hooks/use-portfolio";
 import { bestPool, useFx, usePools } from "@/hooks/use-market";
 import { useAutopilotLive } from "@/hooks/use-autopilot-live";
@@ -40,24 +42,26 @@ export default function HomePage() {
   const target = bestPool(pools.pools);
   const idle = loaded ? pf.positions.idleUsdc : null;
 
+  // The tiles arrive one after another, 40 ms apart, each fading in with a 12 px rise.
+  const tile = { variants: staggerChild, className: "min-w-0" };
   return (
-    <div className="grid gap-4 md:gap-5">
+    <motion.div variants={staggerParent} initial="hidden" animate="show" className="grid gap-4 md:gap-5">
       <div className="grid gap-4 md:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] md:gap-5">
-        <BalanceTile balance={balance} lira={lira} loading={!loaded} />
+        <motion.div {...tile}><BalanceTile balance={balance} lira={lira} loading={!loaded} /></motion.div>
         <div className="grid gap-4 md:gap-5">
           <div className="grid grid-cols-2 gap-4 md:gap-5">
-            <PnlTile balance={balance} loading={!loaded} />
-            <IdleTile idle={idle} loading={!loaded} target={target ? `Hub ${target.hub}` : null} onPutToWork={() => setPutOpen(true)} busy={false} />
+            <motion.div {...tile}><PnlTile balance={balance} loading={!loaded} /></motion.div>
+            <motion.div {...tile}><IdleTile idle={idle} loading={!loaded} target={target ? `Hub ${target.hub}` : null} onPutToWork={() => setPutOpen(true)} busy={false} /></motion.div>
           </div>
-          <ChartTile balance={balance} loading={!loaded} className="flex-1" />
+          <motion.div {...tile} className="flex min-w-0 flex-1"><ChartTile balance={balance} loading={!loaded} className="flex-1" /></motion.div>
         </div>
       </div>
-      <AutopilotTile ap={ap} now={now} />
+      <motion.div {...tile}><AutopilotTile ap={ap} now={now} /></motion.div>
       <div className="grid gap-4 md:grid-cols-2 md:gap-5">
-        <PositionsTile positions={pf.positions} pools={pools.pools} loading={!loaded} empty={loaded && supplied === 0 && debt === 0 && pf.positions.idleUsdc === 0} />
-        <ActivityTile rows={activity.rows} loading={activity.loading} now={now} />
+        <motion.div {...tile}><PositionsTile positions={pf.positions} pools={pools.pools} loading={!loaded} empty={loaded && supplied === 0 && debt === 0 && pf.positions.idleUsdc === 0} className="h-full" /></motion.div>
+        <motion.div {...tile}><ActivityTile rows={activity.rows} loading={activity.loading} now={now} /></motion.div>
       </div>
       <PutToWorkDialog open={putOpen} onOpenChange={setPutOpen} idle={idle ?? 0} pool={target} />
-    </div>
+    </motion.div>
   );
 }

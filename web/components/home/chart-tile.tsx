@@ -1,7 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { Label, Sk, TextSegmented, Tile, TileLabel } from "@/components/signal";
+import { motion } from "motion/react";
+import { Label, Loadable, Sk, TextSegmented, Tile, TileLabel } from "@/components/signal";
 import { MOCK_HISTORY, mockedHistory, type HistoryPoint } from "@/lib/mock";
 
 type Range = "7D" | "30D" | "ALL";
@@ -16,7 +17,8 @@ function Line({ points }: { points: HistoryPoint[] }) {
   const d = points.map((p, i) => `${(i / (points.length - 1)) * w},${h - ((p.v - min) / span) * (h - 6) - 3}`).join(" ");
   return (
     <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="h-24 w-full" role="img" aria-label="Balance over time">
-      <polyline points={d} fill="none" stroke="var(--lime)" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+      {/* The line draws itself from left to right in 700 ms when the series lands. */}
+      <motion.polyline points={d} fill="none" stroke="var(--accent-text)" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.7, ease: "easeOut" }} />
     </svg>
   );
 }
@@ -33,14 +35,14 @@ export function ChartTile({ balance, loading, className }: { balance: number | n
         <TileLabel>Balance</TileLabel>
         <TextSegmented label="Range" value={range} onChange={setRange} options={[{ value: "7D", label: "7D" }, { value: "30D", label: "30D" }, { value: "ALL", label: "ALL" }]} />
       </div>
-      <div className="mt-4 flex h-24 items-center justify-center">
-        {loading ? <Sk className="h-24 w-full rounded-xl" /> : mocked ? <Line points={mocked.series} /> : (
+      <Loadable loading={loading} skeleton={<Sk className="h-24 w-full rounded-xl" />} className="mt-4 flex h-24 items-center justify-center">
+        {mocked ? <Line points={mocked.series} /> : (
           <div className="flex w-full flex-col items-center gap-3">
             <Label>{empty ? "Deposit to start the chart" : "No chart yet"}</Label>
             <span aria-hidden className="w-full border-t border-dashed border-line" />
           </div>
         )}
-      </div>
+      </Loadable>
     </Tile>
   );
 }

@@ -1,6 +1,8 @@
 "use client";
 
 import { ThemeProvider } from "next-themes";
+import { MotionConfig } from "motion/react";
+import { tween } from "@/lib/motion";
 import { PasskeyWalletProvider, SEMBOL_TESTNET_ARTIFACTS, type SembolConfig } from "@sembol/passkey-react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
@@ -14,13 +16,16 @@ const config: SembolConfig = {
 /** Dark is the default; the light theme is a class on <html>, toggled on the Account page. */
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
-    <ThemeProvider attribute="class" defaultTheme="dark" themes={["dark", "light"]} enableSystem={false} disableTransitionOnChange>
-      <PasskeyWalletProvider config={config}>
-        <TooltipProvider delay={200}>
-          {children}
-          <Toaster position="top-center" closeButton />
-        </TooltipProvider>
-      </PasskeyWalletProvider>
+    <ThemeProvider attribute="class" defaultTheme="dark" themes={["dark", "light"]} enableSystem={false}>
+      {/* reducedMotion="user": with the system preference on, transforms stop and only opacity moves. */}
+      <MotionConfig reducedMotion="user" transition={tween()}>
+        <PasskeyWalletProvider config={config}>
+          <TooltipProvider delay={200}>
+            {children}
+            <Toaster position="top-center" closeButton />
+          </TooltipProvider>
+        </PasskeyWalletProvider>
+      </MotionConfig>
     </ThemeProvider>
   );
 }

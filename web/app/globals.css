@@ -28,7 +28,12 @@
   --color-dim: var(--dim);
   --color-lime: var(--lime);
   --color-on-lime: var(--on-lime);
+  /* The accent as text, an icon, a thin border, a small dot or a chart line: lime in the dark, a deep green in the light. */
+  --color-accent-text: var(--accent-text);
   --color-danger: var(--danger);
+  /* Always black on white, whatever the theme: the QR code. */
+  --color-paper: var(--paper);
+  --color-ink: var(--ink);
 
   /* shadcn names, mapped onto the same tokens so its components fit */
   --color-card: var(--surface);
@@ -45,7 +50,7 @@
   --color-destructive: var(--danger);
   --color-border: var(--line);
   --color-input: var(--surface-2);
-  --color-ring: var(--lime);
+  --color-ring: var(--accent-text);
   --color-sidebar: var(--surface);
   --color-sidebar-foreground: var(--text);
   --color-sidebar-primary: var(--lime);
@@ -54,7 +59,7 @@
   --color-sidebar-accent-foreground: var(--text);
   --color-sidebar-border: var(--line);
   --color-sidebar-ring: var(--lime);
-  --color-chart-1: var(--lime);
+  --color-chart-1: var(--accent-text);
   --color-chart-2: var(--muted);
   --color-chart-3: var(--dim);
   --color-chart-4: var(--text);
@@ -74,6 +79,9 @@
   --animate-blink: blink 1.6s ease-in-out infinite;
   --animate-rise: rise 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
   --animate-shimmer: shimmer 1.4s linear infinite;
+  --animate-fade-in: fade-in 0.2s ease-out both;
+  --animate-pulse-slow: pulse-slow 2.4s ease-in-out infinite;
+  --animate-flash: flash 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 :root,
@@ -87,23 +95,30 @@
   --dim: #707070;
   --lime: #c8f23a;
   --on-lime: #0a0f00;
+  --accent-text: #c8f23a;
   --danger: #ff7a70;
+  --paper: #ffffff;
+  --ink: #000000;
   --radius: 16px;
   color-scheme: dark;
 }
 
 .light {
-  /* Near-white ground, white tiles, the lime darkened until text on it and it on white both pass 4.5:1. */
-  --background: #f4f4f0;
+  /* Near-white ground, white tiles. Lime stays lime wherever dark text sits on it; as text it becomes a deep
+     green that passes 4.5:1 on white and on the ground. */
+  --background: #f2f2ed;
   --surface: #ffffff;
-  --surface-2: #ebebe6;
-  --line: #cfcfc8;
-  --text: #111111;
-  --muted: #5c5c5c;
-  --dim: #6b6b6b;
-  --lime: #4d6a00;
-  --on-lime: #ffffff;
+  --surface-2: #e9e9e3;
+  --line: #c4c4bc;
+  --text: #0a0a0a;
+  --muted: #5c5c57;
+  --dim: #8c8c86;
+  --lime: #c8f23a;
+  --on-lime: #0a0f00;
+  --accent-text: #3d6b00;
   --danger: #b42318;
+  --paper: #ffffff;
+  --ink: #000000;
   color-scheme: light;
 }
 
@@ -119,10 +134,22 @@
   from { background-position: -200% 0; }
   to { background-position: 200% 0; }
 }
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes flash {
+  from { opacity: 0.15; }
+  to { opacity: 1; }
+}
+@keyframes pulse-slow {
+  0%, 100% { opacity: 0.22; }
+  50% { opacity: 0.34; }
+}
 
 @layer base {
   * {
-    @apply border-line outline-lime/60;
+    @apply border-line outline-accent-text/60;
   }
   html {
     @apply font-sans;
@@ -140,8 +167,13 @@
   }
   h1, h2, h3 { text-wrap: balance; }
   ::selection { background: var(--lime); color: var(--on-lime); }
-  :focus-visible { outline: 2px solid var(--lime); outline-offset: 2px; }
+  :focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; }
   input, textarea, select, button { font: inherit; }
+  /* Everything that answers a click shows a hand; what cannot be used says so; handles say they can be held. */
+  button, a[href], [role="button"], [role="tab"], [role="switch"], [role="radio"], [role="combobox"], [role="option"], [role="menuitem"], label[for], select, summary, input[type="checkbox"], input[type="radio"] { cursor: pointer; }
+  button:disabled, a[aria-disabled="true"], [role="button"][aria-disabled="true"], [aria-disabled="true"][role="switch"], [data-disabled], input:disabled { cursor: not-allowed; }
+  [data-drag-handle] { cursor: grab; touch-action: none; }
+  [data-drag-handle]:active, [data-dragging="true"] [data-drag-handle] { cursor: grabbing; }
   input[type="number"]::-webkit-outer-spin-button,
   input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
   input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
@@ -150,7 +182,8 @@
 @layer utilities {
   /* Type scale from the design: tabs 32/800, tile values 48/700, hero balance 96/800 (56 on phones). */
   .t-tab { font-size: 32px; font-weight: 800; letter-spacing: -0.02em; line-height: 1; }
-  .t-value { font-size: 48px; font-weight: 700; letter-spacing: -0.03em; line-height: 1; font-variant-numeric: tabular-nums; }
+  .t-value { font-size: 36px; font-weight: 700; letter-spacing: -0.03em; line-height: 1; font-variant-numeric: tabular-nums; }
+  @media (min-width: 768px) { .t-value { font-size: 48px; } }
   .t-hero { font-size: 56px; font-weight: 800; letter-spacing: -0.04em; line-height: 0.95; font-variant-numeric: tabular-nums; }
   @media (min-width: 768px) { .t-hero { font-size: 96px; } }
   .t-title { font-size: 40px; font-weight: 800; letter-spacing: -0.03em; line-height: 1; }
@@ -173,6 +206,11 @@
   }
   .no-scrollbar::-webkit-scrollbar { display: none; }
   .no-scrollbar { scrollbar-width: none; }
+}
+
+/* While the theme flips, every colour eases over 240 ms; the class is on <html> only for that moment. */
+html.theme-fade, html.theme-fade *, html.theme-fade *::before, html.theme-fade *::after {
+  transition: background-color 240ms cubic-bezier(0.22, 1, 0.36, 1), color 240ms cubic-bezier(0.22, 1, 0.36, 1), border-color 240ms cubic-bezier(0.22, 1, 0.36, 1), fill 240ms, stroke 240ms !important;
 }
 
 @media (prefers-reduced-motion: reduce) {

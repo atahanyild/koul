@@ -34,7 +34,7 @@ export function RulesList({ rules, now, onEdit }: { rules: LiveRule[]; now: numb
               ranAgo={r.current && r.lastRunAt ? agoShort(r.lastRunAt, now) : null}
               now={observedLabel(r.rule.conditions[0]!.kind, r.observed)}
               dimmed={!r.rule.enabled}
-              trailing={<span className={cn(r.rule.enabled ? "text-lime" : "text-dim")}>{r.rule.enabled ? "ON" : "OFF"}</span>}
+              trailing={<span className={cn(r.rule.enabled ? "text-accent-text" : "text-muted")}>{r.rule.enabled ? "ON" : "OFF"}</span>}
             />
           ))}
         </div>

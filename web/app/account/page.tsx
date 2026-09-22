@@ -7,11 +7,13 @@
 import * as React from "react";
 import { useTheme } from "next-themes";
 import { toast } from "sonner";
+import { toastTx } from "@/hooks/use-passkey-action";
 import { Switch } from "@/components/ui/switch";
-import { CopyAction, KeyValue, Label, PillButton, Row, RowList, Sk, SkRows, Tile, TileLabel } from "@/components/signal";
+import { CopyAction, KeyValue, Label, Loadable, PillButton, Row, RowList, Sk, SkRows, Tile, TileLabel } from "@/components/signal";
 import { useWallet } from "@/hooks/use-wallet";
 import { usePortfolio } from "@/hooks/use-portfolio";
 import { fmtUsdc } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 export default function AccountPage() {
   const w = useWallet();
@@ -22,14 +24,24 @@ export default function AccountPage() {
   const shortAddress = address ? `${address.slice(0, 8)}…${address.slice(-8)}` : "";
   const supplied = pf.positions.supplied.A + pf.positions.supplied.B;
   const debt = pf.positions.borrowed.A + pf.positions.borrowed.B;
-  // `resolvedTheme` is undefined until next-themes has read the stored choice, on the server and on first paint alike.
-  const light = resolvedTheme === "light";
+  // `resolvedTheme` is undefined until next-themes has read the stored choice, on the server and on first paint
+  // alike; until the page is mounted the switch stays still instead of sliding into place.
+  const mounted = React.useSyncExternalStore(() => () => {}, () => true, () => false);
+  const light = mounted && resolvedTheme === "light";
+  /** The colours cross-fade: the transition class stays on <html> just long enough for the change. */
+  const switchTheme = (next: "light" | "dark") => {
+    const root = document.documentElement;
+    root.classList.add("theme-fade");
+    setTheme(next);
+    window.setTimeout(() => root.classList.remove("theme-fade"), 300);
+  };
 
   const fund = async () => {
     setFunding(true);
     try {
       const r = await w.fund();
-      if (r.success) toast.success("Test XLM added", { description: "Friendbot topped up this wallet." });
+      if (r.success && r.hash) toastTx("Test XLM added", r.hash, "Friendbot topped up this wallet.");
+      else if (r.success) toast("Friendbot answered", { description: "No transaction hash came back; check the XLM row." });
       else toast.error("Friendbot declined", { description: "This wallet may already be funded." });
     } catch (e) {
       toast.error("Could not add test XLM", { description: e instanceof Error ? e.message : String(e) });
@@ -57,16 +69,14 @@ export default function AccountPage() {
         </Tile>
         <Tile>
           <TileLabel>Assets</TileLabel>
-          <div className="mt-2">
-            {!pf.loaded ? <SkRows rows={3} /> : (
-              <RowList>
-                <Row title="USDC" sub="In XOXNO · earning" value={fmtUsdc(supplied)} />
-                {debt > 0 && <Row title="USDC" sub="In XOXNO · debt" value={`−${fmtUsdc(debt)}`} />}
-                <Row title="USDC" sub="In wallet · idle" value={fmtUsdc(pf.positions.idleUsdc)} />
-                <Row title="XLM" sub="In wallet · testnet" value={fmtUsdc(w.xlm ?? pf.positions.idleXlm)} />
-              </RowList>
-            )}
-          </div>
+          <Loadable loading={!pf.loaded} skeleton={<SkRows rows={3} />} className="mt-2">
+            <RowList>
+              <Row title="USDC" sub="In XOXNO · earning" value={fmtUsdc(supplied)} />
+              {debt > 0 && <Row title="USDC" sub="In XOXNO · debt" value={`−${fmtUsdc(debt)}`} />}
+              <Row title="USDC" sub="In wallet · idle" value={fmtUsdc(pf.positions.idleUsdc)} />
+              <Row title="XLM" sub="In wallet · testnet" value={fmtUsdc(w.xlm ?? pf.positions.idleXlm)} />
+            </RowList>
+          </Loadable>
         </Tile>
       </div>
       <Tile className="flex flex-col gap-2 md:self-start">
@@ -74,9 +84,9 @@ export default function AccountPage() {
         <div className="mt-2 divide-y divide-line">
           <KeyValue label="Method" value="PASSKEY" />
           <KeyValue label="Network" value="TESTNET" />
-          <label className="flex min-h-12 items-center justify-between gap-4 py-2">
+          <label className="flex min-h-12 cursor-pointer items-center justify-between gap-4 py-2">
             <Label>Light theme</Label>
-            <Switch checked={light} onCheckedChange={(v) => setTheme(v ? "light" : "dark")} aria-label="Light theme" className="data-[size=default]:h-7 data-[size=default]:w-12 [&>span]:size-6" />
+            <Switch checked={light} onCheckedChange={(v) => switchTheme(v ? "light" : "dark")} aria-label="Light theme" disabled={!mounted} className={cn(!mounted && "[&_*]:!transition-none")} />
           </label>
         </div>
         <div className="mt-4 grid gap-3">

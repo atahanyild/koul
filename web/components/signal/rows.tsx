@@ -1,5 +1,6 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
+import { Rolling } from "./rolling";
 
 /** A list inside a tile: rows separated by a hairline, no borders around. */
 export function RowList({ className, children, ...rest }: React.HTMLAttributes<HTMLDivElement>) {
@@ -21,7 +22,7 @@ export function Row({ title, sub, value, trailing, className, ...rest }: React.H
         <div className="truncate text-[16px] font-bold">{title}</div>
         {sub && <div className="label mt-1 text-muted">{sub}</div>}
       </div>
-      {value !== undefined && <div className="mono num shrink-0 text-right text-[15px]">{value}</div>}
+      {value !== undefined && <div className="mono num shrink-0 text-right text-[15px]">{typeof value === "string" ? <Rolling text={value} /> : value}</div>}
       {trailing}
     </div>
   );
@@ -29,11 +30,11 @@ export function Row({ title, sub, value, trailing, className, ...rest }: React.H
 
 /** A mono key and a mono value on one line, for quotes and details: YOU GET · ≈ 102.40 USDC. */
 export function KeyValue({ label, value, tone = "text", className }: { label: React.ReactNode; value: React.ReactNode; tone?: "text" | "lime" | "muted" | "dim"; className?: string }) {
-  const t = { text: "text-text", lime: "text-lime", muted: "text-muted", dim: "text-dim" }[tone];
+  const t = { text: "text-text", lime: "text-accent-text", muted: "text-muted", dim: "text-dim" }[tone];
   return (
     <div className={cn("flex min-h-11 items-center justify-between gap-4 py-2", className)}>
-      <span className="label text-muted">{label}</span>
-      <span className={cn("mono num text-right", t)}>{value}</span>
+      <span className="label shrink-0 text-muted">{label}</span>
+      <span className={cn("mono num min-w-0 break-words text-right", t)}>{typeof value === "string" ? <Rolling text={value} /> : value}</span>
     </div>
   );
 }

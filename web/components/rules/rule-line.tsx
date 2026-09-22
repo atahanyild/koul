@@ -6,6 +6,9 @@
  */
 import * as React from "react";
 import { ArrowRight } from "lucide-react";
+import { motion } from "motion/react";
+import { SPRING_SOFT } from "@/lib/motion";
+import { Rolling } from "@/components/signal/rolling";
 import { cn } from "@/lib/utils";
 import { actionShort, conditionsCompact } from "@/lib/model/labels";
 import type { Rule } from "@/lib/model/autopilot";
@@ -21,36 +24,49 @@ export interface RuleLineProps {
   current?: boolean;
   /** Overrides the right column entirely (the ON / OFF word on the Autopilot page). */
   trailing?: React.ReactNode;
-  /** Overrides the NOW column text, e.g. "IN BEST HUB". */
-  nowOverride?: string | null;
+  /** Overrides the NOW column, e.g. "IN BEST HUB" or the CHANGED · UNDO mark. */
+  nowOverride?: React.ReactNode;
+  /** A level a chat edit changed: the old one struck through beside the new one. */
+  strike?: { from: string; to: string } | null;
   dimmed?: boolean;
+  /** The draft row in the chat has no place yet, so no number. */
+  hideNumber?: boolean;
   className?: string;
 }
 
-export function RuleNumber({ index, current, className }: { index: number; current?: boolean; className?: string }) {
+/**
+ * The number, and on the rule a tick would run now a filled lime disc behind it. The disc is one shared layout
+ * element (`layoutId`), so when the current rule changes it slides from the old row to the new one.
+ */
+export function RuleNumber({ index, current, className, markerId = "current-rule" }: { index: number; current?: boolean; className?: string; markerId?: string }) {
   return (
-    <span className={cn("mono inline-flex size-6 shrink-0 items-center justify-center rounded-full font-medium", current ? "bg-lime text-on-lime" : "text-lime", className)} aria-label={current ? `Rule ${index}, running now` : `Rule ${index}`}>
-      {index}
+    <span className={cn("mono relative inline-flex size-6 shrink-0 items-center justify-center rounded-full font-medium", current ? "text-on-lime" : "text-accent-text", className)} aria-label={current ? `Rule ${index}, running now` : `Rule ${index}`}>
+      {current && <motion.span layoutId={markerId} className="absolute inset-0 rounded-full bg-lime" transition={SPRING_SOFT} aria-hidden />}
+      <span className="relative">{index}</span>
     </span>
   );
 }
 
-export function RuleLine({ index, rule, now, ranAgo, current, trailing, nowOverride, dimmed, className }: RuleLineProps) {
+export function RuleLine({ index, rule, now, ranAgo, current, trailing, nowOverride, strike, dimmed, hideNumber, className }: RuleLineProps) {
   const status = nowOverride ?? (ranAgo ? `RAN ${ranAgo} AGO` : now ? `NOW ${now}` : null);
-  const statusTone = ranAgo && !nowOverride ? "text-lime" : "text-muted";
+  const statusTone = ranAgo && !nowOverride ? "text-accent-text" : "text-muted";
+  const compact = conditionsCompact(rule);
+  // "USD/TRY > 50.00" with 50.00 changed to 51.00 reads "USD/TRY > ~~50.00~~ 51.00".
+  const at = strike ? compact.lastIndexOf(strike.to) : -1;
+  const condition = strike && at >= 0 ? <>{compact.slice(0, at)}<s className="text-muted">{strike.from}</s> <span className="animate-flash text-accent-text">{strike.to}</span>{compact.slice(at + strike.to.length)}</> : compact;
   return (
     <div className={cn("grid gap-x-4 gap-y-1 py-4 md:grid-cols-[auto_auto_minmax(0,1fr)_auto_minmax(0,1.2fr)_auto_auto] md:items-center", dimmed && "opacity-50", className)}>
       {/* Phone row 1: number, IF condition, status. Desktop: the same items flow into the grid columns. */}
       <div className="flex items-center gap-3 md:contents">
-        <RuleNumber index={index} current={current} />
-        <span className="mono text-dim">IF</span>
-        <span className="mono min-w-0 flex-1 truncate">{conditionsCompact(rule)}</span>
-        <span className={cn("mono ml-auto shrink-0 md:hidden", statusTone)}>{trailing ?? status}</span>
+        {hideNumber ? <span className="hidden md:inline" aria-hidden /> : <RuleNumber index={index} current={current} />}
+        <span className="mono text-muted">IF</span>
+        <span className="mono min-w-0 flex-1 truncate">{condition}</span>
+        <span className={cn("mono ml-auto shrink-0 md:hidden", statusTone)}>{trailing ?? (typeof status === "string" ? <Rolling text={status} /> : status)}</span>
       </div>
       <div className="flex items-center gap-2 pl-9 md:contents md:pl-0">
-        <ArrowRight className="size-4 shrink-0 text-lime" aria-hidden />
+        <ArrowRight className="size-4 shrink-0 text-accent-text" aria-hidden />
         <span className="min-w-0 truncate text-[16px] font-bold">{actionShort(rule.action)}</span>
-        <span className={cn("mono hidden shrink-0 text-right md:inline", statusTone)}>{status}</span>
+        <span className={cn("mono hidden shrink-0 text-right md:inline", statusTone)}>{typeof status === "string" ? <Rolling text={status} /> : status}</span>
         <span className="mono hidden shrink-0 md:inline">{trailing}</span>
       </div>
     </div>

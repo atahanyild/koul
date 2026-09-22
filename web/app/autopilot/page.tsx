@@ -6,21 +6,25 @@
  * key) is granted with the first save and shown in the chip at the top.
  */
 import * as React from "react";
+import { AnimatePresence } from "motion/react";
+import { toast } from "sonner";
 import { usePortfolio } from "@/hooks/use-portfolio";
 import { useAutopilotLive } from "@/hooks/use-autopilot-live";
 import { useLiveValues } from "@/hooks/use-live-values";
-import { bestPool, useFx, usePools } from "@/hooks/use-market";
+import { bestPool, usePools } from "@/hooks/use-market";
 import { useWallet } from "@/hooks/use-wallet";
 import { chainUiId, useArmAutopilot } from "@/hooks/use-autopilots";
 import { invalidate } from "@/lib/data/store";
 import { newId, toCoreAutopilot, type Autopilot } from "@/lib/model/autopilot";
-import { buildParseContext, parseWithKoul } from "@/lib/parse";
-import { Label, Sk, StatusPill, type StatusKind } from "@/components/signal";
+import { Label, PillButton, Sk, StatusPill, type StatusKind } from "@/components/signal";
 import { AccessChip } from "@/components/autopilot-page/access";
-import { Composer } from "@/components/autopilot-page/composer";
+import { Chat } from "@/components/autopilot-page/chat";
+import type { ChatDraft } from "@/lib/chat/reducer";
+import { describeChanges, diffRules, type RuleChange } from "@/lib/chat/diff";
+import type { LiveContext } from "@/lib/chat/schema";
 import { RulesHeader, RulesList } from "@/components/autopilot-page/rules-list";
 import { RuleEditor, pairingProblem, ruleTemplate } from "@/components/autopilot-page/rule-editor";
-import { SaveBar } from "@/components/autopilot-page/save-bar";
+import { SaveBar, type AccessAsk } from "@/components/autopilot-page/save-bar";
 import { Templates } from "@/components/autopilot-page/templates";
 import { useEditor } from "@/components/autopilot-page/use-editor";
 
@@ -42,34 +46,31 @@ export default function AutopilotPage() {
   const live = useAutopilotLive();
   const pf = usePortfolio();
   const pools = usePools();
-  const fx = useFx();
   const values = useLiveValues();
   const armer = useArmAutopilot();
   const now = useMinute();
   const saved = React.useMemo(() => live.rules.map((r) => r.rule), [live.rules]);
   const editor = useEditor(w.address, saved);
 
-  // Sentence to rules
-  const [parsing, setParsing] = React.useState(false);
-  const [parseError, setParseError] = React.useState<string | null>(null);
-  const [notes, setNotes] = React.useState<string[]>([]);
-  const onSentence = React.useCallback(async (text: string) => {
-    setParsing(true); setParseError(null); setNotes([]);
-    try {
-      const context = buildParseContext(values.live, pf.accountId?.toString() ?? "0", fx.fx.timestamp ? fx.fx.ageSec : null);
-      const result = await parseWithKoul(text, context);
-      if (result.rules.length === 0) {
-        setParseError(result.unplaced[0] ? `Koul cannot do that: ${result.unplaced[0]}` : "Koul could not turn that into a rule. Try one of the suggestions.");
-      } else {
-        editor.append(result.rules);
-        setNotes(result.unplaced);
-      }
-    } catch (err) {
-      setParseError(err instanceof Error ? err.message : "Koul could not read that");
-    } finally {
-      setParsing(false);
-    }
-  }, [values.live, pf.accountId, fx.fx.timestamp, fx.fx.ageSec, editor]);
+  // The chat: what Koul may quote, and what happens when a draft is accepted.
+  const chatLive = React.useMemo<LiveContext>(() => ({ fx: values.live.fx, healthFactor: values.live.healthFactor, hasLoan: values.live.hasLoan, rateA: values.live.rateA, rateB: values.live.rateB, idleUsdc: values.live.idleUsdc }), [values.live]);
+  const [highlight, setHighlight] = React.useState<string | null>(null);
+  // What the chat changed while editing: the rows get CHANGED · UNDO until the change is undone or saved.
+  const [chatChanges, setChatChanges] = React.useState<RuleChange[]>([]);
+  const onEdit = React.useCallback((draft: ChatDraft): string | null => {
+    const changes = diffRules(editor.rules, draft.rules);
+    const rule = draft.rules[draft.position - 1];
+    editor.replace(draft.rules, editor.open && draft.rules.some((r) => r.id === editor.open) ? editor.open : null);
+    setChatChanges(changes);
+    setHighlight(changes.some((c) => c.kind === "added") ? rule?.id ?? null : null);
+    return describeChanges(changes);
+  }, [editor]);
+  const undoChat = React.useCallback(() => { editor.undo(); setChatChanges([]); }, [editor]);
+  const onAccept = React.useCallback((draft: ChatDraft, how: "add" | "adjust") => {
+    const rule = draft.rules[draft.position - 1];
+    editor.replace(draft.rules, how === "adjust" && rule ? rule.id : null);
+    setHighlight(rule?.id ?? null);
+  }, [editor]);
 
   // Saving
   const rules = editor.rules;
@@ -84,21 +85,59 @@ export default function AutopilotPage() {
     ?? (rules.length > 0 && needsPosition && idle < 1 ? "Deposit at least 1 USDC first: the first save opens your XOXNO position" : null)
     ?? (rules.length > 0 && toCoreAutopilot({ rules }, 0n).unsupported.length ? "One rule is not something the router can run" : null);
   const confirmations = rules.length === 0 ? 1 : 1 + (live.access.active ? 0 : 1) + (needsPosition ? 1 : 0);
-  const busy = armer.openAction.busy || armer.grantAction.busy || armer.rulesAction.busy;
-  const busyLabel = armer.openAction.busy ? "Opening your position" : armer.grantAction.busy ? "Giving access" : armer.rulesAction.busy ? "Saving rules" : null;
+  const [waitingForId, setWaitingForId] = React.useState(false);
+  const busy = armer.openAction.busy || armer.grantAction.busy || armer.rulesAction.busy || waitingForId;
+  const busyLabel = armer.openAction.busy ? "Opening your position" : waitingForId ? "Reading your position" : armer.grantAction.busy ? "Giving access" : armer.rulesAction.busy ? "Saving rules" : null;
+  const [saveError, setSaveError] = React.useState<string | null>(null);
+  const [asking, setAsking] = React.useState(false);
+
+  const [justSaved, setJustSaved] = React.useState(false);
+  /** The chain does the work; the page only leaves editing once the chain read shows the saved rules. */
+  const settle = React.useCallback(async () => {
+    invalidate("check:"); invalidate("tick:"); invalidate("events:");
+    await live.refresh();
+    // The bar turns accent with a check for a moment, then the page leaves editing and the bar slides away.
+    setJustSaved(true);
+    await new Promise((r) => setTimeout(r, 1200));
+    setJustSaved(false);
+    editor.discard();
+    setHighlight(null);
+    setChatChanges([]);
+  }, [live, editor]);
+
+  const submit = React.useCallback(async () => {
+    setAsking(false);
+    setSaveError(null);
+    const ap: Autopilot = { id: live.chainId !== null ? chainUiId(live.chainId) : newId("ap"), name: "Autopilot", description: "", rules, status: "draft", createdAt: Date.now(), armedUntil: null, agentRuleId: null, runs: 0, lastRunAt: null };
+    setWaitingForId(needsPosition);
+    let res: Awaited<ReturnType<typeof armer.arm>>;
+    try {
+      res = await armer.arm(ap, { days: ACCESS_DAYS, accountId: pf.accountId, openWith: needsPosition ? { hub: openHub, units: OPEN_WITH_USDC } : undefined });
+    } finally {
+      setWaitingForId(false);
+    }
+    if (res.ok) { await settle(); return; }
+    // Stay in editing, and say why in the bar; a transaction that failed already said so in a toast.
+    setSaveError(res.reason);
+    if (!res.toasted) toast.error("Rules not saved", { description: res.reason });
+  }, [live.chainId, rules, armer, pf.accountId, needsPosition, openHub, settle]);
 
   const onSave = React.useCallback(async () => {
     if (blocker) return;
+    setSaveError(null);
     if (rules.length === 0) {
       if (live.chainId === null) return;
       const res = await armer.clear(chainUiId(live.chainId));
-      if (res) { editor.discard(); invalidate("check:"); invalidate("tick:"); invalidate("events:"); await live.refresh(); }
+      if (res) await settle();
+      else setSaveError("The rules were not cleared");
       return;
     }
-    const ap: Autopilot = { id: live.chainId !== null ? chainUiId(live.chainId) : newId("ap"), name: "Autopilot", description: "", rules, status: "draft", createdAt: Date.now(), armedUntil: null, agentRuleId: null, runs: 0, lastRunAt: null };
-    const res = await armer.arm(ap, { days: ACCESS_DAYS, accountId: pf.accountId, openWith: needsPosition ? { hub: openHub, units: OPEN_WITH_USDC } : undefined });
-    if (res.ok) { editor.discard(); invalidate("check:"); invalidate("tick:"); invalidate("events:"); await live.refresh(); }
-  }, [blocker, rules, live, armer, editor, pf.accountId, needsPosition, openHub]);
+    // No key yet: one sentence about what Koul gets, then the passkeys.
+    if (!live.access.active || needsPosition) { setAsking(true); return; }
+    await submit();
+  }, [blocker, rules, live.chainId, live.access.active, armer, needsPosition, settle, submit]);
+
+  const ask: AccessAsk | null = asking ? { needsPosition, days: ACCESS_DAYS, onConfirm: () => void submit(), onCancel: () => setAsking(false) } : null;
 
   if (live.loading && live.status === "off" && !editor.editing) {
     return (
@@ -129,14 +168,15 @@ export default function AutopilotPage() {
       </div>
       <Label className="sm:hidden">{summary}</Label>
 
-      <Composer variant={editor.editing ? "slim" : "large"} busy={parsing} error={parseError} onSubmit={(t) => void onSentence(t)} chips={4} />
-      {notes.length > 0 && <Label className="px-2">Koul could not place: {notes.join(" · ")}</Label>}
+      <Chat mode={editor.editing ? "editing" : "live"} rules={rules} live={chatLive} onAccept={onAccept} onEdit={onEdit} chips={4} />
 
       {editor.editing ? (
         <>
-          <RulesHeader hint="Top to bottom · first match runs" />
-          <RuleEditor editor={editor} liveRules={live.rules} live={values.live} now={now} onAdd={() => editor.add(ruleTemplate())} />
-          <SaveBar changes={editor.changes} confirmations={confirmations} blocker={editor.changes === 0 ? null : blocker} busy={busy} busyLabel={busyLabel} onDiscard={() => { editor.discard(); setNotes([]); }} onSave={() => void onSave()} />
+          <RulesHeader hint="Top to bottom · first match runs" action={editor.canUndo ? <PillButton variant="ghost" size="sm" onClick={undoChat}>Undo</PillButton> : undefined} />
+          <RuleEditor editor={editor} liveRules={live.rules} live={values.live} now={now} highlight={highlight} changes={chatChanges} onUndo={undoChat} onAdd={() => editor.add(ruleTemplate())} />
+          <AnimatePresence>
+          <SaveBar key="save-bar" changes={editor.changes} confirmations={confirmations} blocker={editor.changes === 0 ? null : blocker} error={saveError} ask={ask} saved={justSaved} busy={busy} busyLabel={busyLabel} onDiscard={() => { editor.discard(); setHighlight(null); setChatChanges([]); setSaveError(null); setAsking(false); }} onSave={() => void onSave()} />
+          </AnimatePresence>
         </>
       ) : live.status === "off" ? (
         <Templates onAdd={(rule) => editor.add(rule)} />

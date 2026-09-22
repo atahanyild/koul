@@ -33,11 +33,22 @@ export interface AgentGrant {
   restricted: boolean;
 }
 
+/**
+ * The rules as the wallet contract holds them right now: `get_context_rules_count` is a counter that only grows, so
+ * every id below it is read with `get_context_rule` and the removed ones (which throw) are skipped. The kit's own
+ * `rules.list()` asks Sembol's indexer first, which lags a grant or a revoke by a while; the chip must not.
+ */
+export async function readRulesOnChain(kit: NonNullable<ReturnType<typeof usePasskeyWallet>["kit"]>): Promise<ContextRule[]> {
+  const count = Number(await kit.rules.count());
+  const reads = await Promise.all(Array.from({ length: count }, (_, id) => kit.rules.get(id).then((r) => r.result as ContextRule).catch(() => null)));
+  return reads.filter((r): r is ContextRule => r !== null);
+}
+
 export function useAgentAccess() {
   const { kit, isConnected, address, txEpoch, config } = usePasskeyWallet();
   const p = usePoll<{ rules: ContextRule[]; ledger: number }>(
     isConnected && address && kit ? `agent:${address}` : null,
-    async () => { const [rules, latest] = await Promise.all([kit!.rules.list(), kit!.rpc.getLatestLedger()]); return { rules, ledger: latest.sequence }; },
+    async () => { const [rules, latest] = await Promise.all([readRulesOnChain(kit!), kit!.rpc.getLatestLedger()]); return { rules, ledger: latest.sequence }; },
     { intervalMs: 60_000, enabled: isConnected && !!kit, deps: [txEpoch] },
   );
   const grants = useMemo<AgentGrant[]>(() => {
@@ -58,12 +69,12 @@ export function useAgentAccess() {
   const grant = useCallback(async (days: number, autopilot: CoreAutopilot) => {
     if (!kit) return null;
     const pub = Keypair.fromPublicKey(KOUL.agentPublicKey).rawPublicKey();
-    return action.run(() => writer.buildGrantAgent(kit, autopilot, pub, days, AGENT_RULE_NAME, RATE_LIMIT.calls, RATE_LIMIT.windowLedgers), { title: "Access given", description: `Koul's key works for ${days} day${days === 1 ? "" : "s"}.`, invalidatePrefixes: ["agent:", "params:"] });
+    return action.run(() => writer.buildGrantAgent(kit, autopilot, pub, days, AGENT_RULE_NAME, RATE_LIMIT.calls, RATE_LIMIT.windowLedgers), { title: "Access given", doing: "Giving Koul access", description: `Koul's key works for ${days} day${days === 1 ? "" : "s"}.`, invalidatePrefixes: ["agent:", "params:"] });
   }, [kit, action]);
 
   const revoke = useCallback(async (ruleId: number) => {
     if (!kit) return null;
-    return action.run(() => writer.buildRevokeAgent(kit, ruleId), { title: "Access revoked", description: "Koul's key stopped working immediately.", invalidatePrefixes: ["agent:", "params:"] });
+    return action.run(() => writer.buildRevokeAgent(kit, ruleId), { title: "Access revoked", doing: "Revoking Koul's access", description: "Koul's key stopped working immediately.", invalidatePrefixes: ["agent:", "params:"] });
   }, [kit, action]);
 
   /** One passkey: push the key's expiry `days` from now. */
@@ -72,7 +83,7 @@ export function useAgentAccess() {
     return action.run(async () => {
       const latest = (await kit.rpc.getLatestLedger()).sequence;
       return kit.rules.updateExpiration(ruleId, latest + days * LEDGERS_PER_DAY);
-    }, { title: "Access extended", description: `Koul's key now works for ${days} day${days === 1 ? "" : "s"}.`, invalidatePrefixes: ["agent:"] });
+    }, { title: "Access extended", doing: "Extending Koul's access", description: `Koul's key now works for ${days} day${days === 1 ? "" : "s"}.`, invalidatePrefixes: ["agent:"] });
   }, [kit, action]);
 
   return { grants, active, daysLeft, loaded, loading: isConnected && p.loading, error: p.error, refresh: p.refresh, grant, revoke, extend, action };

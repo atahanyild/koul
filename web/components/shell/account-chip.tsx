@@ -14,7 +14,7 @@ export function AccountChip({ className }: { className?: string }) {
     <Link
       href="/account"
       aria-label={`Account ${w.address}`}
-      className={cn("mono inline-flex h-11 items-center rounded-full bg-surface px-5 text-text transition-colors hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime", className)}
+      className={cn("mono inline-flex h-11 items-center rounded-full bg-surface px-5 text-text transition-colors hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text", className)}
     >
       {short}
     </Link>

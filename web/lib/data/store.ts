@@ -22,10 +22,12 @@ interface Entry<T> {
 const entries = new Map<string, Entry<unknown>>();
 const EMPTY: Snapshot<never> = { data: undefined, error: null, updatedAt: 0, loading: false };
 
-function entry<T>(key: string): Entry<T> {
+function entry<T>(key: string, initial?: () => T | undefined): Entry<T> {
   let e = entries.get(key) as Entry<T> | undefined;
   if (!e) {
-    e = { snap: EMPTY as Snapshot<T>, inflight: null, listeners: new Set() };
+    // A persisted value shows at once and counts as stale (updatedAt 0), so the first subscriber refreshes it.
+    const data = initial?.();
+    e = { snap: data === undefined ? (EMPTY as Snapshot<T>) : { data, error: null, updatedAt: 0, loading: false }, inflight: null, listeners: new Set() };
     entries.set(key, e as Entry<unknown>);
   }
   return e;
@@ -72,13 +74,14 @@ export interface PollState<T> {
  * Subscribe to a polled read. A null key or `enabled=false` never fetches. `deps` re-fetch when they change
  * (a tx epoch, an address).
  */
-export function usePoll<T>(key: string | null, fetcher: () => Promise<T>, opts: { intervalMs?: number; enabled?: boolean; deps?: unknown[] } = {}): PollState<T> {
+export function usePoll<T>(key: string | null, fetcher: () => Promise<T>, opts: { intervalMs?: number; enabled?: boolean; deps?: unknown[]; /** Stale-while-revalidate: a persisted value to show until the first read lands. */ initial?: () => T | undefined } = {}): PollState<T> {
   const { intervalMs = 0, enabled = true } = opts;
   const fetcherRef = useRef(fetcher);
-  useEffect(() => { fetcherRef.current = fetcher; }, [fetcher]);
+  const initialRef = useRef(opts.initial);
+  useEffect(() => { fetcherRef.current = fetcher; initialRef.current = opts.initial; }, [fetcher, opts.initial]);
   const k = key ?? "__disabled__";
-  const subscribe = useCallback((cb: () => void) => { const e = entry<T>(k); e.listeners.add(cb); return () => { e.listeners.delete(cb); }; }, [k]);
-  const getSnap = useCallback(() => entry<T>(k).snap, [k]);
+  const subscribe = useCallback((cb: () => void) => { const e = entry<T>(k, key ? initialRef.current : undefined); e.listeners.add(cb); return () => { e.listeners.delete(cb); }; }, [k, key]);
+  const getSnap = useCallback(() => entry<T>(k, key ? initialRef.current : undefined).snap, [k, key]);
   const snap = useSyncExternalStore(subscribe, getSnap, getSnap);
   const depsKey = JSON.stringify(opts.deps ?? [], (_, v) => (typeof v === "bigint" ? v.toString() : v));
 
