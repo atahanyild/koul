@@ -240,7 +240,7 @@ export default function AutopilotPage() {
 
   const ask: AccessAsk | null = asking ? { needsPosition, days: ACCESS_DAYS, steps: saveSteps({ plan: nextPlan, done: {}, active: null, failed: null }), onConfirm: () => void submit(), onCancel: () => setAsking(false) } : null;
   const onDiscard = () => { editor.discard(); setHighlight(null); setChatChanges([]); setSaveError(null); setAsking(false); clearProgress(); };
-  const bar = <SaveBar key="save-bar" changes={editor.changes} confirmations={confirmations} blocker={editor.changes === 0 ? null : blocker} error={saveError} ask={ask} saved={justSaved} savedLabel={flow.current === "delete" ? "Autopilot removed" : "Rules saved"} busy={busy} busyLabel={busyLabel} progress={progress} onDiscard={onDiscard} onSave={() => void onSave()} />;
+  const bar = <SaveBar key="save-bar" changes={editor.changes} confirmations={confirmations} blocker={editor.changes === 0 ? null : blocker} error={saveError} ask={ask} saved={justSaved} savedLabel={plan?.includes("clear") ? "Autopilot removed" : "Rules saved"} busy={busy} busyLabel={busyLabel} progress={progress} onDiscard={onDiscard} onSave={() => void onSave()} />;
 
   if (live.loading && live.status === "off" && !editor.editing) {
     return (
