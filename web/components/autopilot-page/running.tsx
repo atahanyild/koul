@@ -5,6 +5,7 @@
  * with each of its conditions against the value the router just read, what it does and how long it waits, the
  * last run, and when the keeper checks again. No composer here: the rules are changed from the list below.
  */
+import * as React from "react";
 import { ArrowRight } from "lucide-react";
 import { KeyValue, Label, StatusDot, Tile, TileLabel } from "@/components/signal";
 import { RuleNumber } from "@/components/rules/rule-line";
@@ -34,7 +35,7 @@ function Conditions({ r }: { r: LiveRule }) {
   );
 }
 
-export function Running({ ap, now }: { ap: AutopilotLiveState; now: number }) {
+export function Running({ ap, now, actions }: { ap: AutopilotLiveState; now: number; /** Pause, Give access, Save to library, Delete. */ actions?: React.ReactNode }) {
   const paused = ap.status === "paused";
   const current = ap.rules.find((r) => r.current) ?? null;
   const on = ap.rules.filter((r) => r.rule.enabled).length;
@@ -49,6 +50,7 @@ export function Running({ ap, now }: { ap: AutopilotLiveState; now: number }) {
           <Label>{paused ? "Nothing runs until access is given" : `Checked every ${CHECK_EVERY}`}</Label>
           {ap.access.active && ap.access.daysLeft !== null && <Label>Access {ap.access.daysLeft}D left</Label>}
         </div>
+        {actions && <div className="mt-5 flex flex-wrap gap-2">{actions}</div>}
       </div>
       <div className="grid gap-4">
         {current ? (

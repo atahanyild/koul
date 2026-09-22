@@ -5,7 +5,7 @@
  */
 import type { ActionPhase } from "@/hooks/use-passkey-action";
 
-export type SaveStepKey = "open" | "grant" | "rules";
+export type SaveStepKey = "open" | "grant" | "rules" | "clear" | "revoke";
 export type SaveStepState = "done" | "active" | "pending" | "failed";
 
 export interface SaveStep {
@@ -16,7 +16,12 @@ export interface SaveStep {
   detail: string | null;
 }
 
-export const STEP_LABELS: Record<SaveStepKey, string> = { open: "Open position", grant: "Give access", rules: "Save rules" };
+export const STEP_LABELS: Record<SaveStepKey, string> = { open: "Open position", grant: "Give access", rules: "Save rules", clear: "Remove rules", revoke: "Revoke access" };
+
+/** The steps a delete needs: the rules go, then the key when there is one. */
+export function planDelete(input: { hasAccess: boolean }): SaveStepKey[] {
+  return input.hasAccess ? ["clear", "revoke"] : ["clear"];
+}
 
 /** The steps a save needs from where the wallet stands now. Saving rules is always the last one. */
 export function planSteps(input: { needsPosition: boolean; hasAccess: boolean }): SaveStepKey[] {
