@@ -22,7 +22,8 @@ import { ACTION_CHOICES, CONDITION_SUBJECTS, agoShort, cooldownShort, liveLabel,
 import type { LiveRule } from "@/hooks/use-autopilot-live";
 import type { Editor } from "./use-editor";
 import { MIN_AMOUNT_USDC, pairingProblem } from "@/lib/model/pairing";
-import { isFixed, isPercent } from "@/lib/model/capital";
+import { capitalOf, isFixed, isPercent, shareOf } from "@/lib/model/capital";
+import { describeAmount } from "@/lib/rules/describe";
 import { parseAmount, sanitizeAmount } from "@/components/flows/amount-input";
 import type { RuleChange } from "@/lib/chat/diff";
 import { cn } from "@/lib/utils";
@@ -135,6 +136,12 @@ function ActionPickers({ action, live, onChange }: { action: Action; live: LiveV
           <SelectContent className={popup}>{(SHARES.some((s) => s.value === String(share)) ? SHARES : [{ value: String(share), label: `${share}%` }, ...SHARES]).map((s) => <SelectItem key={s.value} value={s.value} className={item}>{s.label}</SelectItem>)}</SelectContent>
         </Select>
       )}
+      {fixed && ctx.have !== null && (
+        <div className="flex flex-wrap gap-1" role="group" aria-label="Presets">
+          {[25, 50, 100].map((p) => <button key={p} type="button" onClick={() => { setText(String(p)); onChange({ ...action, amount: p }); }} className="label min-h-9 rounded-full bg-surface-2 px-3 text-muted hover:text-text">{p}</button>)}
+          <button type="button" disabled={ctx.have < MIN_AMOUNT_USDC} onClick={() => { const n = Math.floor(ctx.have! * 100) / 100; setText(String(n)); onChange({ ...action, amount: n }); }} className="label min-h-9 rounded-full bg-surface-2 px-3 text-muted hover:text-text disabled:opacity-40">Max</button>
+        </div>
+      )}
       {fixed && (
         <label className="mono flex h-11 items-center gap-2 rounded-full bg-surface-2 px-4 text-text focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-accent-text">
           <input
@@ -151,10 +158,11 @@ function ActionPickers({ action, live, onChange }: { action: Action; live: LiveV
           <span className="text-muted">USDC</span>
         </label>
       )}
-      {have !== null && (
-        <button type="button" onClick={() => { if (ctx.have !== null && ctx.have >= MIN_AMOUNT_USDC) { const n = Math.floor(ctx.have * 100) / 100; setText(String(n)); onChange({ ...action, amount: n }); } }} className="label min-h-11 rounded-full px-3 text-muted hover:text-text" disabled={ctx.have === null || ctx.have < MIN_AMOUNT_USDC}>
-          {fixed ? `You have ${have} USDC` : share !== null ? `${share}% of ${ctx.all} · ${have} USDC now` : `Everything = ${ctx.all} · ${have} USDC now`}
-        </button>
+      {have !== null && !fixed && (
+        <span className="label min-h-11 inline-flex items-center px-3 text-muted">{share !== null ? `${share}% of ${ctx.all} · ${have} USDC now` : `Everything = ${ctx.all} · ${have} USDC now`}</span>
+      )}
+      {typeof action.amount === "number" && ctx.have !== null && action.amount > ctx.have && (
+        <Label tone="lime" className="basis-full normal-case">More than you hold now ({have}). The rule runs when you have it.</Label>
       )}
     </div>
     </div>
@@ -191,6 +199,9 @@ function SortableRule({ rule, i, shownIndex, editor, lr, live, now, dragging, hi
   // A rule copied from the chain keeps its live reading; a new or changed one reads the app's live values.
   const nowText = lr && lr.observed !== null ? observedLabel(first.kind, lr.observed) : liveLabel(first, live);
   const count = editor.rules.length;
+  // When the per-move pill reads Mixed, every row says its own share so the odd one out is visible.
+  const mixed = capitalOf(editor.rules) === "mixed";
+  const ownShare = mixed ? (shareOf(rule.action.amount) === 100 ? "ALL" : describeAmount(rule.action.amount)?.toUpperCase() ?? null) : null;
   return (
     <motion.div layout={!dragging} layoutId={`rule-${rule.id}`} transition={SPRING_SOFT} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.98 }} className="min-w-0">
     <Tile
@@ -215,7 +226,7 @@ function SortableRule({ rule, i, shownIndex, editor, lr, live, now, dragging, hi
             nowOverride={change ? <span className="text-accent-text">CHANGED · <span role="button" tabIndex={0} onClick={(e) => { e.stopPropagation(); onUndo?.(); }} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); onUndo?.(); } }} className="cursor-pointer underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-accent-text rounded">UNDO</span></span> : undefined}
             strike={change?.fromValue && change.toValue ? { from: change.fromValue, to: change.toValue } : null}
             dimmed={!rule.enabled}
-            trailing={<span className={cn(rule.enabled ? "text-accent-text" : "text-muted")}>{rule.enabled ? "ON" : "OFF"}</span>}
+            trailing={<span className="inline-flex items-center gap-3">{ownShare && <span className="text-muted">{ownShare}</span>}<span className={cn(rule.enabled ? "text-accent-text" : "text-muted")}>{rule.enabled ? "ON" : "OFF"}</span></span>}
             className="py-4 md:py-5"
           />
         </button>
