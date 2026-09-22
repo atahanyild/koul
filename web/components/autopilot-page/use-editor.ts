@@ -22,6 +22,8 @@ export interface Editor {
   open: string | null;
   changes: number;
   begin: () => void;
+  /** Enter editing with one rule's row open (a tap on a rule of the live page). */
+  beginAt: (id: string) => void;
   discard: () => void;
   setOpen: (id: string | null) => void;
   add: (rule: Rule) => void;
@@ -58,6 +60,7 @@ export function useEditor(address: string | null, saved: Rule[]): Editor {
     open: draft?.open ?? null,
     changes: draft ? countChanges(saved, draft.rules) : 0,
     begin: () => set((d) => d),
+    beginAt: (id) => set((d) => ({ ...d, open: id })),
     discard: clearDraft,
     setOpen: (id) => set((d) => ({ ...d, open: id })),
     add: (rule) => set((d) => ({ rules: [...d.rules, rule], open: rule.id })),

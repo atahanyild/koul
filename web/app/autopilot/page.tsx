@@ -1,9 +1,10 @@
 "use client";
 
 /**
- * The Autopilot page: the rules are the page. LIVE shows them read-only with live values; EDITING keeps a draft
- * until one passkey saves it on the router; OFF offers the composer and three templates. Access (Koul's limited
- * key) is granted with the first save and shown in the chip at the top.
+ * The Autopilot page: the rules are the page. One autopilot per wallet, as many rules as the router holds. LIVE
+ * shows what is running now and the rules with live values, a tap on a rule opens it in the editor; EDITING keeps
+ * a draft and the composer until one passkey saves it on the router; OFF offers the composer and three templates.
+ * Access (Koul's limited key) is granted with the first save and shown in the chip at the top.
  */
 import * as React from "react";
 import { AnimatePresence } from "motion/react";
@@ -24,6 +25,7 @@ import type { ChatDraft } from "@/lib/chat/reducer";
 import { describeChanges, diffRules, type RuleChange } from "@/lib/chat/diff";
 import type { LiveContext } from "@/lib/chat/schema";
 import { RulesHeader, RulesList } from "@/components/autopilot-page/rules-list";
+import { Running } from "@/components/autopilot-page/running";
 import { RuleEditor, pairingProblem, ruleTemplate } from "@/components/autopilot-page/rule-editor";
 import { SaveBar, type AccessAsk } from "@/components/autopilot-page/save-bar";
 import { Templates } from "@/components/autopilot-page/templates";
@@ -206,7 +208,8 @@ export default function AutopilotPage() {
       </div>
       <Label className="sm:hidden">{summary}</Label>
 
-      <Chat mode={editor.editing ? "editing" : "live"} rules={rules} live={chatLive} onAccept={onAccept} onEdit={onEdit} chips={4} />
+      {/* The composer: the way in before the first rule, and a helper while editing. A running autopilot shows itself instead. */}
+      {(editor.editing || live.status === "off") && <Chat mode={editor.editing ? "editing" : "live"} rules={rules} live={chatLive} onAccept={onAccept} onEdit={onEdit} chips={4} />}
 
       {editor.editing ? (
         <>
@@ -218,7 +221,8 @@ export default function AutopilotPage() {
         <Templates onAdd={(rule) => editor.add(rule)} />
       ) : (
         <>
-          <RulesList rules={live.rules} now={now} onEdit={editor.begin} />
+          <Running ap={live} now={now} />
+          <RulesList rules={live.rules} now={now} onEdit={editor.begin} onOpen={editor.beginAt} />
           {live.status === "paused" && live.access.loaded && (
             <Tile className="flex flex-col gap-4 p-5 md:flex-row md:items-center md:justify-between">
               <p className="text-[15px] text-text md:max-w-[640px]">These rules are saved, but Koul has no key for this wallet, so nothing runs. Give access and they start on the next check.</p>

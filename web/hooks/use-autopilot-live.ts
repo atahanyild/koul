@@ -14,7 +14,7 @@ import { readCheck, type ChainAutopilot } from "@/lib/data/live";
 import { foldCoreRules, type Rule } from "@/lib/model/autopilot";
 import { useChainAutopilots } from "./use-portfolio";
 import { useAgentAccess } from "./use-agent-access";
-import { useActivity } from "./use-activity";
+import { useActivity, type ActivityRow } from "./use-activity";
 
 const reader = new KoulReader(READ_CONFIG);
 
@@ -31,7 +31,11 @@ export interface LiveRule {
   holds: boolean;
   /** The first condition's observed value from `check`, in contract units. */
   observed: bigint | null;
+  /** Every condition of the rule with what `check` saw for it, in the rule's own order. */
+  conditions: { holds: boolean; observed: bigint | null }[];
   lastRunAt: number | null;
+  /** The Activity row of the last run: what moved and how much. */
+  lastRun: ActivityRow | null;
   /** This is the rule a tick would run now. */
   current: boolean;
 }
@@ -70,12 +74,13 @@ export function useAutopilotLive(): AutopilotLiveState {
     }
     const { rules, contractToUi } = foldCoreRules(primary.autopilot);
     const states = check.data ?? null;
-    const lastRun = new Map<number, number>();
+    const lastRun = new Map<number, ActivityRow>();
     for (const row of activity.rows) {
       if (row.kind !== "run" || row.autopilotId !== primary.id || row.ruleIndex === undefined) continue;
       const ui = contractToUi[row.ruleIndex];
       if (ui === undefined) continue;
-      lastRun.set(ui, Math.max(lastRun.get(ui) ?? 0, row.at));
+      const seen = lastRun.get(ui);
+      if (!seen || row.at > seen.at) lastRun.set(ui, row);
     }
     let nowOnUi: number | null = null;
     if (tick.data) nowOnUi = contractToUi[tick.data.rule_index] ?? null;
@@ -86,14 +91,18 @@ export function useAutopilotLive(): AutopilotLiveState {
     const live: LiveRule[] = rules.map((rule, ui) => {
       const contractIndexes = contractToUi.map((u, ci) => (u === ui ? ci : -1)).filter((ci) => ci >= 0);
       const mine = states ? contractIndexes.map((ci) => states[ci]).filter((s): s is RuleState => !!s) : [];
+      // The contract rule that holds (or the first) speaks for the card: its conditions line up with the rule's own.
+      const voice = mine.length ? (mine.find((s) => s.holds) ?? mine[0]!) : null;
       return {
         index: ui + 1,
         rule,
         contractIndexes,
         ready: mine.some((s) => s.ready),
         holds: mine.some((s) => s.holds),
-        observed: mine.length ? (mine.find((s) => s.holds) ?? mine[0]!).conditions[0]?.observed ?? null : null,
-        lastRunAt: lastRun.get(ui) ?? null,
+        observed: voice?.conditions[0]?.observed ?? null,
+        conditions: rule.conditions.map((_, k) => ({ holds: voice?.conditions[k]?.holds ?? false, observed: voice?.conditions[k]?.observed ?? null })),
+        lastRunAt: lastRun.get(ui)?.at ?? null,
+        lastRun: lastRun.get(ui) ?? null,
         current: nowOnUi === ui,
       };
     });

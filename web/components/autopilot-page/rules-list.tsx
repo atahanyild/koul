@@ -1,6 +1,6 @@
 "use client";
 
-/** The compact read-only list on the live page: one tile, one line per rule, ON or OFF at the end. */
+/** The compact list on the live page: one tile, one line per rule, ON or OFF at the end. A tap on a rule opens it in the editor. */
 import { Label, PillButton, Tile } from "@/components/signal";
 import { RuleLine } from "@/components/rules/rule-line";
 import type { LiveRule } from "@/hooks/use-autopilot-live";
@@ -19,23 +19,30 @@ export function RulesHeader({ hint, action }: { hint: string; action?: React.Rea
   );
 }
 
-export function RulesList({ rules, now, onEdit }: { rules: LiveRule[]; now: number; onEdit: () => void }) {
+export function RulesList({ rules, now, onEdit, onOpen }: { rules: LiveRule[]; now: number; onEdit: () => void; /** A rule was tapped: open it in the editor. */ onOpen: (id: string) => void }) {
   return (
     <div className="grid gap-3">
-      <RulesHeader hint="Top to bottom · first match runs" action={<PillButton variant="ghost" onClick={onEdit}>Edit rules</PillButton>} />
+      <RulesHeader hint="Top to bottom · first match runs · tap a rule to change it" action={<PillButton variant="ghost" onClick={onEdit}>Edit rules</PillButton>} />
       <Tile padded={false} className="px-5 md:px-7">
         <div className="divide-y divide-line">
           {rules.map((r) => (
-            <RuleLine
+            <button
               key={r.rule.id}
-              index={r.index}
-              rule={r.rule}
-              current={r.current}
-              ranAgo={r.current && r.lastRunAt ? agoShort(r.lastRunAt, now) : null}
-              now={observedLabel(r.rule.conditions[0]!.kind, r.observed)}
-              dimmed={!r.rule.enabled}
-              trailing={<span className={cn(r.rule.enabled ? "text-accent-text" : "text-muted")}>{r.rule.enabled ? "ON" : "OFF"}</span>}
-            />
+              type="button"
+              onClick={() => onOpen(r.rule.id)}
+              aria-label={`Rule ${r.index}: change it`}
+              className="block w-full rounded-lg text-left transition-opacity hover:opacity-90 active:opacity-75 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent-text"
+            >
+              <RuleLine
+                index={r.index}
+                rule={r.rule}
+                current={r.current}
+                ranAgo={r.current && r.lastRunAt ? agoShort(r.lastRunAt, now) : null}
+                now={observedLabel(r.rule.conditions[0]!.kind, r.observed)}
+                dimmed={!r.rule.enabled}
+                trailing={<span className={cn(r.rule.enabled ? "text-accent-text" : "text-muted")}>{r.rule.enabled ? "ON" : "OFF"}</span>}
+              />
+            </button>
           ))}
         </div>
       </Tile>
