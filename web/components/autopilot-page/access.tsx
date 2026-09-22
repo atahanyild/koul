@@ -32,11 +32,12 @@ export function AccessChip({ className }: { className?: string }) {
   const agent = useAgentAccess();
   const params = useAgentParams(agent.active?.ruleId ?? null);
   const busy = agent.action.busy;
-  const label = !agent.loaded ? "ACCESS" : agent.active ? (agent.daysLeft === null ? "ACCESS" : `ACCESS ${agent.daysLeft}D`) : "NO ACCESS YET";
+  const renew = agent.active !== null && agent.daysLeft !== null && agent.daysLeft < 3;
+  const label = !agent.loaded ? "ACCESS" : agent.active ? (agent.daysLeft === null ? "ACCESS" : `ACCESS ${agent.daysLeft}D${renew ? " · RENEW" : ""}`) : "NO ACCESS YET";
   return (
     <PopoverPrimitive.Root>
       <div className={cn("inline-flex h-11 items-center rounded-full bg-surface pl-4 pr-1", className)}>
-        <span className="label mr-2 text-text">{label}</span>
+        <span className={cn("label mr-2", renew ? "text-accent-text" : "text-text")}>{label}</span>
         <PopoverPrimitive.Trigger
           aria-label="What Koul's access allows"
           className="mono inline-flex size-9 items-center justify-center rounded-full bg-surface-2 text-text transition-[filter] hover:brightness-110 active:brightness-125 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text"
