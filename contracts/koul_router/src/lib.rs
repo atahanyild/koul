@@ -263,7 +263,7 @@ const BPS_RAY: i128 = RAY / 10_000;
 /// every ledger. Every amount is therefore snapped to 0.01 USDC, and moves below 1 USDC are ignored.
 pub const GRAIN: i128 = 100_000;
 pub const MIN_MOVE: i128 = 10_000_000;
-pub const MAX_RULES: u32 = 8;
+pub const MAX_RULES: u32 = 32;
 pub const MAX_CONDITIONS: u32 = 3;
 const TTL_THRESHOLD: u32 = 17280 * 7;
 const TTL_EXTEND: u32 = 17280 * 30;
@@ -342,7 +342,7 @@ fn action_ok(a: &Action) -> bool {
     }
 }
 
-/// The limits the SDK mirrors: 1..=8 rules, 1..=3 conditions each, cooldown > 0, hubs differ for moves and rate gaps,
+/// The limits the SDK mirrors: 1..=32 rules, 1..=3 conditions each, cooldown > 0, hubs differ for moves and rate gaps,
 /// percentages in 1..=10000 bps, fixed amounts at least 1 USDC, positive levels.
 pub fn autopilot_ok(ap: &Autopilot) -> bool {
     if ap.rules.is_empty() || ap.rules.len() > MAX_RULES {
@@ -788,11 +788,13 @@ mod test {
         let four = vec![&e, Condition::IdleBalance(Cmp::AtOrAbove, 1), Condition::IdleBalance(Cmp::AtOrAbove, 2), Condition::IdleBalance(Cmp::AtOrAbove, 3), Condition::IdleBalance(Cmp::AtOrAbove, 4)];
         assert!(bad(vec![&e, rule(&e, four, Action::WithdrawToWallet(1, Amount::All))]));
         let one = rule(&e, vec![&e, Condition::IdleBalance(Cmp::AtOrAbove, 1)], Action::WithdrawToWallet(1, Amount::All));
-        let mut nine = Vec::new(&e);
-        for _ in 0..9 {
-            nine.push_back(one.clone());
+        let mut full = Vec::new(&e);
+        for _ in 0..MAX_RULES {
+            full.push_back(one.clone());
         }
-        assert!(bad(nine));
+        assert!(!bad(full.clone()));
+        full.push_back(one.clone());
+        assert!(bad(full));
     }
 
     #[test]

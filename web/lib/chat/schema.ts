@@ -32,8 +32,8 @@ export const ruleSchema = z.object({
 export const chatReplySchema = z.object({
   kind: z.enum(["draft", "clarify", "unsupported"]),
   message: z.string().min(1).max(300),
-  rules: z.array(ruleSchema).max(8).optional(),
-  position: z.number().int().min(1).max(8).optional(),
+  rules: z.array(ruleSchema).max(32).optional(),
+  position: z.number().int().min(1).max(32).optional(),
   choices: z.array(z.string().min(1).max(40)).max(4).optional(),
   pending: ruleSchema.optional(),
 }).strict().superRefine((r, ctx) => {
@@ -60,14 +60,14 @@ export type LiveContext = z.infer<typeof liveContextSchema>;
 export const chatMessageSchema = z.object({
   role: z.enum(["user", "koul"]),
   text: z.string().max(2000),
-  rules: z.array(ruleSchema).max(8).optional(),
+  rules: z.array(ruleSchema).max(32).optional(),
   position: z.number().int().min(1).optional(),
   pending: ruleSchema.optional(),
 });
 
 export const chatRequestSchema = z.object({
   messages: z.array(chatMessageSchema).min(1).max(24),
-  rules: z.array(ruleSchema).max(8),
+  rules: z.array(ruleSchema).max(32),
   mode: z.enum(["live", "editing"]),
   live: liveContextSchema,
 });
