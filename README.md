@@ -1,6 +1,10 @@
+> [!IMPORTANT]
+> **Koul has moved to [github.com/koul-me/koul](https://github.com/koul-me/koul).** This repository is no longer
+> updated. The live app is at [koul.me](https://koul.me).
+
 # Koul
 
-## ▶ Try it live: https://koul-stellar.vercel.app
+## ▶ Try it live: https://koul.me
 
 **Say what should happen to your money and when. Koul turns it into rules that live on Stellar and execute
 themselves.** Stellar **testnet**, no login, no seed phrase.
