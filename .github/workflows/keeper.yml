@@ -5,8 +5,11 @@ name: keeper
 
 on:
   schedule:
-    # Every five minutes, the shortest GitHub allows. Nothing breaks at a longer gap; rules simply fire later.
-    - cron: "*/5 * * * *"
+    # Hourly. A run ticks every 15 seconds for 5h40m, so a scheduled run that fires meanwhile waits in the concurrency
+    # queue and takes over as the current one ends. GitHub starts schedules late and drops some (five-minute runs came
+    # hours apart on 2026-10-25); the long run absorbs that. A keeper code change applies from the next run: cancel
+    # the current one and dispatch to pick it up at once.
+    - cron: "17 * * * *"
   workflow_dispatch:
 
 concurrency:
@@ -16,7 +19,7 @@ concurrency:
 jobs:
   tick:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 350
     steps:
       # The code lives in koul-me/koul; this repo keeps the schedule and the secrets.
       - uses: actions/checkout@v4
@@ -30,7 +33,10 @@ jobs:
           node-version: 20
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - name: One pass over every user and autopilot
+      # Every 15 seconds, three ledgers: the router decides each tick on-chain and cooldowns live there, so a shorter
+      # interval only means rules fire sooner. What caps a wallet is the policy's rate limit (40 calls per 2000
+      # ledgers, a swap tick is 3 or 4), not this interval.
+      - name: Tick every 15 seconds for 5h40m
         working-directory: keeper
         env:
           KEEPER_SECRET: ${{ secrets.KEEPER_SECRET }}
@@ -38,4 +44,4 @@ jobs:
           ROUTER_V1: ${{ vars.ROUTER_V1 || 'CD5VSBUXQ4OQIVYI55CFF4C4YKSFQUY4OTFIOFJRNC6TUILMNN7MAO2D' }}
           KOUL_POLICY: ${{ vars.KOUL_POLICY || 'CAKEUMCIW4KBQZI5OJMFHFGM5VHDZHWIXAO7JOKTBRPR63IHIEP7KKNZ' }}
           MOCK_FX: ${{ vars.MOCK_FX || 'CB6VNXADXR3XHCS4EKV5ZR5UJUZYQ5BZTPRHCNQE3XMKQMB4LJG6MKW2' }}
-        run: pnpm keeper:once
+        run: timeout 340m pnpm keeper -- --interval 15 --quiet || [ $? -eq 124 ]
